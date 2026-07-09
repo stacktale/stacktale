@@ -22,10 +22,21 @@ final class ReportRenderer {
 
     private final DateTimeFormatter dateTime;
     private final DateTimeFormatter time;
+    private final Redactor redactor;
 
     ReportRenderer(ZoneId zone) {
+        this(zone, Redactor.withDefaults(List.of()));
+    }
+
+    ReportRenderer(ZoneId zone, Redactor redactor) {
         this.dateTime = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(zone);
         this.time = DateTimeFormatter.ofPattern("HH:mm:ss.SSS").withZone(zone);
+        this.redactor = redactor;
+    }
+
+    /** All user-controlled content goes through here: newline flattening + redaction. */
+    private String clean(String s) {
+        return redactor.redact(flat(s));
     }
 
     String render(Report r) {
@@ -38,35 +49,35 @@ final class ReportRenderer {
         if (stack != null) {
             sb.append(stack.rootType());
             if (stack.rootMessage() != null && !stack.rootMessage().isBlank()) {
-                sb.append(": ").append(flat(stack.rootMessage()));
+                sb.append(": ").append(clean(stack.rootMessage()));
             }
             sb.append('\n');
             if (stack.culpritLine() != null) {
                 sb.append("at ").append(stack.culpritLine()).append(" ← YOUR CODE\n");
             }
             for (String w : stack.wrappedBy()) {
-                sb.append("wrapped by: ").append(flat(w)).append('\n');
+                sb.append("wrapped by: ").append(clean(w)).append('\n');
             }
         } else {
             sb.append("ERROR (no exception): ")
-                    .append(flat(MessageFormatter.arrayFormat(r.messagePattern(), r.args()).getMessage()))
+                    .append(clean(MessageFormatter.arrayFormat(r.messagePattern(), r.args()).getMessage()))
                     .append('\n');
         }
 
-        sb.append("log: \"").append(flat(r.messagePattern())).append('"');
+        sb.append("log: \"").append(clean(r.messagePattern())).append('"');
         String args = renderArgs(r.args());
         if (!args.isEmpty()) sb.append(" args=[").append(args).append(']');
         sb.append(" logger=").append(abbreviate(r.loggerName())).append('\n');
 
         if (r.mdc() != null && !r.mdc().isEmpty()) {
             sb.append("mdc:");
-            new TreeMap<>(r.mdc()).forEach((k, v) -> sb.append(' ').append(flat(k)).append('=').append(flat(v)));
+            new TreeMap<>(r.mdc()).forEach((k, v) -> sb.append(' ').append(clean(k)).append('=').append(clean(v)));
             sb.append('\n');
         }
 
         if (r.fields() != null && !r.fields().isEmpty()) {
             sb.append("fields:");
-            new TreeMap<>(r.fields()).forEach((k, v) -> sb.append(' ').append(flat(k)).append('=').append(flat(v)));
+            new TreeMap<>(r.fields()).forEach((k, v) -> sb.append(' ').append(clean(k)).append('=').append(clean(v)));
             sb.append('\n');
         }
 
@@ -77,7 +88,7 @@ final class ReportRenderer {
             sb.append("stack (distilled, ").append(stack.shownFrames()).append(" of ")
                     .append(stack.totalFrames()).append(" frames):\n");
             for (String line : stack.frameLines()) sb.append("  ").append(line).append('\n');
-            for (String line : stack.suppressed()) sb.append("  ").append(flat(line)).append('\n');
+            for (String line : stack.suppressed()) sb.append("  ").append(clean(line)).append('\n');
         }
 
         sb.append('\n');
@@ -133,13 +144,13 @@ final class ReportRenderer {
             sb.append("  ").append(time.format(Instant.ofEpochMilli(e.epochMillis())))
                     .append(' ').append(pad(e.level(), 5))
                     .append(' ').append(pad(e.logger(), loggerPad))
-                    .append("  ").append(flat(e.message()));
+                    .append("  ").append(clean(e.message()));
             if (i == errorIdx) sb.append("   ← this error");
             sb.append('\n');
         }
     }
 
-    private static String renderArgs(Object[] args) {
+    private String renderArgs(Object[] args) {
         if (args == null || args.length == 0) return "";
         StringBuilder sb = new StringBuilder();
         int shown = Math.min(args.length, MAX_ARGS);
@@ -152,7 +163,7 @@ final class ReportRenderer {
                 // user objects may have poisonous toString(); the report must survive them
                 s = "<toString failed: " + t.getClass().getSimpleName() + ">";
             }
-            s = flat(s);
+            s = clean(s);
             sb.append(s.length() > MAX_ARG_LENGTH ? s.substring(0, MAX_ARG_LENGTH) + "…" : s);
         }
         if (args.length > MAX_ARGS) sb.append(", …+").append(args.length - MAX_ARGS);

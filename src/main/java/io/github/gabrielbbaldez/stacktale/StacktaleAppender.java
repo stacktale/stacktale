@@ -38,6 +38,8 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
     private boolean installUncaughtHandler = true;
     private boolean reportErrorsWithoutThrowable = true;
     private boolean captureExceptionFields = true;
+    private boolean redactionEnabled = true;
+    private final List<String> redactPatterns = new java.util.ArrayList<>();
     private String correlationMdcKeys = "traceId,correlationId,requestId";
     private String zone = "";
 
@@ -64,7 +66,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
         distiller = new StackDistiller(csv(appPackages));
         deduper = new Deduper(dedupWindowSeconds * 1000L, 60_000, System::currentTimeMillis);
         env = new EnvCollector(Thread.currentThread().getContextClassLoader());
-        renderer = new ReportRenderer(zoneId);
+        renderer = new ReportRenderer(zoneId, buildRedactor());
         try {
             String marker = renderer.sessionMarker(System.currentTimeMillis(), ProcessHandle.current().pid());
             writer = new ReportWriter(Path.of(file), maxFileSizeMb * 1024L * 1024L, renderer.fileHeader(),
@@ -135,6 +137,19 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
         }
     }
 
+    private Redactor buildRedactor() {
+        if (!redactionEnabled) return Redactor.disabled();
+        List<java.util.regex.Pattern> compiled = new java.util.ArrayList<>();
+        for (String p : redactPatterns) {
+            try {
+                compiled.add(java.util.regex.Pattern.compile(p));
+            } catch (RuntimeException e) {
+                addWarn("invalid redactPattern '" + p + "' ignored", e);
+            }
+        }
+        return Redactor.withDefaults(compiled);
+    }
+
     /** State off the root-cause exception's own getters/fields — see {@link FieldExtractor}. */
     private java.util.Map<String, String> exceptionFields(IThrowableProxy proxy) {
         if (!captureExceptionFields || !(proxy instanceof ch.qos.logback.classic.spi.ThrowableProxy tp)) {
@@ -176,6 +191,11 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
     public void setReportErrorsWithoutThrowable(boolean reportErrorsWithoutThrowable) { this.reportErrorsWithoutThrowable = reportErrorsWithoutThrowable; }
 
     public void setCaptureExceptionFields(boolean captureExceptionFields) { this.captureExceptionFields = captureExceptionFields; }
+
+    public void setRedactionEnabled(boolean redactionEnabled) { this.redactionEnabled = redactionEnabled; }
+
+    /** Joran calls this once per {@code <redactPattern>} element in logback.xml. */
+    public void addRedactPattern(String pattern) { this.redactPatterns.add(pattern); }
 
     public void setCorrelationMdcKeys(String correlationMdcKeys) { this.correlationMdcKeys = correlationMdcKeys; }
 

@@ -120,6 +120,27 @@ class StacktaleAppenderIntegrationTest {
     }
 
     @Test
+    void redactsSecretsInEveryReportSection(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("errors-ai.log");
+        startAppender(file, "");
+        MDC.put("session", "token=abc123xyz789secret");
+        try {
+            ctx.getLogger("com.acme.Auth").info("user gabriel@example.com logging in");
+            ctx.getLogger("com.acme.Auth").error("auth failed password=hunter2 for {}", "gabriel@example.com",
+                    new IllegalStateException("Bearer abcdef1234567890TOKENVALUE rejected"));
+        } finally {
+            MDC.clear();
+        }
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        assertThat(content)
+                .doesNotContain("hunter2")               // message pattern
+                .doesNotContain("gabriel@example.com")   // args + story
+                .doesNotContain("TOKENVALUE")            // exception message
+                .doesNotContain("abc123xyz789secret")    // mdc value
+                .contains("███");
+    }
+
+    @Test
     void invalidFilePathDegradesToNoOpInsteadOfBreakingStartup(@TempDir Path dir) {
         ctx = new LoggerContext();
         ctx.setMDCAdapter(MDC.getMDCAdapter());
