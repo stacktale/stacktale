@@ -113,6 +113,35 @@ class StacktaleAppenderIntegrationTest {
     }
 
     @Test
+    void announcesOnStartAndEmitsPointerLineOnReport(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("errors-ai.log");
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> console =
+                new ch.qos.logback.core.read.ListAppender<>();
+        console.start();
+
+        ctx = new LoggerContext();
+        ctx.setMDCAdapter(MDC.getMDCAdapter());
+        ctx.getLogger(Logger.ROOT_LOGGER_NAME).addAppender(console);
+        ctx.getLogger(Logger.ROOT_LOGGER_NAME).setLevel(Level.INFO);
+        StacktaleAppender appender = new StacktaleAppender();
+        appender.setContext(ctx);
+        appender.setFile(file.toString());
+        appender.setInstallUncaughtHandler(false);
+        appender.start();
+        ctx.getLogger(Logger.ROOT_LOGGER_NAME).addAppender(appender);
+
+        ctx.getLogger("com.acme.X").error("boom", new RuntimeException("x"));
+
+        assertThat(console.list)
+                .anySatisfy(e -> assertThat(e.getFormattedMessage()).contains("stacktale active"))
+                .anySatisfy(e -> assertThat(e.getFormattedMessage()).contains("AI error report #"));
+        assertThat(console.list)
+                .allSatisfy(e -> assertThat(e.getLoggerName()).satisfiesAnyOf(
+                        n -> assertThat(n).isEqualTo("stacktale"),
+                        n -> assertThat(n).isEqualTo("com.acme.X")));
+    }
+
+    @Test
     void uncaughtExceptionsFlowThroughPipeline(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("errors-ai.log");
         startAppender(file, "");

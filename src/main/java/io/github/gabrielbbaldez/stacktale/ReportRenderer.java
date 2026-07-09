@@ -38,29 +38,29 @@ final class ReportRenderer {
         if (stack != null) {
             sb.append(stack.rootType());
             if (stack.rootMessage() != null && !stack.rootMessage().isBlank()) {
-                sb.append(": ").append(stack.rootMessage());
+                sb.append(": ").append(flat(stack.rootMessage()));
             }
             sb.append('\n');
             if (stack.culpritLine() != null) {
                 sb.append("at ").append(stack.culpritLine()).append(" ← YOUR CODE\n");
             }
             for (String w : stack.wrappedBy()) {
-                sb.append("wrapped by: ").append(w).append('\n');
+                sb.append("wrapped by: ").append(flat(w)).append('\n');
             }
         } else {
             sb.append("ERROR (no exception): ")
-                    .append(MessageFormatter.arrayFormat(r.messagePattern(), r.args()).getMessage())
+                    .append(flat(MessageFormatter.arrayFormat(r.messagePattern(), r.args()).getMessage()))
                     .append('\n');
         }
 
-        sb.append("log: \"").append(r.messagePattern()).append('"');
+        sb.append("log: \"").append(flat(r.messagePattern())).append('"');
         String args = renderArgs(r.args());
         if (!args.isEmpty()) sb.append(" args=[").append(args).append(']');
         sb.append(" logger=").append(abbreviate(r.loggerName())).append('\n');
 
         if (r.mdc() != null && !r.mdc().isEmpty()) {
             sb.append("mdc:");
-            new TreeMap<>(r.mdc()).forEach((k, v) -> sb.append(' ').append(k).append('=').append(v));
+            new TreeMap<>(r.mdc()).forEach((k, v) -> sb.append(' ').append(flat(k)).append('=').append(flat(v)));
             sb.append('\n');
         }
 
@@ -120,7 +120,7 @@ final class ReportRenderer {
             sb.append("  ").append(time.format(Instant.ofEpochMilli(e.epochMillis())))
                     .append(' ').append(pad(e.level(), 5))
                     .append(' ').append(pad(e.logger(), loggerPad))
-                    .append("  ").append(e.message());
+                    .append("  ").append(flat(e.message()));
             if (i == errorIdx) sb.append("   ← this error");
             sb.append('\n');
         }
@@ -132,11 +132,25 @@ final class ReportRenderer {
         int shown = Math.min(args.length, MAX_ARGS);
         for (int i = 0; i < shown; i++) {
             if (i > 0) sb.append(", ");
-            String s = String.valueOf(args[i]);
+            String s;
+            try {
+                s = String.valueOf(args[i]);
+            } catch (Throwable t) {
+                // user objects may have poisonous toString(); the report must survive them
+                s = "<toString failed: " + t.getClass().getSimpleName() + ">";
+            }
+            s = flat(s);
             sb.append(s.length() > MAX_ARG_LENGTH ? s.substring(0, MAX_ARG_LENGTH) + "…" : s);
         }
         if (args.length > MAX_ARGS) sb.append(", …+").append(args.length - MAX_ARGS);
         return sb.toString();
+    }
+
+    /** One line per section is part of the format: embedded newlines become literal {@code \n}. */
+    private static String flat(String s) {
+        if (s == null) return "";
+        if (s.indexOf('\n') < 0 && s.indexOf('\r') < 0) return s;
+        return s.replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "\\n");
     }
 
     private static String abbreviate(String loggerName) {

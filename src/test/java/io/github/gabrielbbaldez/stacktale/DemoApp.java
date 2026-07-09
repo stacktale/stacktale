@@ -7,12 +7,15 @@ import org.slf4j.MDC;
 
 /**
  * Runnable demo: simulates an order flow that dies on an NPE and prints where the AI
- * error report landed. Run it from the repo root after {@code mvn test-compile}:
+ * error report landed. Run it from the repo root:
  *
  * <pre>
- * java -cp "target/classes;target/test-classes;$(mvn -q dependency:build-classpath -Dmdep.outputFile=/dev/stdout)" \
- *      io.github.gabrielbbaldez.stacktale.DemoApp
+ * mvn -q test-compile dependency:build-classpath -Dmdep.outputFile=target/cp.txt
+ * java -cp "target/classes;target/test-classes;$(cat target/cp.txt)" io.github.gabrielbbaldez.stacktale.DemoApp
+ * # (on Linux/macOS use ':' instead of ';' as the -cp separator)
  * </pre>
+ *
+ * The report lands in {@code target/demo-errors-ai.log}.
  */
 public final class DemoApp {
 

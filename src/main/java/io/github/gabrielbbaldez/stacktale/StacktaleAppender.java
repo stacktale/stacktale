@@ -44,6 +44,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
     private EnvCollector env;
     private ReportRenderer renderer;
     private ReportWriter writer;
+    private org.slf4j.Logger selfLogger;
     private final AtomicBoolean warnedOnce = new AtomicBoolean();
 
     @Override
@@ -61,9 +62,14 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
         env = new EnvCollector(Thread.currentThread().getContextClassLoader());
         renderer = new ReportRenderer(zoneId);
         writer = new ReportWriter(Path.of(file), maxFileSizeMb * 1024L * 1024L, renderer.fileHeader());
+        // Log through this appender's own context: during application boot start() runs in
+        // the middle of SLF4J initialization, and the global LoggerFactory is not safe yet
+        // (and would be the wrong context in multi-context environments).
+        selfLogger = getContext() instanceof ch.qos.logback.classic.LoggerContext lc
+                ? lc.getLogger(SELF_LOGGER)
+                : LoggerFactory.getLogger(SELF_LOGGER);
         super.start();
-        LoggerFactory.getLogger(SELF_LOGGER)
-                .info("stacktale active → {} (error reports for AI consumption)", file);
+        selfLogger.info("stacktale active → {} (error reports for AI consumption)", file);
         if (installUncaughtHandler) UncaughtHandler.install();
     }
 
@@ -89,7 +95,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
                             stack, event.getMessage(), event.getArgumentArray(), event.getLoggerName(),
                             StoryBuffer.safeMdc(event), storyBuffer.storyFor(event), env.envLine());
                     writer.append(renderer.render(report));
-                    LoggerFactory.getLogger(SELF_LOGGER).info("AI error report #{} → {}", fingerprint, file);
+                    selfLogger.info("AI error report #{} → {}", fingerprint, file);
                 }
                 case SUMMARY -> writer.append(
                         renderer.renderSummary(fingerprint, decision.count(), decision.lastSeenMillis()));
