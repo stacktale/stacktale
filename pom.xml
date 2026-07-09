@@ -31,7 +31,7 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <logback.version>1.5.18</logback.version>
     <junit.version>5.11.4</junit.version>
-    <assertj.version>3.26.3</assertj.version>
+    <assertj.version>3.27.7</assertj.version>
     <spring-boot.version>3.4.5</spring-boot.version>
     <jmh.version>1.37</jmh.version>
   </properties>
