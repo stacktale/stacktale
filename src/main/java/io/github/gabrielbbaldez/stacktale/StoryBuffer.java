@@ -90,12 +90,26 @@ final class StoryBuffer {
     }
 
     private String correlationKey(ILoggingEvent event) {
-        Map<String, String> mdc = event.getMDCPropertyMap();
-        if (mdc == null || mdc.isEmpty()) return null;
+        Map<String, String> mdc = safeMdc(event);
+        if (mdc.isEmpty()) return null;
         for (String k : correlationKeys) {
             String v = mdc.get(k);
             if (v != null && !v.isBlank()) return k + "=" + v;
         }
         return null;
+    }
+
+    /**
+     * {@link ILoggingEvent#getMDCPropertyMap()} can throw on hand-built logger contexts
+     * (no MDCAdapter installed, e.g. logback 1.5.x standalone contexts). MDC is optional
+     * enrichment — never let it break the pipeline.
+     */
+    static Map<String, String> safeMdc(ILoggingEvent event) {
+        try {
+            Map<String, String> mdc = event.getMDCPropertyMap();
+            return mdc == null ? Map.of() : mdc;
+        } catch (Throwable t) {
+            return Map.of();
+        }
     }
 }
