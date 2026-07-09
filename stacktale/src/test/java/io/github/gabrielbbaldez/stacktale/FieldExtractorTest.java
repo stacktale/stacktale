@@ -67,5 +67,15 @@ class FieldExtractorTest {
     @Test
     void neverThrows() {
         assertThat(FieldExtractor.extract(null)).isEmpty();
+        assertThat(FieldExtractor.extractChain(null)).isEmpty();
+    }
+
+    @Test
+    void chainMergesWrapperAndRootFields() {
+        // the domain wrapper carries the business state; the root is a bare NPE
+        OrderException wrapper = new OrderException("confirm failed");
+        wrapper.initCause(new NullPointerException("customer is null"));
+        Map<String, String> fields = FieldExtractor.extractChain(wrapper);
+        assertThat(fields).containsEntry("orderId", "889").containsEntry("retryable", "false");
     }
 }

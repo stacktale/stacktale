@@ -21,6 +21,20 @@ public final class DemoApp {
 
     record Customer(String email) {}
 
+    /** A domain exception carrying state — stacktale reads it into the fields: section. */
+    static class OrderConfirmationException extends RuntimeException {
+        private final int orderId;
+
+        OrderConfirmationException(int orderId, Throwable cause) {
+            super("confirmation aborted for order " + orderId, cause);
+            this.orderId = orderId;
+        }
+
+        public int getOrderId() { return orderId; }
+        public boolean isRetryable() { return false; }
+        public String getFailedStep() { return "send-confirmation-email"; }
+    }
+
     public static void main(String[] args) throws Exception {
         LoggerContext ctx = (LoggerContext) LoggerFactory.getILoggerFactory();
         StacktaleAppender stacktale = new StacktaleAppender();
@@ -44,7 +58,7 @@ public final class DemoApp {
             cache.warn("miss for customer 555, returning null");
             Thread.sleep(300);
             try {
-                confirmOrder(null);
+                confirmOrder(123, null);
             } catch (Exception e) {
                 service.error("Failed to confirm order {}", 123, e);
             }
@@ -53,9 +67,13 @@ public final class DemoApp {
         }
     }
 
-    private static void confirmOrder(Customer customer) {
-        // the demo bug: nobody checked the cache miss
-        String email = customer.email();
-        System.out.println("confirmation sent to " + email);
+    private static void confirmOrder(int orderId, Customer customer) {
+        try {
+            // the demo bug: nobody checked the cache miss
+            String email = customer.email();
+            System.out.println("confirmation sent to " + email);
+        } catch (NullPointerException e) {
+            throw new OrderConfirmationException(orderId, e);
+        }
     }
 }

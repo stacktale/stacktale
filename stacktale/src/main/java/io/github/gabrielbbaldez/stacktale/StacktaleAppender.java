@@ -150,17 +150,12 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
         return Redactor.withDefaults(compiled);
     }
 
-    /** State off the root-cause exception's own getters/fields — see {@link FieldExtractor}. */
+    /** State off the exception chain's own getters/fields — see {@link FieldExtractor}. */
     private java.util.Map<String, String> exceptionFields(IThrowableProxy proxy) {
         if (!captureExceptionFields || !(proxy instanceof ch.qos.logback.classic.spi.ThrowableProxy tp)) {
             return java.util.Map.of();
         }
-        Throwable cur = tp.getThrowable();
-        java.util.Set<Throwable> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-        while (cur != null && cur.getCause() != null && seen.add(cur) && seen.size() < 10) {
-            cur = cur.getCause();
-        }
-        return FieldExtractor.extract(cur);
+        return FieldExtractor.extractChain(tp.getThrowable());
     }
 
     private static List<String> csv(String s) {

@@ -26,6 +26,26 @@ final class FieldExtractor {
 
     private FieldExtractor() {}
 
+    /**
+     * Walks the whole cause chain (outermost wrapper down to the root cause) merging
+     * fields. Domain wrappers usually carry the business state ({@code orderId}), while
+     * the technical root (an NPE) rarely has getters — both contribute, first writer
+     * wins on name collisions, the global cap still applies.
+     */
+    static Map<String, String> extractChain(Throwable outermost) {
+        TreeMap<String, String> merged = new TreeMap<>();
+        Throwable cur = outermost;
+        java.util.Set<Throwable> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        while (cur != null && seen.add(cur) && seen.size() <= 10 && merged.size() < MAX_FIELDS) {
+            for (Map.Entry<String, String> e : extract(cur).entrySet()) {
+                if (merged.size() >= MAX_FIELDS) break;
+                merged.putIfAbsent(e.getKey(), e.getValue());
+            }
+            cur = cur.getCause();
+        }
+        return merged;
+    }
+
     static Map<String, String> extract(Throwable t) {
         TreeMap<String, String> out = new TreeMap<>();
         if (t == null) return out;
