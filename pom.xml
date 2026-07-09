@@ -29,7 +29,7 @@
     <maven.compiler.release>17</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <logback.version>1.5.18</logback.version>
+    <logback.version>1.5.38</logback.version>
     <junit.version>5.11.4</junit.version>
     <assertj.version>3.27.7</assertj.version>
     <spring-boot.version>3.4.5</spring-boot.version>
