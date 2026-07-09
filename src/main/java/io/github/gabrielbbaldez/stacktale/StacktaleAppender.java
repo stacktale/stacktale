@@ -33,6 +33,8 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
     private int storyWindowSeconds = 60;
     private int dedupWindowSeconds = 300;
     private int maxFileSizeMb = 5;
+    private int maxBackups = 1;
+    private boolean truncateOnStart = false;
     private boolean installUncaughtHandler = true;
     private boolean reportErrorsWithoutThrowable = true;
     private String correlationMdcKeys = "traceId,correlationId,requestId";
@@ -63,7 +65,9 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
         env = new EnvCollector(Thread.currentThread().getContextClassLoader());
         renderer = new ReportRenderer(zoneId);
         try {
-            writer = new ReportWriter(Path.of(file), maxFileSizeMb * 1024L * 1024L, renderer.fileHeader());
+            String marker = renderer.sessionMarker(System.currentTimeMillis(), ProcessHandle.current().pid());
+            writer = new ReportWriter(Path.of(file), maxFileSizeMb * 1024L * 1024L, renderer.fileHeader(),
+                    marker, truncateOnStart, maxBackups);
         } catch (RuntimeException e) {
             // e.g. InvalidPathException from a value the OS rejects: a broken stacktale
             // config must degrade to a no-op, never break application startup
@@ -147,6 +151,10 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
     public void setDedupWindowSeconds(int dedupWindowSeconds) { this.dedupWindowSeconds = dedupWindowSeconds; }
 
     public void setMaxFileSizeMb(int maxFileSizeMb) { this.maxFileSizeMb = maxFileSizeMb; }
+
+    public void setMaxBackups(int maxBackups) { this.maxBackups = maxBackups; }
+
+    public void setTruncateOnStart(boolean truncateOnStart) { this.truncateOnStart = truncateOnStart; }
 
     public void setInstallUncaughtHandler(boolean installUncaughtHandler) { this.installUncaughtHandler = installUncaughtHandler; }
 

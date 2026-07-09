@@ -40,6 +40,8 @@ class LogbackXmlConfigTest {
                     <storyWindowSeconds>30</storyWindowSeconds>
                     <dedupWindowSeconds>120</dedupWindowSeconds>
                     <maxFileSizeMb>2</maxFileSizeMb>
+                    <maxBackups>3</maxBackups>
+                    <truncateOnStart>false</truncateOnStart>
                     <installUncaughtHandler>false</installUncaughtHandler>
                     <reportErrorsWithoutThrowable>true</reportErrorsWithoutThrowable>
                     <correlationMdcKeys>traceId</correlationMdcKeys>

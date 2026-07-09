@@ -93,7 +93,13 @@ final class ReportRenderer {
                 # story (events leading up to and including the error, oldest first),
                 # stack (distilled; framework frames collapsed), env. "← YOUR CODE" marks app frames.
                 # Repeated errors append "━ #<id> repeated N× ━" lines instead of new reports.
+                # "─── app start … ───" lines mark application restarts.
                 """;
+    }
+
+    String sessionMarker(long epochMillis, long pid) {
+        return "─── app start " + dateTime.format(Instant.ofEpochMilli(epochMillis))
+                + " (pid " + pid + ") ───\n";
     }
 
     private void renderStory(StringBuilder sb, Report r) {
