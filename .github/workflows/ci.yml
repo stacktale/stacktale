@@ -18,3 +18,8 @@ jobs:
           java-version: ${{ matrix.java }}
           cache: maven
       - run: mvn -B verify
+      - name: Coverage summary
+        if: matrix.java == 21
+        run: |
+          awk -F, 'NR>1 {m+=$8; c+=$9} END {printf "**Line coverage: %.1f%%** (%d/%d lines)\n", c*100/(c+m), c, c+m}' \
+            target/site/jacoco/jacoco.csv >> "$GITHUB_STEP_SUMMARY"
