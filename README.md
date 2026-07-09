@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.png" width="170" alt="stacktale — a campfire burning stack-frame logs">
+</p>
+
 # stacktale
 
 > *Stack traces that tell the tale.*
