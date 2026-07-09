@@ -1,0 +1,9 @@
+━━━ ERROR #beef ━━━ 1970-01-01 00:33:20.000 thread=main ━━━
+ERROR (no exception): payment rejected for order 77
+log: "payment rejected for order {}" args=[77] logger=c.a.PaymentService
+
+story (thread main, last 1 event, 0ms):
+  00:33:20.000 ERROR PaymentService  payment rejected for order 77   ← this error
+
+env: app=? | java 21 | linux
+━━━ END #beef ━━━

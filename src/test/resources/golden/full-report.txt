@@ -1,0 +1,19 @@
+━━━ ERROR #a1b2 ━━━ 1970-01-01 00:16:40.412 thread=http-nio-8080-exec-3 ━━━
+NullPointerException: customer is null
+at OrderService.confirm(OrderService.java:87) ← YOUR CODE
+log: "Failed to confirm order {}" args=[123] logger=c.a.s.OrderService
+mdc: traceId=9f3a userId=42
+
+story (thread http-nio-8080-exec-3, last 4 events, 412ms):
+  00:16:40.000 INFO  OrderController  POST /orders/123/confirm
+  00:16:40.108 INFO  CustomerClient   fetching customer 555 → 404
+  00:16:40.113 WARN  CustomerCache    miss for 555, returning null
+  00:16:40.412 ERROR OrderService     Failed to confirm order 123   ← this error
+
+stack (distilled, 2 of 4 frames):
+  OrderService.confirm(OrderService.java:87) ← culprit
+  OrderController.confirm(OrderController.java:34)
+  … 2 collapsed (spring ×1, tomcat ×1)
+
+env: app=shop-api 1.4.2 (git 7e3c1f) | java 21 | profile=dev | linux
+━━━ END #a1b2 ━━━
