@@ -212,7 +212,32 @@ Log4j2 appender. Maven Central publication.
 stitching, log-aggregator integrations (Loki/ELK), redaction/PII filtering, Windows-1252
 consoles. Explicitly out until v1 proves the format.
 
-## 9. Coordinates & licensing
+## 9. Post-design evolution (as shipped in 0.1.0)
+
+This document is the original v1 design and is kept as-is above. What shipped in 0.1.0
+extends it — the format and guarantees below are the source of truth in code
+(golden files) and in the README:
+
+- **`fields:` section** — state read from the exception chain's public getters/fields
+  (shallow, capped, poisonous-getter-safe). Wrappers contribute business state, roots
+  rarely do; first writer wins on collisions.
+- **Redaction on by default** — JWTs, bearer/basic, secret key=value pairs, 32+ hex,
+  emails, Luhn-valid cards; custom patterns via `<redactPattern>`; applied centrally in
+  the renderer together with newline flattening.
+- **Session markers** — `─── app start … ───` lines separate application runs;
+  `truncateOnStart` and `maxBackups` extend the writer.
+- **Report id is 8 hex chars** (32 bits) — 16 bits collided at ~300 distinct errors.
+- **Async story** — `StacktaleExecutors` propagates MDC across hops; virtual-thread
+  behavior tested and documented.
+- **Multi-module build** — `stacktale-parent` + `stacktale` (unchanged coordinates) +
+  `stacktale-spring-boot-starter` (auto-config, `stacktale.*` properties, HTTP request
+  lines opening the story through an additivity-off logger). The starter was Phase 2 in
+  §8 and shipped in 0.1.0.
+- **Uncaught-handler announce** moved to Logback's status API + a deferred first-event
+  logger line (appender-refs aren't wired during Joran processing).
+- Measured (JMH): ~110 ns happy-path overhead per event; 3.9 µs per deduplicated repeat.
+
+## 10. Coordinates & licensing
 
 - GitHub: `GabrielBBaldez/stacktale` (public)
 - Maven: `io.github.gabrielbbaldez:stacktale` (Central publication in Phase 2)
