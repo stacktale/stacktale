@@ -68,7 +68,9 @@ final class StoryBuffer {
             }
             label = "thread " + errorEvent.threadName();
         }
-        return new Story(snapshot.stream().filter(e -> e.epochMillis() >= cutoff).toList(), label);
+        List<StoryEntry> kept = snapshot.stream().filter(e -> e.epochMillis() >= cutoff).toList();
+        int omittedByAge = snapshot.size() - kept.size();
+        return new Story(kept, label, omittedByAge);
     }
 
     private void push(Deque<StoryEntry> deque, StoryEntry entry) {

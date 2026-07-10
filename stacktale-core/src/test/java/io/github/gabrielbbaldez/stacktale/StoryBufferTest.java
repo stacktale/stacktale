@@ -45,7 +45,9 @@ class StoryBufferTest {
         buf.record(event("com.acme.A", "INFO", "old", 1000, Map.of()));
         LogEventData err = event("com.acme.A", "ERROR", "boom", 5000, Map.of());
         buf.record(err);
-        assertThat(buf.storyFor(err).entries()).extracting(StoryEntry::message).containsExactly("boom");
+        Story story = buf.storyFor(err);
+        assertThat(story.entries()).extracting(StoryEntry::message).containsExactly("boom");
+        assertThat(story.omittedByAge()).isEqualTo(1); // the aged-out "old" event is accounted for
     }
 
     @Test

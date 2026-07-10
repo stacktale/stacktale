@@ -150,6 +150,12 @@ final class ReportRenderer {
         long span = entries.get(entries.size() - 1).epochMillis() - entries.get(0).epochMillis();
         sb.append("story (").append(r.story().contextLabel()).append(", last ").append(entries.size())
                 .append(entries.size() == 1 ? " event, " : " events, ").append(span).append("ms):\n");
+        // tell the reader context was cut by age, not simply never logged — decisive for
+        // batch jobs / consumers whose opening line can be older than the story window
+        if (r.story().omittedByAge() > 0) {
+            sb.append("  … ").append(r.story().omittedByAge())
+                    .append(" earlier event(s) older than the story window omitted\n");
+        }
 
         int loggerPad = Math.min(MAX_LOGGER_PAD,
                 entries.stream().mapToInt(e -> e.logger().length()).max().orElse(0));

@@ -94,7 +94,7 @@ Fields:
 | `mdc:` / `fields:` | space-separated `key=value` pairs, keys sorted. Omitted when empty. |
 | `seen:` | recurrence — `N× this session, first at <HH:mm:ss.SSS>`. Present **only** when the error has occurred before this session (its absence means the error is new). Session-scoped: resets on restart. |
 | `captured:` | present only when the agent is attached; method frames with argument values. |
-| `story` | events leading up to and including the error, oldest first. `<label>` is `traceId=…` (correlated) or `thread <name>` (fallback). The error's own line ends with `   ← this error`. Omitted when empty. |
+| `story` | events leading up to and including the error, oldest first. `<label>` is `traceId=…` (correlated) or `thread <name>` (fallback). The error's own line ends with `   ← this error`. A `… N earlier event(s) older than the story window omitted` line appears when events were dropped by age (vs never logged). Omitted when empty. |
 | `stack` | the distilled stack: shown frames plus `… N collapsed (<framework groups>)` markers; the culprit frame ends with `← culprit`. Omitted for reports with no throwable. |
 | `env:` | `app=<name> <version> (git <sha>) \| java <ver> \| profile=<p> \| <os>`; unknown parts degrade (`app=?`, no `(git …)`, no `profile=`). |
 
