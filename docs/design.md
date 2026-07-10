@@ -229,10 +229,12 @@ extends it — the format and guarantees below are the source of truth in code
 - **Report id is 8 hex chars** (32 bits) — 16 bits collided at ~300 distinct errors.
 - **Async story** — `StacktaleExecutors` propagates MDC across hops; virtual-thread
   behavior tested and documented.
-- **Multi-module build** — `stacktale-parent` + `stacktale` (unchanged coordinates) +
-  `stacktale-spring-boot-starter` (auto-config, `stacktale.*` properties, HTTP request
-  lines opening the story through an additivity-off logger). The starter was Phase 2 in
-  §8 and shipped in 0.1.0.
+- **Multi-module build** — `stacktale-parent` + `stacktale-core` (framework-agnostic
+  pipeline: `LogEventData` + `ReportPipeline` + `Host` callbacks) + `stacktale` (Logback
+  adapter, unchanged coordinates) + `stacktale-log4j2` (plugin appender, `ThreadContext`
+  correlation) + `stacktale-spring-boot-starter` (auto-config, `stacktale.*` properties,
+  HTTP request lines opening the story through an additivity-off logger). The starter
+  was Phase 2 in §8 and shipped in 0.1.0; Log4j2 landed on the 0.2.0 line.
 - **Uncaught-handler announce** moved to Logback's status API + a deferred first-event
   logger line (appender-refs aren't wired during Joran processing).
 - Measured (JMH): ~110 ns happy-path overhead per event; 3.9 µs per deduplicated repeat.

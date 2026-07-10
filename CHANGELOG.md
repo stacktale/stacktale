@@ -5,6 +5,19 @@ All notable changes to stacktale are documented here. The format follows
 [SemVer](https://semver.org/). The report format (`st/1`) is versioned independently
 and pinned by golden-file tests.
 
+## [Unreleased]
+
+- **Log4j2 support**: new `stacktale-log4j2` module — same pipeline, same st/1 format,
+  story correlation via `ThreadContext`, XML plugin appender (`<Stacktale …/>`).
+- **`stacktale-core`**: the report pipeline is now framework-agnostic; the Logback
+  artifact keeps its coordinates and behavior as a thin adapter.
+- FieldExtractor reads public getters on package-private exception classes
+  (`trySetAccessible`, degrading quietly under closed JPMS modules).
+- Log4j2 adapter drops the trailing throwable from `args=` (Log4j2 keeps it inside
+  `Message.getParameters()` after extraction).
+- Dependency refresh via Dependabot (Logback 1.5.38, AssertJ 3.27.7, Surefire 3.5.6,
+  JaCoCo 0.8.15, actions/checkout v7, setup-java v5).
+
 ## [0.1.0] — 2026-07-09
 
 First release. Everything below is new.
