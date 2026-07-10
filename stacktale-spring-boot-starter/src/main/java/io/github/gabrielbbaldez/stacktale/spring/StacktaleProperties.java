@@ -66,6 +66,9 @@ public class StacktaleProperties {
     /** Extra logger prefixes treated as container echoes (added to the defaults). */
     private List<String> containerLoggers = new ArrayList<>();
 
+    /** Also emit each report block as ONE event via logger {@code stacktale.reports} (for shippers). */
+    private boolean emitReportsToLogger = false;
+
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public String getFile() { return file; }
@@ -104,4 +107,6 @@ public class StacktaleProperties {
     public void setEchoSuppressionMillis(long echoSuppressionMillis) { this.echoSuppressionMillis = echoSuppressionMillis; }
     public List<String> getContainerLoggers() { return containerLoggers; }
     public void setContainerLoggers(List<String> containerLoggers) { this.containerLoggers = containerLoggers; }
+    public boolean isEmitReportsToLogger() { return emitReportsToLogger; }
+    public void setEmitReportsToLogger(boolean emitReportsToLogger) { this.emitReportsToLogger = emitReportsToLogger; }
 }

@@ -120,6 +120,38 @@ class StacktaleAppenderIntegrationTest {
     }
 
     @Test
+    void emitsReportBlocksThroughTheReportsLoggerWhenEnabled(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("errors-ai.log");
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> shipper =
+                new ch.qos.logback.core.read.ListAppender<>();
+        shipper.start();
+
+        ctx = new LoggerContext();
+        ctx.setMDCAdapter(MDC.getMDCAdapter());
+        StacktaleAppender appender = new StacktaleAppender();
+        appender.setContext(ctx);
+        appender.setFile(file.toString());
+        appender.setInstallUncaughtHandler(false);
+        appender.setEmitReportsToLogger(true);
+        appender.start();
+        ctx.getLogger(Logger.ROOT_LOGGER_NAME).addAppender(appender);
+        ctx.getLogger(Logger.ROOT_LOGGER_NAME).setLevel(Level.INFO);
+        // an aggregator shipper would be attached exactly like this
+        ctx.getLogger("stacktale.reports").addAppender(shipper);
+
+        ctx.getLogger("com.acme.X").info("noise before");
+        ctx.getLogger("com.acme.X").error("boom", new RuntimeException("x"));
+
+        assertThat(shipper.list)
+                .anySatisfy(e -> assertThat(e.getFormattedMessage())
+                        .contains("━━━ ERROR #").contains("━━━ END #")); // whole block, ONE event
+        // and the reports logger must not pollute the story of later errors
+        ctx.getLogger("com.acme.Y").error("second failure", new IllegalStateException("y"));
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        assertThat(content).doesNotContain("stacktale.reports");
+    }
+
+    @Test
     void suppressesContainerEchoRightAfterAppReport(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("errors-ai.log");
         startAppender(file, "");

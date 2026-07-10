@@ -43,6 +43,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
     private long echoSuppressionMillis = 2000;
     private final List<String> containerLoggers =
             new java.util.ArrayList<>(ReportPipeline.Settings.DEFAULT_CONTAINER_LOGGERS);
+    private boolean emitReportsToLogger = false;
 
     private ReportPipeline pipeline;
     private org.slf4j.Logger selfLogger;
@@ -77,7 +78,11 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
                 file, csv(appPackages), storySize, storyWindowSeconds * 1000L,
                 dedupWindowSeconds * 1000L, maxFileSizeMb * 1024L * 1024L, maxBackups, truncateOnStart,
                 reportErrorsWithoutThrowable, captureExceptionFields, redactionEnabled, compiled,
-                csv(correlationMdcKeys), zoneId, echoSuppressionMillis, List.copyOf(containerLoggers));
+                csv(correlationMdcKeys), zoneId, echoSuppressionMillis, List.copyOf(containerLoggers),
+                emitReportsToLogger);
+        org.slf4j.Logger reportsLogger = getContext() instanceof ch.qos.logback.classic.LoggerContext lc
+                ? lc.getLogger(ReportPipeline.REPORTS_LOGGER)
+                : LoggerFactory.getLogger(ReportPipeline.REPORTS_LOGGER);
         pipeline = ReportPipeline.create(settings, new ReportPipeline.Host() {
             @Override
             public void selfLog(String message) {
@@ -87,6 +92,11 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
             @Override
             public void warn(String message, Throwable t) {
                 addWarn(message, t);
+            }
+
+            @Override
+            public void emitReport(String block) {
+                reportsLogger.info(block);
             }
         });
         super.start();
@@ -190,4 +200,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
 
     /** Joran calls this once per {@code <containerLogger>} element (adds to the defaults). */
     public void addContainerLogger(String prefix) { this.containerLoggers.add(prefix); }
+
+    /** Also emit each report block as ONE event via logger {@code stacktale.reports} (for shippers). */
+    public void setEmitReportsToLogger(boolean emitReportsToLogger) { this.emitReportsToLogger = emitReportsToLogger; }
 }

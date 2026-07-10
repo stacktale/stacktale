@@ -177,6 +177,41 @@ through the same pipeline.
 fork — reproduce with [`AppendBenchmark`](stacktale/src/test/java/io/github/gabrielbbaldez/stacktale/AppendBenchmark.java)).
 Writing a full report costs milliseconds — errors are rare, that's the deal.
 
+## Token economics (measured)
+
+Counted with a real tokenizer (`cl100k`) on the artifacts of an actual dogfooding
+session — a Spring Boot shop hit over HTTP until 7 distinct failures occurred:
+
+| What the AI reads | Tokens | Savings |
+|---|---|---|
+| Classic console log of the session (10 943 lines) | 223 370 | — |
+| `errors-ai.log` for the same session, all reports | 3 696 | **98.3% (60× less)** |
+| Classic stack-trace block for ONE error | 2 119 | — |
+| The st/1 block for the same error | 411 | **80.6% less — carrying MORE info** (story, fields, env) |
+
+The classic log grows with traffic; the report file grows only with distinct errors.
+
+## Query reports as AI tools (MCP)
+
+`stacktale-mcp` is a tiny read-only [MCP](https://modelcontextprotocol.io) server: your
+AI assistant queries reports as tools instead of reading files — across rotations,
+sessions and paths.
+
+```json
+{ "mcpServers": { "stacktale": {
+    "command": "java",
+    "args": ["-jar", "stacktale-mcp.jar", "--file", "/path/to/errors-ai.log"]
+} } }
+```
+
+Tools: `list_errors` (id, time, headline, repeat count — newest first), `get_report`
+(the full st/1 block), `errors_since` (blocks after a timestamp). No network, no writes.
+
+Shipping to aggregators instead? Set `emitReportsToLogger=true` and each report block is
+also emitted as ONE log event through logger `stacktale.reports` — attach your existing
+Loki/ELK/CloudWatch shipper to that logger and production reports reach your incident
+tooling with zero stacktale-specific infrastructure.
+
 ## Does it actually help? (blind A/B)
 
 We ran a blind test: [`BlindTestScenario`](stacktale/src/test/java/io/github/gabrielbbaldez/stacktale/BlindTestScenario.java)
@@ -215,6 +250,9 @@ Everything is optional — as appender properties in `logback.xml`, or `stacktal
 | `redactPattern` (repeatable) | — | Extra redaction regexes |
 | `correlationMdcKeys` | `traceId,correlationId,requestId` | MDC keys that group the story |
 | `zone` | system | Timezone for report timestamps |
+| `echoSuppressionMillis` | `2000` | Skip container re-logs of a failure this thread just reported (0 = off) |
+| `containerLogger` (repeatable) | Tomcat's | Extra logger prefixes treated as container echoes |
+| `emitReportsToLogger` | `false` | Also emit each block as ONE event via logger `stacktale.reports` |
 | `requestLogging` *(starter)* | `true` | HTTP request lines into the story |
 
 Async work: wrap hops with [`StacktaleExecutors`](stacktale/src/main/java/io/github/gabrielbbaldez/stacktale/StacktaleExecutors.java)

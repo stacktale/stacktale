@@ -88,6 +88,20 @@ class Log4j2IntegrationTest {
     }
 
     @Test
+    void nonParameterizedMessageTypesProduceReadableLogLines(@TempDir Path dir) throws Exception {
+        Path file = start(dir);
+        // MapMessage.getFormat() is empty — the log: line must fall back to the formatted text
+        org.apache.logging.log4j.message.MapMessage<?, ?> map =
+                new org.apache.logging.log4j.message.StringMapMessage().with("orderId", "889").with("step", "checkout");
+        ctx.getLogger("com.acme.MapLogger").error(map, new IllegalStateException("map-based failure"));
+
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        assertThat(content).contains("IllegalStateException: map-based failure");
+        assertThat(content).doesNotContain("log: \"\"");        // never an empty pattern
+        assertThat(content).contains("orderId=\"889\"");        // the map content is visible
+    }
+
+    @Test
     void errorWithoutThrowableStillReports(@TempDir Path dir) throws Exception {
         Path file = start(dir);
         ctx.getLogger("com.acme.Pay").error("payment rejected for order {}", 77);

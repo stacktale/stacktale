@@ -21,6 +21,9 @@ public final class ReportPipeline {
     /** Logger name used for stacktale's own announce/pointer lines (skipped by the pipeline). */
     public static final String SELF_LOGGER = "stacktale";
 
+    /** Logger that carries whole report blocks to aggregators when {@code emitReportsToLogger} is on. */
+    public static final String REPORTS_LOGGER = "stacktale.reports";
+
     /** All knobs, framework-neutral. Times in millis, sizes in bytes. */
     public record Settings(
             String file,
@@ -38,7 +41,8 @@ public final class ReportPipeline {
             List<String> correlationMdcKeys,
             ZoneId zone,
             long echoSuppressionMillis,
-            List<String> containerLoggers
+            List<String> containerLoggers,
+            boolean emitReportsToLogger
     ) {
 
         /** Default logger prefixes whose errors are re-logs of an exception the app already reported. */
@@ -53,6 +57,13 @@ public final class ReportPipeline {
 
         /** Report an internal stacktale problem through the framework's status/warn channel. */
         void warn(String message, Throwable t);
+
+        /**
+         * Carry a whole report block as ONE log event through logger
+         * {@link #REPORTS_LOGGER} — existing shippers (Loki, ELK, CloudWatch agents)
+         * pick it up with zero stacktale-specific infrastructure.
+         */
+        default void emitReport(String block) {}
     }
 
     private final Settings settings;
@@ -105,7 +116,8 @@ public final class ReportPipeline {
 
     public void process(LogEventData event) {
         try {
-            if (writer == null || SELF_LOGGER.equals(event.loggerName())) return;
+            if (writer == null || SELF_LOGGER.equals(event.loggerName())
+                    || REPORTS_LOGGER.equals(event.loggerName())) return;
             if (announced.compareAndSet(false, true)) {
                 host.selfLog("stacktale active → " + settings.file() + " (error reports for AI consumption)");
             }
@@ -135,7 +147,9 @@ public final class ReportPipeline {
                         Report report = new Report(fingerprint, event.epochMillis(), event.threadName(),
                                 stack, event.messagePattern(), event.args(), event.loggerName(),
                                 event.mdc(), fields, storyBuffer.storyFor(event), env.envLine());
-                        writer.append(renderer.render(report));
+                        String rendered = renderer.render(report);
+                        writer.append(rendered);
+                        if (settings.emitReportsToLogger()) host.emitReport(rendered);
                     } catch (Throwable t) {
                         // don't leave the dedup window believing a report exists that was
                         // never written — the next occurrence must get a fresh chance

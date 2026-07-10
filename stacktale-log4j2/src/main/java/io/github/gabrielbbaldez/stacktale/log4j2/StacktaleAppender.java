@@ -78,6 +78,12 @@ public final class StacktaleAppender extends AbstractAppender {
         org.apache.logging.log4j.message.Message message = event.getMessage();
         Map<String, String> mdc = event.getContextData() == null ? Map.of() : event.getContextData().toMap();
         Throwable thrown = event.getThrown();
+        String formatted = message.getFormattedMessage();
+        // non-parameterized Message types (MapMessage, ObjectMessage, StructuredData…)
+        // return null/empty from getFormat() — fall back to the formatted text so the
+        // log: line never shows an empty pattern
+        String pattern = message.getFormat();
+        if (pattern == null || pattern.isEmpty()) pattern = formatted;
         Object[] args = message.getParameters();
         // unlike SLF4J, Log4j2 keeps the trailing throwable inside getParameters() even
         // after extracting it as getThrown() — drop it so args= shows only real values
@@ -90,9 +96,9 @@ public final class StacktaleAppender extends AbstractAppender {
                 event.getLevel().isMoreSpecificThan(Level.ERROR),
                 event.getLoggerName(),
                 event.getThreadName(),
-                message.getFormat(),
+                pattern,
                 args,
-                message.getFormattedMessage(),
+                formatted,
                 mdc,
                 thrown);
     }
@@ -126,6 +132,8 @@ public final class StacktaleAppender extends AbstractAppender {
         @PluginBuilderAttribute private long echoSuppressionMillis = 2000;
         /** Comma-separated logger prefixes treated as container echoes (empty = defaults). */
         @PluginBuilderAttribute private String containerLoggers = "";
+        /** Also emit each report block as ONE event via logger {@code stacktale.reports}. */
+        @PluginBuilderAttribute private boolean emitReportsToLogger = false;
 
         @Override
         public StacktaleAppender build() {
@@ -154,7 +162,8 @@ public final class StacktaleAppender extends AbstractAppender {
                     file, csv(appPackages), storySize, storyWindowSeconds * 1000L,
                     dedupWindowSeconds * 1000L, maxFileSizeMb * 1024L * 1024L, maxBackups, truncateOnStart,
                     reportErrorsWithoutThrowable, captureExceptionFields, redactionEnabled, compiled,
-                    csv(correlationMdcKeys), zoneId, echoSuppressionMillis, containers);
+                    csv(correlationMdcKeys), zoneId, echoSuppressionMillis, containers,
+                    emitReportsToLogger);
             ReportPipeline pipeline = ReportPipeline.create(settings, new ReportPipeline.Host() {
                 @Override
                 public void selfLog(String message) {
@@ -164,6 +173,11 @@ public final class StacktaleAppender extends AbstractAppender {
                 @Override
                 public void warn(String message, Throwable t) {
                     StatusLogger.getLogger().warn("stacktale: {}", message, t);
+                }
+
+                @Override
+                public void emitReport(String block) {
+                    LogManager.getLogger(ReportPipeline.REPORTS_LOGGER).info(block);
                 }
             });
             return new StacktaleAppender(name, pipeline, installUncaughtHandler);

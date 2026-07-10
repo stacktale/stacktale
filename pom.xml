@@ -41,6 +41,7 @@
     <module>stacktale</module>
     <module>stacktale-log4j2</module>
     <module>stacktale-spring-boot-starter</module>
+    <module>stacktale-mcp</module>
   </modules>
 
   <properties>
