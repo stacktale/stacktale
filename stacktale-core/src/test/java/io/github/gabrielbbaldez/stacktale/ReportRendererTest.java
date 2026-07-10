@@ -60,6 +60,28 @@ class ReportRendererTest {
     }
 
     @Test
+    void richReportMatchesGolden() throws Exception {
+        DistilledStack stack = new DistilledStack("IllegalStateException", "payment gateway refused",
+                "PaymentService.charge(PaymentService.java:44)", true,
+                List.of("CheckoutException(\"checkout failed\") at CheckoutService.confirm(CheckoutService.java:88)"),
+                List.of("PaymentService.charge(PaymentService.java:44) ← culprit",
+                        "… 30 collapsed (spring ×20, tomcat ×10)"),
+                32, 1, List.of());
+        Story story = new Story(List.of(
+                new StoryEntry(1_000_050L, "INFO", "CheckoutService", "confirming order 889"),
+                new StoryEntry(1_000_412L, "ERROR", "PaymentService", "charge failed for order 889")
+        ), "traceId=7c2e", 2);
+        Report r = new Report("a1b2c3d4", 1_000_412L, "http-nio-8080-exec-2", stack,
+                "charge failed for order {}", new Object[]{889}, "com.acme.shop.PaymentService",
+                Map.of("traceId", "7c2e"), Map.of("orderId", "889", "retryable", "false"),
+                List.of("PaymentService.charge(orderId=889, amount=149.90)"),
+                story, "app=shop-api 1.4.2 (git 7e3c1f) | java 21 | profile=prod | linux",
+                3, 1_000_000L);
+        String rendered = new ReportRenderer(ZoneOffset.UTC).render(r);
+        assertThat(rendered).isEqualTo(golden("rich-report.txt"));
+    }
+
+    @Test
     void recurrenceLineShownOnlyWhenErrorIsNotNew() {
         Story story = new Story(List.of(), "thread main");
         // first occurrence → no seen line (absence means new)

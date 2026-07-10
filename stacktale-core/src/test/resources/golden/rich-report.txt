@@ -1,0 +1,22 @@
+━━━ ERROR #a1b2c3d4 ━━━ 1970-01-01 00:16:40.412 thread=http-nio-8080-exec-2 ━━━
+IllegalStateException: payment gateway refused
+at PaymentService.charge(PaymentService.java:44) ← YOUR CODE
+wrapped by: CheckoutException("checkout failed") at CheckoutService.confirm(CheckoutService.java:88)
+log: "charge failed for order {}" args=[889] logger=c.a.s.PaymentService
+mdc: traceId=7c2e
+fields: orderId=889 retryable=false
+captured (method args at throw site, via stacktale-agent):
+  PaymentService.charge(orderId=889, amount=149.90)
+seen: 3× this session, first at 00:16:40.000
+
+story (traceId=7c2e, last 2 events, 362ms):
+  … 2 earlier event(s) older than the story window omitted
+  00:16:40.050 INFO  CheckoutService  confirming order 889
+  00:16:40.412 ERROR PaymentService   charge failed for order 889   ← this error
+
+stack (distilled, 1 of 32 frames):
+  PaymentService.charge(PaymentService.java:44) ← culprit
+  … 30 collapsed (spring ×20, tomcat ×10)
+
+env: app=shop-api 1.4.2 (git 7e3c1f) | java 21 | profile=prod | linux
+━━━ END #a1b2c3d4 ━━━
