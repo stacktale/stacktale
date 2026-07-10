@@ -5,6 +5,33 @@ All notable changes to stacktale are documented here. The format follows
 [SemVer](https://semver.org/). The report format (`st/1`) is versioned independently
 and pinned by golden-file tests.
 
+## [0.3.0] — 2026-07-10
+
+The "capture everything, everywhere" release — closes the entire original backlog.
+
+- **`stacktale-agent`** (new module): optional `-javaagent` that records **method
+  arguments at the throw site** into a `captured:` report section —
+  `confirmOrder(orderId=889, customer=null)` appears even when the code logged nothing.
+  Zero happy-path overhead (advice runs only on exceptional exit), bounded, redacted,
+  real parameter names with `-parameters`.
+- **`stacktale-mcp`** (new module): read-only MCP server — AI assistants query reports
+  as tools (`list_errors`, `get_report`, `errors_since`) instead of reading files.
+- **Reactive story (WebFlux)**: a reactive filter opens the story with the request line
+  and plants the traceId in the Reactor Context; automatic context propagation keeps the
+  story whole across `flatMap`s and scheduler hops.
+- **Container-echo suppression**: Tomcat/Spring re-logs of a failure the same thread just
+  reported are skipped (configurable window; apps that don't log first keep their
+  container report). Found by real-world dogfooding.
+- **Burst counter flush**: repeat counts silenced by the summary throttle are written on
+  shutdown — the file never understates a burst.
+- **Report shipping**: `emitReportsToLogger=true` re-emits each block as ONE event via
+  logger `stacktale.reports` for existing log shippers.
+- **Redaction**: non-English secret keywords (senha, contraseña, passwort, chave…).
+- **Log4j2**: non-parameterized Message types (MapMessage & co.) render readable `log:` lines.
+- README: measured token economics — 98.3% session savings (60×), 80.6% per error.
+
+[0.3.0]: https://github.com/GabrielBBaldez/stacktale/releases/tag/v0.3.0
+
 ## [0.2.0] — 2026-07-10
 
 First release on **Maven Central**.

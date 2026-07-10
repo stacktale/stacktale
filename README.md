@@ -87,7 +87,7 @@ All artifacts are on Maven Central.
 <dependency>
   <groupId>io.github.gabrielbbaldez</groupId>
   <artifactId>stacktale-spring-boot-starter</artifactId>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
 </dependency>
 ```
 
@@ -103,7 +103,7 @@ via `stacktale.*` properties in `application.yml`.
 <dependency>
   <groupId>io.github.gabrielbbaldez</groupId>
   <artifactId>stacktale</artifactId>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
 </dependency>
 ```
 
@@ -127,7 +127,7 @@ itself on startup, and the file header explains the format to any AI that opens 
 <dependency>
   <groupId>io.github.gabrielbbaldez</groupId>
   <artifactId>stacktale-log4j2</artifactId>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
 </dependency>
 ```
 
