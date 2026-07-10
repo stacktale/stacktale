@@ -56,6 +56,18 @@ class RedactorTest {
     }
 
     @Test
+    void masksNonEnglishSecretKeywords() {
+        assertThat(redactor.redact("login falhou senha=hunter2 para bob")).isEqualTo("login falhou senha=███ para bob");
+        assertThat(redactor.redact("contraseña: hunter2 rechazada")).doesNotContain("hunter2");
+        assertThat(redactor.redact("Passwort=hunter2 ungültig")).doesNotContain("hunter2");
+        assertThat(redactor.redact("chave: sk-live-123 expirada")).doesNotContain("sk-live-123");
+        // words that merely CONTAIN a keyword must not trigger
+        assertThat(redactor.redact("a senhora aprovou o pedido 42")).isEqualTo("a senhora aprovou o pedido 42");
+        // keyword without a separator is prose, not a credential
+        assertThat(redactor.redact("a chave do problema era o cache")).contains("chave do problema");
+    }
+
+    @Test
     void masksJsonQuotedSecretKeys() {
         String out = redactor.redact("request body {\"user\":\"bob\",\"password\":\"hunter2\"}");
         assertThat(out).doesNotContain("hunter2").contains("\"user\":\"bob\"");

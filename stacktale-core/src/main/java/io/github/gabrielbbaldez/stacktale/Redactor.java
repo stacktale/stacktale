@@ -15,13 +15,23 @@ final class Redactor {
 
     private static final String MASK = "███";
 
+    /**
+     * Secret-ish key names, shared with the renderer's arg-position heuristic. Not just
+     * English: logs are written in the developer's language and "senha=hunter2" leaks
+     * exactly like "password=hunter2". Kept conservative — every word here is one that,
+     * followed by =/:, is overwhelmingly a credential.
+     */
+    static final String SECRET_KEYWORDS =
+            "password|passwd|pwd|secret|token|api[_-]?key|authorization|credential"
+                    + "|senha|segredo|chave|contrase[nñ]a|clave|secreto|passwort|kennwort|mot[ _-]de[ _-]passe";
+
     // the value may be "Bearer <token>"/"Basic <creds>" — swallow the scheme word AND the
     // token, otherwise "Authorization: Basic dXNlcjpwYXNz" masks the word and leaks the creds
     private static final Pattern KEY_VALUE = Pattern.compile(
-            "(?i)\\b(password|passwd|pwd|secret|token|api[_-]?key|authorization|credential)s?\\b(\\s*[=:]\\s*)((?:(?:bearer|basic)\\s+)?\\S+)");
+            "(?i)\\b(" + SECRET_KEYWORDS + ")s?\\b(\\s*[=:]\\s*)((?:(?:bearer|basic)\\s+)?\\S+)");
     // JSON-style quoted keys: {"password":"hunter2"}
     private static final Pattern JSON_KEY_VALUE = Pattern.compile(
-            "(?i)\"(password|passwd|pwd|secret|token|api[_-]?key|authorization|credential)s?\"(\\s*:\\s*)\"[^\"]*\"");
+            "(?i)\"(" + SECRET_KEYWORDS + ")s?\"(\\s*:\\s*)\"[^\"]*\"");
     private static final Pattern BEARER_BASIC = Pattern.compile(
             "(?i)\\b(bearer|basic)\\s+[A-Za-z0-9._~+/=-]{16,}");
     private static final Pattern JWT = Pattern.compile(

@@ -156,7 +156,7 @@ final class ReportRenderer {
 
     /** Matches a secret-ish keyword sitting right before a {} placeholder in the pattern. */
     private static final java.util.regex.Pattern SECRET_BEFORE_PLACEHOLDER = java.util.regex.Pattern.compile(
-            "(?i)\\b(password|passwd|pwd|secret|token|api[_-]?key|authorization|credential)s?\\b\\s*[=:]?\\s*$");
+            "(?i)\\b(" + Redactor.SECRET_KEYWORDS + ")s?\\b\\s*[=:]?\\s*$");
 
     private String renderArgs(String pattern, Object[] args) {
         if (args == null || args.length == 0) return "";
