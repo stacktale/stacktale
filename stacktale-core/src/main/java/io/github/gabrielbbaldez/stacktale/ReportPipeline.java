@@ -38,6 +38,7 @@ public final class ReportPipeline {
             boolean captureExceptionFields,
             boolean redactionEnabled,
             List<Pattern> redactPatterns,
+            boolean redactionCorrelation,
             List<String> correlationMdcKeys,
             ZoneId zone,
             long echoSuppressionMillis,
@@ -84,6 +85,7 @@ public final class ReportPipeline {
             private boolean captureExceptionFields = true;
             private boolean redactionEnabled = true;
             private List<Pattern> redactPatterns = List.of();
+            private boolean redactionCorrelation = false;
             private List<String> correlationMdcKeys = Csv.parse(DEFAULT_CORRELATION_MDC_KEYS);
             private ZoneId zone = ZoneId.systemDefault();
             private long echoSuppressionMillis = DEFAULT_ECHO_SUPPRESSION_MILLIS;
@@ -103,6 +105,7 @@ public final class ReportPipeline {
             public Builder captureExceptionFields(boolean v) { this.captureExceptionFields = v; return this; }
             public Builder redactionEnabled(boolean v) { this.redactionEnabled = v; return this; }
             public Builder redactPatterns(List<Pattern> v) { this.redactPatterns = v; return this; }
+            public Builder redactionCorrelation(boolean v) { this.redactionCorrelation = v; return this; }
             public Builder correlationMdcKeys(List<String> v) { this.correlationMdcKeys = v; return this; }
             public Builder zone(ZoneId v) { this.zone = v; return this; }
             public Builder echoSuppressionMillis(long v) { this.echoSuppressionMillis = v; return this; }
@@ -113,7 +116,8 @@ public final class ReportPipeline {
             public Settings build() {
                 return new Settings(file, appPackages, storySize, storyWindowMillis, dedupWindowMillis,
                         maxFileBytes, maxBackups, truncateOnStart, reportErrorsWithoutThrowable,
-                        captureExceptionFields, redactionEnabled, redactPatterns, correlationMdcKeys, zone,
+                        captureExceptionFields, redactionEnabled, redactPatterns, redactionCorrelation,
+                        correlationMdcKeys, zone,
                         echoSuppressionMillis, containerLoggers, emitReportsToLogger, maxReportsPerMinute);
             }
         }
@@ -167,7 +171,7 @@ public final class ReportPipeline {
     /** Never throws: a broken configuration produces a warned, no-op pipeline. */
     public static ReportPipeline create(Settings settings, Host host) {
         Redactor redactor = settings.redactionEnabled()
-                ? Redactor.withDefaults(settings.redactPatterns())
+                ? Redactor.withDefaults(settings.redactPatterns(), settings.redactionCorrelation())
                 : Redactor.disabled();
         ReportRenderer renderer = new ReportRenderer(settings.zone(), redactor);
         ReportWriter writer;

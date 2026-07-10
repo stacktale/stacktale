@@ -126,6 +126,8 @@ public final class StacktaleAppender extends AbstractAppender {
         @PluginBuilderAttribute private boolean redactionEnabled = true;
         /** Extra redaction regexes, separated by {@code ;;} (regexes may contain commas). */
         @PluginBuilderAttribute private String redactPatterns = "";
+        /** Opt-in: append a stable keyed-hash token to masked values so an AI can still see repetition ({@code ███(a1b2)}). */
+        @PluginBuilderAttribute private boolean redactionCorrelation = false;
         @PluginBuilderAttribute private String correlationMdcKeys = ReportPipeline.Settings.DEFAULT_CORRELATION_MDC_KEYS;
         @PluginBuilderAttribute private String zone = "";
         /** 0 disables container-echo suppression. */
@@ -173,6 +175,7 @@ public final class StacktaleAppender extends AbstractAppender {
                     .captureExceptionFields(captureExceptionFields)
                     .redactionEnabled(redactionEnabled)
                     .redactPatterns(compiled)
+                    .redactionCorrelation(redactionCorrelation)
                     .correlationMdcKeys(csv(correlationMdcKeys))
                     .zone(zoneId)
                     .echoSuppressionMillis(echoSuppressionMillis)

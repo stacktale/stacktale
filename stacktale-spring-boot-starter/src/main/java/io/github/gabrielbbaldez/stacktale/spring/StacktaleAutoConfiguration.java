@@ -71,6 +71,7 @@ public class StacktaleAutoConfiguration {
         appender.setCaptureExceptionFields(props.isCaptureExceptionFields());
         appender.setRedactionEnabled(props.isRedactionEnabled());
         props.getRedactPatterns().forEach(appender::addRedactPattern);
+        appender.setRedactionCorrelation(props.isRedactionCorrelation());
         appender.setCorrelationMdcKeys(props.getCorrelationMdcKeys());
         appender.setZone(props.getZone());
         appender.setEchoSuppressionMillis(props.getEchoSuppressionMillis());

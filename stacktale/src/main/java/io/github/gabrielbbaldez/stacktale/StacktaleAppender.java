@@ -38,6 +38,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
     private boolean captureExceptionFields = true;
     private boolean redactionEnabled = true;
     private final List<String> redactPatterns = new java.util.ArrayList<>();
+    private boolean redactionCorrelation = false;
     private String correlationMdcKeys = ReportPipeline.Settings.DEFAULT_CORRELATION_MDC_KEYS;
     private String zone = "";
     private long echoSuppressionMillis = ReportPipeline.Settings.DEFAULT_ECHO_SUPPRESSION_MILLIS;
@@ -88,6 +89,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
                 .captureExceptionFields(captureExceptionFields)
                 .redactionEnabled(redactionEnabled)
                 .redactPatterns(compiled)
+                .redactionCorrelation(redactionCorrelation)
                 .correlationMdcKeys(csv(correlationMdcKeys))
                 .zone(zoneId)
                 .echoSuppressionMillis(echoSuppressionMillis)
@@ -204,6 +206,9 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
 
     /** Joran calls this once per {@code <redactPattern>} element in logback.xml. */
     public void addRedactPattern(String pattern) { this.redactPatterns.add(pattern); }
+
+    /** Opt-in: append a stable keyed-hash token to masked values so an AI can still see repetition ({@code ███(a1b2)}). */
+    public void setRedactionCorrelation(boolean redactionCorrelation) { this.redactionCorrelation = redactionCorrelation; }
 
     public void setCorrelationMdcKeys(String correlationMdcKeys) { this.correlationMdcKeys = correlationMdcKeys; }
 

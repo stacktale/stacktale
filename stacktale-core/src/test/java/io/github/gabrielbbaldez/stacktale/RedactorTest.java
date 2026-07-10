@@ -89,4 +89,42 @@ class RedactorTest {
     void disabledPassesThrough() {
         assertThat(Redactor.disabled().redact("password=hunter2")).isEqualTo("password=hunter2");
     }
+
+    // --- correlation-preserving redaction (opt-in) -------------------------------------
+
+    @Test
+    void correlationTokenIsStablePerValueAndHidesTheValue() {
+        Redactor c = Redactor.withDefaults(List.of(), true);
+        String first = c.redact("checkout failed for gabriel@example.com");
+        String again = c.redact("retry failed for gabriel@example.com");
+        // the raw email never reaches the file, but the SAME email → the SAME 4-hex suffix,
+        // so an AI reading two occurrences sees it is one customer, not two
+        assertThat(first).doesNotContain("gabriel@example.com").contains("███(");
+        assertThat(tokenOf(first)).hasSize(4).isEqualTo(tokenOf(again));
+    }
+
+    @Test
+    void correlationDistinguishesDifferentValues() {
+        Redactor c = Redactor.withDefaults(List.of(), true);
+        assertThat(tokenOf(c.redact("user alice@example.com")))
+                .isNotEqualTo(tokenOf(c.redact("user bob.roberts@example.com")));
+    }
+
+    @Test
+    void correlationSkipsShortLowEntropyValues() {
+        Redactor c = Redactor.withDefaults(List.of(), true);
+        // a 6-char value's keyed hash is guessable from a tiny domain → plain mask, no token
+        assertThat(c.redact("ping a@b.co now")).isEqualTo("ping ███ now");
+    }
+
+    @Test
+    void correlationOffByDefaultKeepsPlainMask() {
+        assertThat(redactor.redact("checkout failed for gabriel@example.com"))
+                .isEqualTo("checkout failed for ███");
+    }
+
+    private static String tokenOf(String redacted) {
+        java.util.regex.Matcher m = Pattern.compile("███\\(([0-9a-f]+)\\)").matcher(redacted);
+        return m.find() ? m.group(1) : null;
+    }
 }

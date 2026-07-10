@@ -110,6 +110,14 @@ occur in normal log text.
 Redaction (on by default) replaces matched secrets with `███` **before** the value
 reaches the file — a parser sees the masked form.
 
+With **correlation** enabled (opt-in, off by default) a masked value carries a stable
+suffix: `███(a1b2)`, where `a1b2` is four lowercase-hex characters of a keyed hash of the
+raw value. The same value yields the same suffix within one process run, so a reader can
+tell whether the *same* secret keeps recurring without the value ever being exposed; the
+suffix is one-way (a per-process random key) and is applied only to values long enough
+that it cannot be brute-forced from a small domain. A parser that doesn't care may treat
+`███(…)` exactly like `███`.
+
 ## 5. Non-report entries
 
 ```

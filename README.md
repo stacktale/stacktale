@@ -281,6 +281,7 @@ Everything is optional — as appender properties in `logback.xml`, or `stacktal
 | `captureExceptionFields` | `true` | Read exception getters into `fields:` |
 | `redactionEnabled` | `true` | Mask secrets/PII in report content |
 | `redactPattern` (repeatable) | — | Extra redaction regexes |
+| `redactionCorrelation` | `false` | Tag masked values with a stable keyed token (`███(a1b2)`) so an AI can see the same secret recurring |
 | `correlationMdcKeys` | `traceId,correlationId,requestId` | MDC keys that group the story |
 | `zone` | system | Timezone for report timestamps |
 | `echoSuppressionMillis` | `2000` | Skip container re-logs of a failure this thread just reported (0 = off) |

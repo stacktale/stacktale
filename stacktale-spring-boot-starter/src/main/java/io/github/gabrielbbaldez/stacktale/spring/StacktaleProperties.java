@@ -52,6 +52,12 @@ public class StacktaleProperties {
     /** Extra redaction regexes applied on top of the built-ins. */
     private List<String> redactPatterns = new ArrayList<>();
 
+    /**
+     * Append a stable keyed-hash token to masked values ({@code ███(a1b2)}) so an AI can
+     * still see when the same secret repeats. Off by default (the plain mask is the safest).
+     */
+    private boolean redactionCorrelation = false;
+
     /** MDC keys that group the story per request. */
     private String correlationMdcKeys = Settings.DEFAULT_CORRELATION_MDC_KEYS;
 
@@ -101,6 +107,8 @@ public class StacktaleProperties {
     public void setRedactionEnabled(boolean redactionEnabled) { this.redactionEnabled = redactionEnabled; }
     public List<String> getRedactPatterns() { return redactPatterns; }
     public void setRedactPatterns(List<String> redactPatterns) { this.redactPatterns = redactPatterns; }
+    public boolean isRedactionCorrelation() { return redactionCorrelation; }
+    public void setRedactionCorrelation(boolean redactionCorrelation) { this.redactionCorrelation = redactionCorrelation; }
     public String getCorrelationMdcKeys() { return correlationMdcKeys; }
     public void setCorrelationMdcKeys(String correlationMdcKeys) { this.correlationMdcKeys = correlationMdcKeys; }
     public String getZone() { return zone; }
