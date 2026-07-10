@@ -17,9 +17,11 @@ class StacktaleAutoConfigurationTest {
             .withConfiguration(AutoConfigurations.of(StacktaleAutoConfiguration.class));
 
     @AfterEach
-    void detachGlobalAppender() {
+    void detachGlobalAppenders() {
         LoggerContext ctx = (LoggerContext) LoggerFactory.getILoggerFactory();
-        ctx.getLogger(Logger.ROOT_LOGGER_NAME).detachAppender(StacktaleAutoConfiguration.APPENDER_NAME);
+        Logger root = ctx.getLogger(Logger.ROOT_LOGGER_NAME);
+        root.detachAppender(StacktaleAutoConfiguration.AUTO_APPENDER_NAME);
+        root.detachAppender(StacktaleAutoConfiguration.APPENDER_NAME); // the manual one some tests register
     }
 
     @Test
@@ -28,7 +30,7 @@ class StacktaleAutoConfigurationTest {
             assertThat(context).hasSingleBean(StacktaleAppender.class);
             LoggerContext ctx = (LoggerContext) LoggerFactory.getILoggerFactory();
             assertThat(ctx.getLogger(Logger.ROOT_LOGGER_NAME)
-                    .getAppender(StacktaleAutoConfiguration.APPENDER_NAME)).isNotNull();
+                    .getAppender(StacktaleAutoConfiguration.AUTO_APPENDER_NAME)).isNotNull();
             // request logger feeds stacktale only — never the console
             assertThat(ctx.getLogger(StacktaleRequestFilter.REQUEST_LOGGER).isAdditive()).isFalse();
         });
@@ -40,8 +42,22 @@ class StacktaleAutoConfigurationTest {
             assertThat(context).doesNotHaveBean(StacktaleAppender.class);
             LoggerContext ctx = (LoggerContext) LoggerFactory.getILoggerFactory();
             assertThat(ctx.getLogger(Logger.ROOT_LOGGER_NAME)
-                    .getAppender(StacktaleAutoConfiguration.APPENDER_NAME)).isNull();
+                    .getAppender(StacktaleAutoConfiguration.AUTO_APPENDER_NAME)).isNull();
         });
+    }
+
+    @Test
+    void freshContextReplacesTheStaleAppenderFromAPreviousContext() {
+        // Logback's context is JVM-global and outlives Spring's: run two "applications"
+        // back to back and the second must get its OWN appender, not the first one's
+        StacktaleAppender[] captured = new StacktaleAppender[2];
+        runner.withPropertyValues("stacktale.file=target/ctx-one.log")
+                .run(context -> captured[0] = context.getBean(StacktaleAppender.class));
+        // note: no detach between runs — that's the point
+        runner.withPropertyValues("stacktale.file=target/ctx-two.log")
+                .run(context -> captured[1] = context.getBean(StacktaleAppender.class));
+        assertThat(captured[1]).isNotSameAs(captured[0]);
+        assertThat(captured[0].isStarted()).isFalse(); // stale one was stopped on replacement
     }
 
     @Test

@@ -89,6 +89,11 @@ public final class ReportPipeline {
         return new ReportPipeline(settings, host, writer, renderer);
     }
 
+    /** False when configuration was broken at creation time and the pipeline is a no-op. */
+    public boolean isActive() {
+        return writer != null;
+    }
+
     public void process(LogEventData event) {
         try {
             if (writer == null || SELF_LOGGER.equals(event.loggerName())) return;

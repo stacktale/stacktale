@@ -28,9 +28,12 @@ import org.springframework.core.Ordered;
 @EnableConfigurationProperties(StacktaleProperties.class)
 public class StacktaleAutoConfiguration {
 
+    /** A user-configured appender in logback.xml under this name is respected, never replaced. */
     static final String APPENDER_NAME = "STACKTALE";
+    /** The auto-configured appender's own name — replaced on every context refresh. */
+    static final String AUTO_APPENDER_NAME = "STACKTALE_AUTO";
 
-    @Bean
+    @Bean(destroyMethod = "")
     public StacktaleAppender stacktaleAppender(StacktaleProperties props, BeanFactory beanFactory) {
         if (!(LoggerFactory.getILoggerFactory() instanceof LoggerContext ctx)) {
             // a different SLF4J backend is bound; nothing we can do — stay a no-op
@@ -42,10 +45,19 @@ public class StacktaleAutoConfiguration {
         if (root.getAppender(APPENDER_NAME) instanceof StacktaleAppender existing) {
             return existing; // user already configured one in logback.xml — don't double up
         }
+        // Logback's context outlives Spring's: a previous application context (test suite,
+        // DevTools restart) may have left OUR appender behind with stale configuration.
+        // Replace it — never reuse it — so the current context's properties always apply.
+        ch.qos.logback.core.Appender<ch.qos.logback.classic.spi.ILoggingEvent> stale =
+                root.getAppender(AUTO_APPENDER_NAME);
+        if (stale != null) {
+            root.detachAppender(stale);
+            stale.stop();
+        }
 
         StacktaleAppender appender = new StacktaleAppender();
         appender.setContext(ctx);
-        appender.setName(APPENDER_NAME);
+        appender.setName(AUTO_APPENDER_NAME);
         appender.setFile(props.getFile());
         appender.setAppPackages(resolveAppPackages(props, beanFactory));
         appender.setStorySize(props.getStorySize());
@@ -69,6 +81,19 @@ public class StacktaleAutoConfiguration {
         requestLogger.setAdditive(false);
         requestLogger.addAppender(appender);
         return appender;
+    }
+
+    /** Detaches the auto-configured appender when the Spring context closes. */
+    @Bean
+    public org.springframework.beans.factory.DisposableBean stacktaleCleanup(StacktaleAppender appender) {
+        return () -> {
+            if (LoggerFactory.getILoggerFactory() instanceof LoggerContext ctx
+                    && AUTO_APPENDER_NAME.equals(appender.getName())) {
+                ctx.getLogger(Logger.ROOT_LOGGER_NAME).detachAppender(appender);
+                ctx.getLogger(StacktaleRequestFilter.REQUEST_LOGGER).detachAppender(appender);
+                appender.stop();
+            }
+        };
     }
 
     private String resolveAppPackages(StacktaleProperties props, BeanFactory beanFactory) {

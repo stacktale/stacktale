@@ -48,6 +48,20 @@ class RedactorTest {
     }
 
     @Test
+    void masksShortBasicCredentialsEntirely() {
+        // "Basic dXNlcjpwYXNz" is under the 16-char shape threshold; the key=value rule
+        // must swallow the scheme word AND the credential, not just the word "Basic"
+        String out = redactor.redact("header Authorization: Basic dXNlcjpwYXNz rejected");
+        assertThat(out).doesNotContain("dXNlcjpwYXNz");
+    }
+
+    @Test
+    void masksJsonQuotedSecretKeys() {
+        String out = redactor.redact("request body {\"user\":\"bob\",\"password\":\"hunter2\"}");
+        assertThat(out).doesNotContain("hunter2").contains("\"user\":\"bob\"");
+    }
+
+    @Test
     void leavesNormalTextAlone() {
         String s = "order 889 failed with status 502 after 800ms (git 7e3c1f)";
         assertThat(redactor.redact(s)).isEqualTo(s);

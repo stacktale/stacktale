@@ -87,10 +87,12 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
             }
         });
         super.start();
-        addInfo("stacktale active → " + file + " (error reports for AI consumption)");
-        if (installUncaughtHandler) {
-            org.slf4j.Logger uncaught = LoggerFactory.getLogger(UncaughtHandler.UNCAUGHT_LOGGER);
-            UncaughtHandler.install(uncaught::error);
+        if (pipeline.isActive()) {
+            addInfo("stacktale active → " + file + " (error reports for AI consumption)");
+            if (installUncaughtHandler) {
+                org.slf4j.Logger uncaught = LoggerFactory.getLogger(UncaughtHandler.UNCAUGHT_LOGGER);
+                UncaughtHandler.install(uncaught::error);
+            }
         }
     }
 

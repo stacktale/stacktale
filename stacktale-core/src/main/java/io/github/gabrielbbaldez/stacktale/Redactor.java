@@ -15,8 +15,13 @@ final class Redactor {
 
     private static final String MASK = "███";
 
+    // the value may be "Bearer <token>"/"Basic <creds>" — swallow the scheme word AND the
+    // token, otherwise "Authorization: Basic dXNlcjpwYXNz" masks the word and leaks the creds
     private static final Pattern KEY_VALUE = Pattern.compile(
-            "(?i)\\b(password|passwd|pwd|secret|token|api[_-]?key|authorization|credential)s?\\b(\\s*[=:]\\s*)(\\S+)");
+            "(?i)\\b(password|passwd|pwd|secret|token|api[_-]?key|authorization|credential)s?\\b(\\s*[=:]\\s*)((?:(?:bearer|basic)\\s+)?\\S+)");
+    // JSON-style quoted keys: {"password":"hunter2"}
+    private static final Pattern JSON_KEY_VALUE = Pattern.compile(
+            "(?i)\"(password|passwd|pwd|secret|token|api[_-]?key|authorization|credential)s?\"(\\s*:\\s*)\"[^\"]*\"");
     private static final Pattern BEARER_BASIC = Pattern.compile(
             "(?i)\\b(bearer|basic)\\s+[A-Za-z0-9._~+/=-]{16,}");
     private static final Pattern JWT = Pattern.compile(
@@ -42,6 +47,10 @@ final class Redactor {
         return new Redactor(false, List.of());
     }
 
+    boolean isEnabled() {
+        return enabled;
+    }
+
     String redact(String s) {
         if (!enabled || s == null || s.isEmpty()) return s;
         try {
@@ -49,6 +58,7 @@ final class Redactor {
             // and mask the word "Bearer" while leaving the token itself exposed
             s = JWT.matcher(s).replaceAll(MASK);
             s = BEARER_BASIC.matcher(s).replaceAll("$1 " + MASK);
+            s = JSON_KEY_VALUE.matcher(s).replaceAll("\"$1\"$2\"" + MASK + "\"");
             s = KEY_VALUE.matcher(s).replaceAll("$1$2" + MASK);
             s = LONG_HEX.matcher(s).replaceAll(MASK);
             s = EMAIL.matcher(s).replaceAll(MASK);

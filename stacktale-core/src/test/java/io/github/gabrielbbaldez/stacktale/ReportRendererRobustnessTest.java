@@ -51,6 +51,25 @@ class ReportRendererRobustnessTest {
     }
 
     @Test
+    void secretsInArgsAndFieldsAndMdcAreRedacted() {
+        // "password={}" puts the secret in the ARG; fields/mdc carry it as k/v pairs —
+        // name-based redaction must fire in all three places
+        Report r = new Report("abcd", 1_000_000L, "main", null,
+                "login failed password={} for user {}", new Object[]{"hunter2", "bob"},
+                "com.acme.Auth",
+                Map.of("session.token", "abc-secret-token-123"),
+                Map.of("password", "hunter2", "orderId", "42"),
+                new Story(List.of(), "thread main"), "app=? | java 21 | linux");
+
+        String rendered = new ReportRenderer(ZoneOffset.UTC).render(r);
+
+        assertThat(rendered).doesNotContain("hunter2");
+        assertThat(rendered).doesNotContain("abc-secret-token-123");
+        assertThat(rendered).contains("args=[███, bob]");     // only the secret arg masked
+        assertThat(rendered).contains("orderId=42");          // non-secret fields untouched
+    }
+
+    @Test
     void newlineInRootMessageIsFlattened() {
         DistilledStack stack = new DistilledStack("IllegalStateException", "first\nsecond",
                 "Svc.run(Svc.java:1)", true, List.of(), List.of("Svc.run(Svc.java:1) ← culprit"), 1, 1, List.of());

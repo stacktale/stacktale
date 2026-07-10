@@ -53,7 +53,7 @@ public final class StacktaleAppender extends AbstractAppender {
     @Override
     public void start() {
         super.start();
-        if (installUncaughtHandler) {
+        if (installUncaughtHandler && pipeline.isActive()) {
             org.apache.logging.log4j.Logger uncaught = LogManager.getLogger(UncaughtHandler.UNCAUGHT_LOGGER);
             UncaughtHandler.install(uncaught::error);
         }

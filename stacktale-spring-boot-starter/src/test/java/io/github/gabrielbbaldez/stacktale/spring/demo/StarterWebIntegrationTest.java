@@ -38,7 +38,7 @@ class StarterWebIntegrationTest {
     @AfterAll
     static void detachGlobalAppender() {
         LoggerContext ctx = (LoggerContext) LoggerFactory.getILoggerFactory();
-        ctx.getLogger(Logger.ROOT_LOGGER_NAME).detachAppender("STACKTALE");
+        ctx.getLogger(Logger.ROOT_LOGGER_NAME).detachAppender("STACKTALE_AUTO");
     }
 
     @Autowired

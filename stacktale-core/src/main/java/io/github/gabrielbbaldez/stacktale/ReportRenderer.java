@@ -67,19 +67,21 @@ final class ReportRenderer {
         }
 
         sb.append("log: \"").append(clean(r.messagePattern())).append('"');
-        String args = renderArgs(r.args());
+        String args = renderArgs(r.messagePattern(), r.args());
         if (!args.isEmpty()) sb.append(" args=[").append(args).append(']');
         sb.append(" logger=").append(abbreviate(r.loggerName())).append('\n');
 
+        // key and value are cleaned as one string: name-based redaction ("password=…")
+        // structurally cannot fire on a value cleaned in isolation
         if (r.mdc() != null && !r.mdc().isEmpty()) {
             sb.append("mdc:");
-            new TreeMap<>(r.mdc()).forEach((k, v) -> sb.append(' ').append(clean(k)).append('=').append(clean(v)));
+            new TreeMap<>(r.mdc()).forEach((k, v) -> sb.append(' ').append(clean(k + "=" + v)));
             sb.append('\n');
         }
 
         if (r.fields() != null && !r.fields().isEmpty()) {
             sb.append("fields:");
-            new TreeMap<>(r.fields()).forEach((k, v) -> sb.append(' ').append(clean(k)).append('=').append(clean(v)));
+            new TreeMap<>(r.fields()).forEach((k, v) -> sb.append(' ').append(clean(k + "=" + v)));
             sb.append('\n');
         }
 
@@ -152,12 +154,23 @@ final class ReportRenderer {
         }
     }
 
-    private String renderArgs(Object[] args) {
+    /** Matches a secret-ish keyword sitting right before a {} placeholder in the pattern. */
+    private static final java.util.regex.Pattern SECRET_BEFORE_PLACEHOLDER = java.util.regex.Pattern.compile(
+            "(?i)\\b(password|passwd|pwd|secret|token|api[_-]?key|authorization|credential)s?\\b\\s*[=:]?\\s*$");
+
+    private String renderArgs(String pattern, Object[] args) {
         if (args == null || args.length == 0) return "";
+        // "password={}" puts the secret in the ARG, where name-based redaction can't see
+        // it — the pattern tells us which arg positions hold secrets
+        java.util.Set<Integer> secretIndexes = secretArgIndexes(pattern);
         StringBuilder sb = new StringBuilder();
         int shown = Math.min(args.length, MAX_ARGS);
         for (int i = 0; i < shown; i++) {
             if (i > 0) sb.append(", ");
+            if (secretIndexes.contains(i)) {
+                sb.append("███");
+                continue;
+            }
             String s;
             try {
                 s = String.valueOf(args[i]);
@@ -170,6 +183,20 @@ final class ReportRenderer {
         }
         if (args.length > MAX_ARGS) sb.append(", …+").append(args.length - MAX_ARGS);
         return sb.toString();
+    }
+
+    private java.util.Set<Integer> secretArgIndexes(String pattern) {
+        if (!redactor.isEnabled() || pattern == null || pattern.indexOf('{') < 0) return java.util.Set.of();
+        java.util.Set<Integer> out = new java.util.HashSet<>();
+        int index = 0;
+        int from = 0;
+        int at;
+        while ((at = pattern.indexOf("{}", from)) >= 0) {
+            if (SECRET_BEFORE_PLACEHOLDER.matcher(pattern.substring(0, at)).find()) out.add(index);
+            index++;
+            from = at + 2;
+        }
+        return out;
     }
 
     /** One line per section is part of the format: embedded newlines become literal {@code \n}. */
