@@ -46,7 +46,10 @@ public final class StacktaleMcpServer {
     }
 
     public static void main(String[] args) throws Exception {
+        // precedence: --file argument > STACKTALE_FILE env var > default
         Path file = Path.of("errors-ai.log");
+        String env = System.getenv("STACKTALE_FILE");
+        if (env != null && !env.isBlank()) file = Path.of(env);
         for (int i = 0; i < args.length - 1; i++) {
             if ("--file".equals(args[i])) file = Path.of(args[i + 1]);
         }

@@ -56,6 +56,9 @@
     <dependency>
       <groupId>io.micrometer</groupId>
       <artifactId>context-propagation</artifactId>
+      <!-- pinned, not BOM-managed: Spring Boot only added it to its BOM in 3.3,
+           so an explicit version keeps the reactive support resolvable on 3.2 too -->
+      <version>1.1.2</version>
       <optional>true</optional>
     </dependency>
     <dependency>

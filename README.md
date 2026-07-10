@@ -208,6 +208,8 @@ sessions and paths.
 
 Tools: `list_errors` (id, time, headline, repeat count — newest first), `get_report`
 (the full st/1 block), `errors_since` (blocks after a timestamp). No network, no writes.
+Full per-client setup (Claude Code, Claude Desktop, Cursor) in
+[docs/mcp-setup.md](docs/mcp-setup.md).
 
 Shipping to aggregators instead? Set `emitReportsToLogger=true` and each report block is
 also emitted as ONE log event through logger `stacktale.reports` — attach your existing
@@ -319,6 +321,18 @@ Async work: wrap hops with [`StacktaleExecutors`](stacktale/src/main/java/io/git
 - Redaction is regex-level hygiene, not semantic PII detection.
 - `StacktaleExecutors` propagates the SLF4J MDC; in Log4j2-native apps (no SLF4J
   binding), propagate `ThreadContext` across hops yourself.
+
+## Compatibility
+
+Tested in CI against a version matrix (weekly + on any POM change). Supported floors,
+each backed by a passing build:
+
+| Dependency | Supported | Tested up to |
+|---|---|---|
+| Java | 17+ | 21 |
+| Logback | 1.4+ | 1.5.x |
+| Log4j2 | 2.20+ | 2.24.x |
+| Spring Boot *(starter)* | 3.2+ | 3.5.x |
 
 ## Roadmap
 

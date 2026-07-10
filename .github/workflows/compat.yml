@@ -1,0 +1,38 @@
+name: Compatibility matrix
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # weekly, Monday 06:00 UTC
+  workflow_dispatch:
+  push:
+    paths:
+      - "**/pom.xml"
+      - ".github/workflows/compat.yml"
+
+jobs:
+  backends:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "Logback 1.4 (floor)"
+            args: "-Dlogback.version=1.4.14"
+          - name: "Logback 1.5 (current)"
+            args: "-Dlogback.version=1.5.38"
+          - name: "Log4j2 2.20 (floor)"
+            args: "-Dlog4j2.version=2.20.0"
+          - name: "Spring Boot 3.2"
+            args: "-Dspring-boot.version=3.2.12 -Dlogback.version=1.4.14"
+          - name: "Spring Boot 3.3"
+            args: "-Dspring-boot.version=3.3.13"
+          - name: "Spring Boot 3.5"
+            args: "-Dspring-boot.version=3.5.6"
+    name: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - run: mvn -B verify ${{ matrix.args }}
