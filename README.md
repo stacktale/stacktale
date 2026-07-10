@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/GabrielBBaldez/stacktale/actions/workflows/ci.yml"><img src="https://github.com/GabrielBBaldez/stacktale/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://central.sonatype.com/artifact/io.github.gabrielbbaldez/stacktale"><img src="https://img.shields.io/maven-central/v/io.github.gabrielbbaldez/stacktale" alt="Maven Central"></a>
   <img src="https://img.shields.io/badge/Java-17%2B-orange" alt="Java 17+">
   <img src="https://img.shields.io/badge/License-Apache--2.0-blue" alt="Apache-2.0">
 </p>
@@ -313,10 +314,18 @@ Async work: wrap hops with [`StacktaleExecutors`](stacktale/src/main/java/io/git
 
 ## Roadmap
 
-Maven Central publication ([#2](https://github.com/GabrielBBaldez/stacktale/issues/2))
-and real-world format validation ([#4](https://github.com/GabrielBBaldez/stacktale/issues/4))
-— full list in [issues](https://github.com/GabrielBBaldez/stacktale/issues).
-Contributions welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
+The original roadmap (Central, Log4j2, starter, agent, MCP, real-world validation) has
+shipped. What's next lives in the milestones:
+
+- **[0.4.0](https://github.com/GabrielBBaldez/stacktale/milestone/1)** — production
+  hardening and the agentic loop: formal `st/1` spec, error-storm rate limiting, MCP
+  push notifications, agent filters, compatibility matrix, one-click releases.
+- **[1.0.0](https://github.com/GabrielBBaldez/stacktale/milestone/2)** — maturity:
+  frozen format spec, mutation-tested, soak-tested, SBOM + provenance, receiver-state
+  capture exploration.
+
+Contributions welcome — several issues are labeled `good first issue`. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
