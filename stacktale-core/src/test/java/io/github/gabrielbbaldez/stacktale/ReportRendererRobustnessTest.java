@@ -20,7 +20,7 @@ class ReportRendererRobustnessTest {
 
     private Report report(Object[] args, Map<String, String> mdc, Story story) {
         return new Report("abcd", 1_000_000L, "main", null,
-                "processing {}", args, "com.acme.Svc", mdc, Map.of(), story, "app=? | java 21 | linux");
+                "processing {}", args, "com.acme.Svc", mdc, Map.of(), List.of(), story, "app=? | java 21 | linux");
     }
 
     @Test
@@ -58,7 +58,7 @@ class ReportRendererRobustnessTest {
                 "login failed password={} for user {}", new Object[]{"hunter2", "bob"},
                 "com.acme.Auth",
                 Map.of("session.token", "abc-secret-token-123"),
-                Map.of("password", "hunter2", "orderId", "42"),
+                Map.of("password", "hunter2", "orderId", "42"), List.of(),
                 new Story(List.of(), "thread main"), "app=? | java 21 | linux");
 
         String rendered = new ReportRenderer(ZoneOffset.UTC).render(r);
@@ -74,7 +74,7 @@ class ReportRendererRobustnessTest {
         DistilledStack stack = new DistilledStack("IllegalStateException", "first\nsecond",
                 "Svc.run(Svc.java:1)", true, List.of(), List.of("Svc.run(Svc.java:1) ← culprit"), 1, 1, List.of());
         Report r = new Report("abcd", 1_000_000L, "main", stack,
-                "boom", null, "com.acme.Svc", Map.of(), Map.of(), new Story(List.of(), "thread main"),
+                "boom", null, "com.acme.Svc", Map.of(), Map.of(), List.of(), new Story(List.of(), "thread main"),
                 "app=? | java 21 | linux");
 
         String rendered = new ReportRenderer(ZoneOffset.UTC).render(r);

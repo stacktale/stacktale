@@ -85,6 +85,11 @@ final class ReportRenderer {
             sb.append('\n');
         }
 
+        if (r.captured() != null && !r.captured().isEmpty()) {
+            sb.append("captured (method args at throw site, via stacktale-agent):\n");
+            for (String line : r.captured()) sb.append("  ").append(clean(line)).append('\n');
+        }
+
         renderStory(sb, r);
 
         if (stack != null) {

@@ -154,6 +154,7 @@ share `stacktale-core`.
 | `log` | The message pattern, its args (the values!), and the logger |
 | `mdc` | The full MDC at the moment of the error |
 | `fields` | **State carried by the exception chain itself** — `orderId`, `statusCode`, `retryable` — read from public getters/fields with hard safety caps |
+| `captured` | *(with `stacktale-agent`)* **Method arguments at the throw site** — `confirmOrder(orderId=889, customer=null)` — even when the code logged nothing |
 | `story` | The last events from the same request (MDC `traceId`) or thread — the narrative that led to the error |
 | `stack` | Distilled: framework runs collapse into `… 39 collapsed (spring ×24, tomcat ×11)` |
 | `env` | App name/version, git sha, Java version, profile, OS — collected once |
@@ -211,6 +212,35 @@ Shipping to aggregators instead? Set `emitReportsToLogger=true` and each report 
 also emitted as ONE log event through logger `stacktale.reports` — attach your existing
 Loki/ELK/CloudWatch shipper to that logger and production reports reach your incident
 tooling with zero stacktale-specific infrastructure.
+
+## Capture what nobody logged (the agent)
+
+The optional `stacktale-agent` instruments your packages and, when an exception escapes
+a method, records that method's **argument values** into the report:
+
+```
+java -javaagent:stacktale-agent.jar=packages=com.your.app -jar app.jar
+```
+
+```
+captured (method args at throw site, via stacktale-agent):
+  OrderService.sendConfirmation(orderId=889, customer=null, tier=EXPRESS)
+  OrderService.confirm(orderId=889, customer=null, express=true)
+```
+
+The `customer=null` nobody logged is right there. Zero happy-path overhead (the advice
+only runs on the exceptional exit), bounded captures (5 frames, 60 chars per value),
+values pass through redaction, and real parameter names appear when the app is compiled
+with `-parameters` (`argN` otherwise). Scope note: arguments, not full local variables —
+that trade-off is what keeps it safe and free.
+
+## Reactive (WebFlux)
+
+The starter detects reactive apps: a `WebFilter` opens each story with the request line
+and plants the `traceId` in the Reactor Context, and stacktale enables automatic context
+propagation (micrometer `context-propagation`) so the story survives `flatMap`s and
+scheduler hops — validated by a test that crosses `boundedElastic` and `parallel` before
+failing.
 
 ## Does it actually help? (blind A/B)
 

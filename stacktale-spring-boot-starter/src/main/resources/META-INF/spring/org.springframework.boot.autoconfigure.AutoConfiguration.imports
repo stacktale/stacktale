@@ -1,1 +1,2 @@
 io.github.gabrielbbaldez.stacktale.spring.StacktaleAutoConfiguration
+io.github.gabrielbbaldez.stacktale.spring.StacktaleReactiveConfiguration

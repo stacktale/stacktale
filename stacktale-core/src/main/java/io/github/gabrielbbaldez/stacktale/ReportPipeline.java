@@ -146,7 +146,8 @@ public final class ReportPipeline {
                                 : Map.of();
                         Report report = new Report(fingerprint, event.epochMillis(), event.threadName(),
                                 stack, event.messagePattern(), event.args(), event.loggerName(),
-                                event.mdc(), fields, storyBuffer.storyFor(event), env.envLine());
+                                event.mdc(), fields, AgentCaptures.forChain(throwable),
+                                storyBuffer.storyFor(event), env.envLine());
                         String rendered = renderer.render(report);
                         writer.append(rendered);
                         if (settings.emitReportsToLogger()) host.emitReport(rendered);
