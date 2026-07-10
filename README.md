@@ -359,6 +359,15 @@ path as well as the classpath — a resolution smoke test in CI pins this:
 > your `logback.xml` — a one-line change. The Spring Boot starter and Log4j2 configs are
 > unaffected.
 
+### GraalVM native-image
+
+The report pipeline is reflection-free, so stacktale works in native (incl. Spring Boot 3
+AOT) out of the box. `env:` is handled for you (bundled resource metadata + a Spring
+`RuntimeHintsRegistrar`). The one section that needs your input is `fields:`, which
+reflects over *your* exception types — register them and it keeps working; leave them and
+it degrades to empty (never a crash). Full details and the escape hatch:
+[docs/native.md](docs/native.md).
+
 ## Roadmap
 
 The original roadmap (Central, Log4j2, starter, agent, MCP, real-world validation) has

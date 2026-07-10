@@ -1,0 +1,9 @@
+{
+  "_comment": "EnvCollector reads these classpath resources for the env: line. Registering them keeps app version + git sha working under GraalVM native-image. Everything else in stacktale is reflection-free; fields: needs the user's own exception types registered (see docs/native.md).",
+  "resources": {
+    "includes": [
+      { "pattern": "\\Qgit.properties\\E" },
+      { "pattern": "\\QMETA-INF/build-info.properties\\E" }
+    ]
+  }
+}

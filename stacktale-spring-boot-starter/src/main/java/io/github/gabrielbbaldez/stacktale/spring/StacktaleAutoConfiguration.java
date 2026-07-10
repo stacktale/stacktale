@@ -13,6 +13,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplicat
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ImportRuntimeHints;
 import org.springframework.core.Ordered;
 
 /**
@@ -26,6 +27,7 @@ import org.springframework.core.Ordered;
 @ConditionalOnClass(LoggerContext.class)
 @ConditionalOnProperty(prefix = "stacktale", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(StacktaleProperties.class)
+@ImportRuntimeHints(StacktaleRuntimeHints.class)
 public class StacktaleAutoConfiguration {
 
     /** A user-configured appender in logback.xml under this name is respected, never replaced. */
