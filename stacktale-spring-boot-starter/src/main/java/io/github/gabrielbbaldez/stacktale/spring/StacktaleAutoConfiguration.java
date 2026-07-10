@@ -73,6 +73,8 @@ public class StacktaleAutoConfiguration {
         props.getRedactPatterns().forEach(appender::addRedactPattern);
         appender.setCorrelationMdcKeys(props.getCorrelationMdcKeys());
         appender.setZone(props.getZone());
+        appender.setEchoSuppressionMillis(props.getEchoSuppressionMillis());
+        props.getContainerLoggers().forEach(appender::addContainerLogger);
         appender.start();
         root.addAppender(appender);
 

@@ -48,6 +48,22 @@ class DeduperTest {
     }
 
     @Test
+    void drainPendingSurfacesThrottledBurstCounts() {
+        AtomicLong now = new AtomicLong(0);
+        Deduper d = new Deduper(300_000, 60_000, now::get);
+        d.decide("a1");                       // REPORT (written: 1)
+        now.set(1_000);
+        d.decide("a1");                       // SUMMARY (written: 2)
+        now.set(2_000);
+        d.decide("a1");                       // SILENT
+        d.decide("a1");                       // SILENT (count now 4, file still says 2)
+        var pending = d.drainPending();
+        assertThat(pending).hasSize(1);
+        assertThat(pending.get(0).count()).isEqualTo(4);
+        assertThat(d.drainPending()).isEmpty(); // draining is idempotent
+    }
+
+    @Test
     void rollbackGivesTheNextOccurrenceAFreshReport() {
         AtomicLong now = new AtomicLong(0);
         Deduper d = new Deduper(300_000, 60_000, now::get);

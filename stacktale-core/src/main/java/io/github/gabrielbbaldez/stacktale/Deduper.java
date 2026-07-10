@@ -15,9 +15,14 @@ final class Deduper {
 
     private static final class Stats {
         int count;
+        int lastWrittenCount;
         long lastReport;
         long lastSummary;
+        long lastSeen;
     }
+
+    /** A repeat counter whose latest value never reached the file (burst inside the throttle). */
+    record Pending(String fingerprint, int count, long lastSeenMillis) {}
 
     private final long windowMillis;
     private final long summaryThrottleMillis;
@@ -38,8 +43,10 @@ final class Deduper {
     synchronized Decision decide(String fingerprint) {
         long now = clock.getAsLong();
         Stats s = stats.computeIfAbsent(fingerprint, k -> new Stats());
+        s.lastSeen = now;
         if (s.count == 0 || now - s.lastReport > windowMillis) {
             s.count = 1;
+            s.lastWrittenCount = 1;
             s.lastReport = now;
             s.lastSummary = now;
             return new Decision(Kind.REPORT, 1, now);
@@ -48,9 +55,23 @@ final class Deduper {
         boolean firstRepeat = s.count == 2;
         if (firstRepeat || now - s.lastSummary >= summaryThrottleMillis) {
             s.lastSummary = now;
+            s.lastWrittenCount = s.count;
             return new Decision(Kind.SUMMARY, s.count, now);
         }
         return new Decision(Kind.SILENT, s.count, now);
+    }
+
+    /** Counters ahead of what the file shows (throttled bursts) — drained on shutdown. */
+    synchronized java.util.List<Pending> drainPending() {
+        java.util.List<Pending> pending = new java.util.ArrayList<>();
+        for (Map.Entry<String, Stats> e : stats.entrySet()) {
+            Stats s = e.getValue();
+            if (s.count > s.lastWrittenCount) {
+                pending.add(new Pending(e.getKey(), s.count, s.lastSeen));
+                s.lastWrittenCount = s.count;
+            }
+        }
+        return pending;
     }
 
     /**

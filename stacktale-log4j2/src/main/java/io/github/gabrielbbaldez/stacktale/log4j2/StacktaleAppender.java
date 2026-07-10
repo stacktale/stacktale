@@ -60,6 +60,12 @@ public final class StacktaleAppender extends AbstractAppender {
     }
 
     @Override
+    public boolean stop(long timeout, java.util.concurrent.TimeUnit timeUnit) {
+        pipeline.close(); // flush pending repeat counters
+        return super.stop(timeout, timeUnit);
+    }
+
+    @Override
     public void append(LogEvent event) {
         try {
             pipeline.process(adapt(event));
@@ -116,6 +122,10 @@ public final class StacktaleAppender extends AbstractAppender {
         @PluginBuilderAttribute private String redactPatterns = "";
         @PluginBuilderAttribute private String correlationMdcKeys = "traceId,correlationId,requestId";
         @PluginBuilderAttribute private String zone = "";
+        /** 0 disables container-echo suppression. */
+        @PluginBuilderAttribute private long echoSuppressionMillis = 2000;
+        /** Comma-separated logger prefixes treated as container echoes (empty = defaults). */
+        @PluginBuilderAttribute private String containerLoggers = "";
 
         @Override
         public StacktaleAppender build() {
@@ -137,11 +147,14 @@ public final class StacktaleAppender extends AbstractAppender {
                     }
                 }
             }
+            List<String> containers = containerLoggers == null || containerLoggers.isBlank()
+                    ? ReportPipeline.Settings.DEFAULT_CONTAINER_LOGGERS
+                    : csv(containerLoggers);
             ReportPipeline.Settings settings = new ReportPipeline.Settings(
                     file, csv(appPackages), storySize, storyWindowSeconds * 1000L,
                     dedupWindowSeconds * 1000L, maxFileSizeMb * 1024L * 1024L, maxBackups, truncateOnStart,
                     reportErrorsWithoutThrowable, captureExceptionFields, redactionEnabled, compiled,
-                    csv(correlationMdcKeys), zoneId);
+                    csv(correlationMdcKeys), zoneId, echoSuppressionMillis, containers);
             ReportPipeline pipeline = ReportPipeline.create(settings, new ReportPipeline.Host() {
                 @Override
                 public void selfLog(String message) {

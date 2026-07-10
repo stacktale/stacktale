@@ -120,6 +120,41 @@ class StacktaleAppenderIntegrationTest {
     }
 
     @Test
+    void suppressesContainerEchoRightAfterAppReport(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("errors-ai.log");
+        startAppender(file, "");
+        Exception e = wrappedNpe();
+        ctx.getLogger("com.acme.OrderService").error("checkout failed", e);
+        // Tomcat re-logs the failure moments later on the same thread — must NOT double-report
+        ctx.getLogger("org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/].[dispatcherServlet]")
+                .error("Servlet.service() threw exception", new IllegalStateException("rethrown"));
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        assertThat(content).containsOnlyOnce("\n━━━ ERROR #");
+    }
+
+    @Test
+    void containerErrorAloneStillGetsItsReport(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("errors-ai.log");
+        startAppender(file, "");
+        // the app never logged: the container report is the only signal — keep it
+        ctx.getLogger("org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/].[dispatcherServlet]")
+                .error("Servlet.service() threw exception", new IllegalStateException("unlogged failure"));
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        assertThat(content).contains("IllegalStateException: unlogged failure");
+    }
+
+    @Test
+    void flushesPendingRepeatCountersOnStop(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("errors-ai.log");
+        StacktaleAppender appender = startAppender(file, "");
+        Exception e = wrappedNpe();
+        for (int i = 0; i < 6; i++) ctx.getLogger("com.acme.Burst").error("burst failure", e);
+        appender.stop();
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        assertThat(content).contains("repeated 6×"); // the file must not understate the burst
+    }
+
+    @Test
     void redactsSecretsInEveryReportSection(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("errors-ai.log");
         startAppender(file, "");

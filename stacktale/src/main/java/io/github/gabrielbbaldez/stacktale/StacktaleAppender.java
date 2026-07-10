@@ -40,6 +40,9 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
     private final List<String> redactPatterns = new java.util.ArrayList<>();
     private String correlationMdcKeys = "traceId,correlationId,requestId";
     private String zone = "";
+    private long echoSuppressionMillis = 2000;
+    private final List<String> containerLoggers =
+            new java.util.ArrayList<>(ReportPipeline.Settings.DEFAULT_CONTAINER_LOGGERS);
 
     private ReportPipeline pipeline;
     private org.slf4j.Logger selfLogger;
@@ -74,7 +77,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
                 file, csv(appPackages), storySize, storyWindowSeconds * 1000L,
                 dedupWindowSeconds * 1000L, maxFileSizeMb * 1024L * 1024L, maxBackups, truncateOnStart,
                 reportErrorsWithoutThrowable, captureExceptionFields, redactionEnabled, compiled,
-                csv(correlationMdcKeys), zoneId);
+                csv(correlationMdcKeys), zoneId, echoSuppressionMillis, List.copyOf(containerLoggers));
         pipeline = ReportPipeline.create(settings, new ReportPipeline.Host() {
             @Override
             public void selfLog(String message) {
@@ -94,6 +97,12 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
                 UncaughtHandler.install(uncaught::error);
             }
         }
+    }
+
+    @Override
+    public void stop() {
+        if (pipeline != null) pipeline.close(); // flush pending repeat counters
+        super.stop();
     }
 
     @Override
@@ -175,4 +184,10 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
     public void setCorrelationMdcKeys(String correlationMdcKeys) { this.correlationMdcKeys = correlationMdcKeys; }
 
     public void setZone(String zone) { this.zone = zone; }
+
+    /** 0 disables container-echo suppression. */
+    public void setEchoSuppressionMillis(long echoSuppressionMillis) { this.echoSuppressionMillis = echoSuppressionMillis; }
+
+    /** Joran calls this once per {@code <containerLogger>} element (adds to the defaults). */
+    public void addContainerLogger(String prefix) { this.containerLoggers.add(prefix); }
 }

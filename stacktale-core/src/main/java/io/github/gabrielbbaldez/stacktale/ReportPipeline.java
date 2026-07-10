@@ -36,8 +36,15 @@ public final class ReportPipeline {
             boolean redactionEnabled,
             List<Pattern> redactPatterns,
             List<String> correlationMdcKeys,
-            ZoneId zone
-    ) {}
+            ZoneId zone,
+            long echoSuppressionMillis,
+            List<String> containerLoggers
+    ) {
+
+        /** Default logger prefixes whose errors are re-logs of an exception the app already reported. */
+        public static final List<String> DEFAULT_CONTAINER_LOGGERS =
+                List.of("org.apache.catalina.core.ContainerBase");
+    }
 
     /** Callbacks into the hosting logging framework. */
     public interface Host {
@@ -58,6 +65,8 @@ public final class ReportPipeline {
     private final ReportWriter writer; // null = broken config, pipeline is a no-op
     private final AtomicBoolean warnedOnce = new AtomicBoolean();
     private final AtomicBoolean announced = new AtomicBoolean();
+    /** When this thread last produced a full report — used to suppress container echoes. */
+    private final ThreadLocal<Long> lastReportOnThread = new ThreadLocal<>();
 
     private ReportPipeline(Settings settings, Host host, ReportWriter writer, ReportRenderer renderer) {
         this.settings = settings;
@@ -103,6 +112,11 @@ public final class ReportPipeline {
             storyBuffer.record(event);
             if (!event.error()) return;
 
+            // container echo: Tomcat/Spring re-log the exception the app just reported —
+            // suppress the duplicate ONLY when this thread produced a report moments ago,
+            // so apps that don't log before rethrowing still get their container report
+            if (isContainerEcho(event)) return;
+
             Throwable throwable = event.throwable();
             if (throwable == null && !settings.reportErrorsWithoutThrowable()) return;
 
@@ -128,6 +142,7 @@ public final class ReportPipeline {
                         deduper.rollback(fingerprint);
                         throw t;
                     }
+                    lastReportOnThread.set(System.currentTimeMillis());
                     host.selfLog("AI error report #" + fingerprint + " → " + settings.file());
                 }
                 case SUMMARY -> writer.append(
@@ -138,6 +153,33 @@ public final class ReportPipeline {
             if (warnedOnce.compareAndSet(false, true)) {
                 host.warn("stacktale failed to process an event; further failures are silent", t);
             }
+        }
+    }
+
+    private boolean isContainerEcho(LogEventData event) {
+        if (settings.echoSuppressionMillis() <= 0) return false;
+        String logger = event.loggerName();
+        boolean container = false;
+        for (String prefix : settings.containerLoggers()) {
+            if (logger.startsWith(prefix)) {
+                container = true;
+                break;
+            }
+        }
+        if (!container) return false;
+        Long last = lastReportOnThread.get();
+        return last != null && System.currentTimeMillis() - last <= settings.echoSuppressionMillis();
+    }
+
+    /** Flushes pending repeat counters (bursts silenced by the summary throttle) — call on shutdown. */
+    public void close() {
+        try {
+            if (writer == null) return;
+            for (Deduper.Pending pending : deduper.drainPending()) {
+                writer.append(renderer.renderSummary(pending.fingerprint(), pending.count(), pending.lastSeenMillis()));
+            }
+        } catch (Throwable t) {
+            // shutdown must never fail the host
         }
     }
 }

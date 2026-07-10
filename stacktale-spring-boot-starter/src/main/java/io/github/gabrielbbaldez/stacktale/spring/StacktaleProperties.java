@@ -60,6 +60,12 @@ public class StacktaleProperties {
     /** Log one line per HTTP request into the story (never into your console). */
     private boolean requestLogging = true;
 
+    /** Suppress container re-logs of a failure this thread just reported (0 = off). */
+    private long echoSuppressionMillis = 2000;
+
+    /** Extra logger prefixes treated as container echoes (added to the defaults). */
+    private List<String> containerLoggers = new ArrayList<>();
+
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public String getFile() { return file; }
@@ -94,4 +100,8 @@ public class StacktaleProperties {
     public void setZone(String zone) { this.zone = zone; }
     public boolean isRequestLogging() { return requestLogging; }
     public void setRequestLogging(boolean requestLogging) { this.requestLogging = requestLogging; }
+    public long getEchoSuppressionMillis() { return echoSuppressionMillis; }
+    public void setEchoSuppressionMillis(long echoSuppressionMillis) { this.echoSuppressionMillis = echoSuppressionMillis; }
+    public List<String> getContainerLoggers() { return containerLoggers; }
+    public void setContainerLoggers(List<String> containerLoggers) { this.containerLoggers = containerLoggers; }
 }
