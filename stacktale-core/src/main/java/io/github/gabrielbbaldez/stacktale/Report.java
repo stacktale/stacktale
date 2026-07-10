@@ -16,5 +16,7 @@ public record Report(
         Map<String, String> fields,
         List<String> captured,
         Story story,
-        String envLine
+        String envLine,
+        int occurrences,
+        long firstSeenMillis
 ) {}

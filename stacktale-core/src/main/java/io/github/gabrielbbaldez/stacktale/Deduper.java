@@ -19,6 +19,8 @@ final class Deduper {
         long lastReport;
         long lastSummary;
         long lastSeen;
+        long firstSeen;    // first time this fingerprint was seen this session (never reset)
+        int total;         // lifetime occurrences across all windows
     }
 
     /** A repeat counter whose latest value never reached the file (burst inside the throttle). */
@@ -44,12 +46,14 @@ final class Deduper {
         long now = clock.getAsLong();
         Stats s = stats.computeIfAbsent(fingerprint, k -> new Stats());
         s.lastSeen = now;
+        if (s.total == 0) s.firstSeen = now;
+        s.total++;
         if (s.count == 0 || now - s.lastReport > windowMillis) {
             s.count = 1;
             s.lastWrittenCount = 1;
             s.lastReport = now;
             s.lastSummary = now;
-            return new Decision(Kind.REPORT, 1, now);
+            return new Decision(Kind.REPORT, 1, now, s.total, s.firstSeen);
         }
         s.count++;
         boolean firstRepeat = s.count == 2;
@@ -57,9 +61,9 @@ final class Deduper {
             s.lastSummary = now;
             // lastWrittenCount is advanced only after the summary is durably written
             // (confirmWritten) — otherwise a failed write would silently lose the count
-            return new Decision(Kind.SUMMARY, s.count, now);
+            return new Decision(Kind.SUMMARY, s.count, now, s.total, s.firstSeen);
         }
-        return new Decision(Kind.SILENT, s.count, now);
+        return new Decision(Kind.SILENT, s.count, now, s.total, s.firstSeen);
     }
 
     /** Records that a summary line reflecting {@code count} reached the file. */

@@ -90,6 +90,14 @@ final class ReportRenderer {
             for (String line : r.captured()) sb.append("  ").append(clean(line)).append('\n');
         }
 
+        // recurrence: only shown when the error is not brand new — "is this systemic or a
+        // one-off?" changes the reader's urgency, and the answer was previously invisible
+        // inside a fresh report (a window had expired since the last one)
+        if (r.occurrences() > 1) {
+            sb.append("seen: ").append(r.occurrences()).append("× this session, first at ")
+                    .append(time.format(Instant.ofEpochMilli(r.firstSeenMillis()))).append('\n');
+        }
+
         renderStory(sb, r);
 
         if (stack != null) {

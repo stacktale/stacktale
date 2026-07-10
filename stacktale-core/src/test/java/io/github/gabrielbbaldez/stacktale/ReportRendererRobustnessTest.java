@@ -20,7 +20,7 @@ class ReportRendererRobustnessTest {
 
     private Report report(Object[] args, Map<String, String> mdc, Story story) {
         return new Report("abcd", 1_000_000L, "main", null,
-                "processing {}", args, "com.acme.Svc", mdc, Map.of(), List.of(), story, "app=? | java 21 | linux");
+                "processing {}", args, "com.acme.Svc", mdc, Map.of(), List.of(), story, "app=? | java 21 | linux", 1, 0L);
     }
 
     @Test
@@ -59,7 +59,7 @@ class ReportRendererRobustnessTest {
                 "com.acme.Auth",
                 Map.of("session.token", "abc-secret-token-123"),
                 Map.of("password", "hunter2", "orderId", "42"), List.of(),
-                new Story(List.of(), "thread main"), "app=? | java 21 | linux");
+                new Story(List.of(), "thread main"), "app=? | java 21 | linux", 1, 0L);
 
         String rendered = new ReportRenderer(ZoneOffset.UTC).render(r);
 
@@ -75,7 +75,7 @@ class ReportRendererRobustnessTest {
                 "Svc.run(Svc.java:1)", true, List.of(), List.of("Svc.run(Svc.java:1) ← culprit"), 1, 1, List.of());
         Report r = new Report("abcd", 1_000_000L, "main", stack,
                 "boom", null, "com.acme.Svc", Map.of(), Map.of(), List.of(), new Story(List.of(), "thread main"),
-                "app=? | java 21 | linux");
+                "app=? | java 21 | linux", 1, 0L);
 
         String rendered = new ReportRenderer(ZoneOffset.UTC).render(r);
 

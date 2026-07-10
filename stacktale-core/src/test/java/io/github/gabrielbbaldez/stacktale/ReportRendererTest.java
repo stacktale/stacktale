@@ -38,7 +38,7 @@ class ReportRendererTest {
         Report r = new Report("a1b2", 1_000_412L, "http-nio-8080-exec-3", stack,
                 "Failed to confirm order {}", new Object[]{123}, "com.acme.shop.OrderService",
                 Map.of("traceId", "9f3a", "userId", "42"), Map.of(), java.util.List.of(), story,
-                "app=shop-api 1.4.2 (git 7e3c1f) | java 21 | profile=dev | linux");
+                "app=shop-api 1.4.2 (git 7e3c1f) | java 21 | profile=dev | linux", 1, 0L);
 
         String rendered = new ReportRenderer(ZoneOffset.UTC).render(r);
 
@@ -52,7 +52,7 @@ class ReportRendererTest {
         ), "thread main");
         Report r = new Report("beef", 2_000_000L, "main", null,
                 "payment rejected for order {}", new Object[]{77}, "com.acme.PaymentService",
-                Map.of(), Map.of(), java.util.List.of(), story, "app=? | java 21 | linux");
+                Map.of(), Map.of(), java.util.List.of(), story, "app=? | java 21 | linux", 1, 0L);
 
         String rendered = new ReportRenderer(ZoneOffset.UTC).render(r);
 
@@ -60,11 +60,25 @@ class ReportRendererTest {
     }
 
     @Test
+    void recurrenceLineShownOnlyWhenErrorIsNotNew() {
+        Story story = new Story(List.of(), "thread main");
+        // first occurrence → no seen line (absence means new)
+        Report first = new Report("cafe", 2_000_000L, "main", null, "boom", null, "com.acme.Svc",
+                Map.of(), Map.of(), List.of(), story, "app=? | java 21 | linux", 1, 0L);
+        assertThat(new ReportRenderer(ZoneOffset.UTC).render(first)).doesNotContain("seen:");
+        // recurring → the line tells the reader it's systemic and since when
+        Report recurring = new Report("cafe", 2_000_000L, "main", null, "boom", null, "com.acme.Svc",
+                Map.of(), Map.of(), List.of(), story, "app=? | java 21 | linux", 5, 1_000_000L);
+        assertThat(new ReportRenderer(ZoneOffset.UTC).render(recurring))
+                .contains("seen: 5× this session, first at 00:16:40.000");
+    }
+
+    @Test
     void fieldsLineRenderedSortedAndFlattened() {
         Report r = new Report("cafe", 1_000_000L, "main", null,
                 "boom", null, "com.acme.Svc", Map.of(),
                 Map.of("orderId", "889", "note", "with\nnewline"), List.of(),
-                new Story(List.of(), "thread main"), "app=? | java 21 | linux");
+                new Story(List.of(), "thread main"), "app=? | java 21 | linux", 1, 0L);
         String rendered = new ReportRenderer(ZoneOffset.UTC).render(r);
         assertThat(rendered).contains("fields: note=with\\nnewline orderId=889");
     }

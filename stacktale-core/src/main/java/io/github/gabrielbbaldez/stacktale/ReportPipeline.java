@@ -218,7 +218,8 @@ public final class ReportPipeline {
                         Report report = new Report(fingerprint, event.epochMillis(), event.threadName(),
                                 stack, event.messagePattern(), event.args(), event.loggerName(),
                                 event.mdc(), fields, AgentCaptures.forChain(throwable),
-                                storyBuffer.storyFor(event), env.envLine());
+                                storyBuffer.storyFor(event), env.envLine(),
+                                decision.totalOccurrences(), decision.firstSeenMillis());
                         rendered = renderer.render(report);
                         writer.append(rendered);
                     } catch (Throwable t) {
