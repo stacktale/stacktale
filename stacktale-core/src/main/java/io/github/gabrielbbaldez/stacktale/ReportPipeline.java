@@ -42,7 +42,8 @@ public final class ReportPipeline {
             ZoneId zone,
             long echoSuppressionMillis,
             List<String> containerLoggers,
-            boolean emitReportsToLogger
+            boolean emitReportsToLogger,
+            int maxReportsPerMinute
     ) {
 
         /** Default logger prefixes whose errors are re-logs of an exception the app already reported. */
@@ -71,6 +72,7 @@ public final class ReportPipeline {
     private final StoryBuffer storyBuffer;
     private final StackDistiller distiller;
     private final Deduper deduper;
+    private final StormLimiter stormLimiter;
     private final EnvCollector env;
     private final ReportRenderer renderer;
     private final ReportWriter writer; // null = broken config, pipeline is a no-op
@@ -88,6 +90,9 @@ public final class ReportPipeline {
                 settings.correlationMdcKeys(), 200);
         this.distiller = new StackDistiller(settings.appPackages());
         this.deduper = new Deduper(settings.dedupWindowMillis(), 60_000, System::currentTimeMillis);
+        this.stormLimiter = settings.maxReportsPerMinute() > 0
+                ? new StormLimiter(settings.maxReportsPerMinute(), 60_000, 10_000, System::currentTimeMillis)
+                : StormLimiter.disabled();
         this.env = new EnvCollector(Thread.currentThread().getContextClassLoader());
     }
 
@@ -140,6 +145,14 @@ public final class ReportPipeline {
             Decision decision = deduper.decide(fingerprint);
             switch (decision.kind()) {
                 case REPORT -> {
+                    // storm control gates only full reports (summaries are already throttled);
+                    // beyond the rate limit, distinct errors are counted, not dumped
+                    StormLimiter.Outcome storm = stormLimiter.onReport();
+                    if (storm.action() == StormLimiter.Action.SUPPRESS) return;
+                    if (storm.action() == StormLimiter.Action.STORM_LINE) {
+                        writer.append(renderer.stormLine(storm.suppressed(), stormLimiter.maxPerWindow()));
+                        return;
+                    }
                     String rendered;
                     try {
                         Map<String, String> fields = settings.captureExceptionFields()
@@ -193,12 +206,16 @@ public final class ReportPipeline {
         return last != null && System.currentTimeMillis() - last <= settings.echoSuppressionMillis();
     }
 
-    /** Flushes pending repeat counters (bursts silenced by the summary throttle) — call on shutdown. */
+    /** Flushes pending repeat counters and storm-suppressed reports — call on shutdown. */
     public void close() {
         try {
             if (writer == null) return;
             for (Deduper.Pending pending : deduper.drainPending()) {
                 writer.append(renderer.renderSummary(pending.fingerprint(), pending.count(), pending.lastSeenMillis()));
+            }
+            int suppressed = stormLimiter.drainSuppressed();
+            if (suppressed > 0) {
+                writer.append(renderer.stormLine(suppressed, stormLimiter.maxPerWindow()));
             }
         } catch (Throwable t) {
             // shutdown must never fail the host

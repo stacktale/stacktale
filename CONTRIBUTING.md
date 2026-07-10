@@ -13,11 +13,12 @@ The full suite must be green before a PR. Coverage report lands in
 
 ## The one rule that matters: the report format is a public API
 
-The `st/1` report format is pinned by golden-file tests
-(`src/test/resources/golden/`). If your change makes a golden test fail, that is not a
-test to "fix" — it is a **format change**, and format changes need to be deliberate:
-called out in the PR description, reflected in `docs/design.md`, and (post-1.0) a format
-version bump. AI tools parse these files; we don't move their cheese silently.
+The `st/1` report format is specified in [docs/FORMAT.md](docs/FORMAT.md) and pinned by
+golden-file tests (`stacktale-core/src/test/resources/golden/`). If your change makes a
+golden test fail, that is not a test to "fix" — it is a **format change**, and format
+changes need to be deliberate: called out in the PR description, reflected in FORMAT.md,
+and (post-1.0) a format version bump. AI tools and the MCP server parse these files; we
+don't move their cheese silently.
 
 ## Working style
 

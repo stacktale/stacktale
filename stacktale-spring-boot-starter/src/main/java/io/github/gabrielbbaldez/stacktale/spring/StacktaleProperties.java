@@ -69,6 +69,9 @@ public class StacktaleProperties {
     /** Also emit each report block as ONE event via logger {@code stacktale.reports} (for shippers). */
     private boolean emitReportsToLogger = false;
 
+    /** Cap full reports per minute (0 = unlimited); excess errors become a storm line. */
+    private int maxReportsPerMinute = 0;
+
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public String getFile() { return file; }
@@ -109,4 +112,6 @@ public class StacktaleProperties {
     public void setContainerLoggers(List<String> containerLoggers) { this.containerLoggers = containerLoggers; }
     public boolean isEmitReportsToLogger() { return emitReportsToLogger; }
     public void setEmitReportsToLogger(boolean emitReportsToLogger) { this.emitReportsToLogger = emitReportsToLogger; }
+    public int getMaxReportsPerMinute() { return maxReportsPerMinute; }
+    public void setMaxReportsPerMinute(int maxReportsPerMinute) { this.maxReportsPerMinute = maxReportsPerMinute; }
 }

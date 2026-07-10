@@ -44,6 +44,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
     private final List<String> containerLoggers =
             new java.util.ArrayList<>(ReportPipeline.Settings.DEFAULT_CONTAINER_LOGGERS);
     private boolean emitReportsToLogger = false;
+    private int maxReportsPerMinute = 0;
 
     private ReportPipeline pipeline;
     private org.slf4j.Logger selfLogger;
@@ -79,7 +80,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
                 dedupWindowSeconds * 1000L, maxFileSizeMb * 1024L * 1024L, maxBackups, truncateOnStart,
                 reportErrorsWithoutThrowable, captureExceptionFields, redactionEnabled, compiled,
                 csv(correlationMdcKeys), zoneId, echoSuppressionMillis, List.copyOf(containerLoggers),
-                emitReportsToLogger);
+                emitReportsToLogger, maxReportsPerMinute);
         org.slf4j.Logger reportsLogger = getContext() instanceof ch.qos.logback.classic.LoggerContext lc
                 ? lc.getLogger(ReportPipeline.REPORTS_LOGGER)
                 : LoggerFactory.getLogger(ReportPipeline.REPORTS_LOGGER);
@@ -203,4 +204,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
 
     /** Also emit each report block as ONE event via logger {@code stacktale.reports} (for shippers). */
     public void setEmitReportsToLogger(boolean emitReportsToLogger) { this.emitReportsToLogger = emitReportsToLogger; }
+
+    /** Cap full reports per minute (0 = unlimited); excess errors become a storm line. */
+    public void setMaxReportsPerMinute(int maxReportsPerMinute) { this.maxReportsPerMinute = maxReportsPerMinute; }
 }

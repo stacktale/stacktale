@@ -152,6 +152,36 @@ class StacktaleAppenderIntegrationTest {
     }
 
     @Test
+    void stormControlBoundsAFloodOfDistinctErrors(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("errors-ai.log");
+        ctx = new LoggerContext();
+        ctx.setMDCAdapter(MDC.getMDCAdapter());
+        StacktaleAppender appender = new StacktaleAppender();
+        appender.setContext(ctx);
+        appender.setFile(file.toString());
+        appender.setInstallUncaughtHandler(false);
+        appender.setMaxReportsPerMinute(5); // cascade cap
+        appender.start();
+        ctx.getLogger(Logger.ROOT_LOGGER_NAME).addAppender(appender);
+        ctx.getLogger(Logger.ROOT_LOGGER_NAME).setLevel(Level.INFO);
+
+        Logger app = ctx.getLogger("com.acme.Cascade");
+        // 200 DISTINCT failures (different messages+sites) — a real dependency collapse
+        for (int i = 0; i < 200; i++) {
+            RuntimeException e = new RuntimeException("downstream " + i + " unavailable");
+            e.setStackTrace(new StackTraceElement[]{
+                    new StackTraceElement("com.acme.Cascade", "call" + i, "Cascade.java", i + 1)});
+            app.error("call to service {} failed", i, e);
+        }
+        appender.stop();
+
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        long fullReports = content.lines().filter(l -> l.startsWith("━━━ ERROR #")).count();
+        assertThat(fullReports).isLessThanOrEqualTo(5);      // bounded, not 200
+        assertThat(content).contains("storm:");              // the flood is acknowledged, not lost
+    }
+
+    @Test
     void suppressesContainerEchoRightAfterAppReport(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("errors-ai.log");
         startAppender(file, "");

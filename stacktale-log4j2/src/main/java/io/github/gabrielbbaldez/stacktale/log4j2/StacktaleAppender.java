@@ -134,6 +134,8 @@ public final class StacktaleAppender extends AbstractAppender {
         @PluginBuilderAttribute private String containerLoggers = "";
         /** Also emit each report block as ONE event via logger {@code stacktale.reports}. */
         @PluginBuilderAttribute private boolean emitReportsToLogger = false;
+        /** Cap full reports per minute (0 = unlimited); excess errors become a storm line. */
+        @PluginBuilderAttribute private int maxReportsPerMinute = 0;
 
         @Override
         public StacktaleAppender build() {
@@ -163,7 +165,7 @@ public final class StacktaleAppender extends AbstractAppender {
                     dedupWindowSeconds * 1000L, maxFileSizeMb * 1024L * 1024L, maxBackups, truncateOnStart,
                     reportErrorsWithoutThrowable, captureExceptionFields, redactionEnabled, compiled,
                     csv(correlationMdcKeys), zoneId, echoSuppressionMillis, containers,
-                    emitReportsToLogger);
+                    emitReportsToLogger, maxReportsPerMinute);
             ReportPipeline pipeline = ReportPipeline.create(settings, new ReportPipeline.Host() {
                 @Override
                 public void selfLog(String message) {

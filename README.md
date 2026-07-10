@@ -284,6 +284,7 @@ Everything is optional — as appender properties in `logback.xml`, or `stacktal
 | `echoSuppressionMillis` | `2000` | Skip container re-logs of a failure this thread just reported (0 = off) |
 | `containerLogger` (repeatable) | Tomcat's | Extra logger prefixes treated as container echoes |
 | `emitReportsToLogger` | `false` | Also emit each block as ONE event via logger `stacktale.reports` |
+| `maxReportsPerMinute` | `0` (unlimited) | Cap full reports/min; a cascade of distinct errors becomes a `storm:` line instead of flooding the file |
 | `requestLogging` *(starter)* | `true` | HTTP request lines into the story |
 
 Async work: wrap hops with [`StacktaleExecutors`](stacktale/src/main/java/io/github/gabrielbbaldez/stacktale/StacktaleExecutors.java)

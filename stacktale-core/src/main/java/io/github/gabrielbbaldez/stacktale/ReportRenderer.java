@@ -121,12 +121,17 @@ final class ReportRenderer {
                 # stack (distilled; framework frames collapsed), env. "← YOUR CODE" marks app frames.
                 # Repeated errors append "━ #<id> repeated N× ━" lines instead of new reports.
                 # "─── app start … ───" lines mark application restarts.
+                # "━ storm: N report(s) suppressed ━" lines mark rate-limited error floods.
                 """;
     }
 
     String sessionMarker(long epochMillis, long pid) {
         return "─── app start " + dateTime.format(Instant.ofEpochMilli(epochMillis))
                 + " (pid " + pid + ") ───\n";
+    }
+
+    String stormLine(int suppressed, int limit) {
+        return "━ storm: " + suppressed + " report(s) suppressed (rate limit " + limit + "/min) ━\n";
     }
 
     private void renderStory(StringBuilder sb, Report r) {
