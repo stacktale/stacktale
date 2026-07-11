@@ -15,14 +15,17 @@
 
 A Logback appender that turns Java errors into **AI-ready reports**. Add one dependency —
 and every error your app logs becomes a complete, token-efficient report in
-`errors-ai.log`, designed for the reader that actually debugs your code in 2026: an AI
-assistant. Your human logs stay exactly as they are.
+`errors-ai.log`, shaped for a reader that increasingly triages your errors: an AI
+assistant or an automated agent. It's written **alongside** your normal logs — the full
+stack trace stays exactly where it is.
 
 ## Why
 
-The Java error log format was designed in the 90s for a human with `grep`. Today the most
-frequent reader of an error log is an AI coding assistant — and the information it needs
-most is exactly what the classic format throws away:
+The Java error log format was designed in the 90s for a human with `grep`, and for that
+reader it works — you learn where to look, what to skip, and when the framework frame you'd
+ignore is actually the clue. But an AI assistant reads an error with none of that muscle
+memory: every one of those 60 lines is context and token cost, and the information it needs
+most is scattered across the log or never recorded at all:
 
 - **What happened before the error.** The log lines that explain the failure exist, but
   they're interleaved with 20 other threads, hundreds of lines above the stack trace.
@@ -36,6 +39,11 @@ So every pasted-log debugging session becomes an interrogation: 5–10 messages 
 asking for context that existed at the moment of the error and was thrown away.
 stacktale captures that context **at the source** and writes it as one structured block.
 Post-processing can't do this — by the time the log is written, the story is gone.
+
+And it **distills rather than discards**: your culprit frame and the full `wrapped by:`
+chain (where a proxy or reflection clue usually hides) stay; only repetitive framework runs
+collapse into a labeled count like `… 30 collapsed (spring ×20, tomcat ×10)`. When you want
+all 60 lines, they're still in your normal log, untouched.
 
 ## What the AI sees
 
