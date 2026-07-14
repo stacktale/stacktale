@@ -136,6 +136,24 @@ via `stacktale.*` properties in `application.yml`.
 Reports land in `./errors-ai.log`. Point your AI assistant at that file — it announces
 itself on startup, and the file header explains the format to any AI that opens it.
 
+### Kotlin
+
+Stacktale works with Kotlin without any Kotlin-specific configuration. Use the same Logback configuration or Spring Boot starter shown above.
+
+```kotlin
+private val log = LoggerFactory.getLogger(OrderService::class.java)
+
+fun confirm(orderId: Long) {
+    try {
+        // ...
+    } catch (e: Exception) {
+        log.error("confirm failed for order {}", orderId, e)
+    }
+}
+```
+
+The setup is identical to Java. Use the same `logback.xml` configuration or the Spring Boot starter shown above—no Kotlin-specific configuration is required.
+
 ### Log4j2
 
 ```xml
