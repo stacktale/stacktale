@@ -4,7 +4,19 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    groups:
+      # collapse routine minor/patch bumps into ONE PR; majors stay
+      # individual so a risky bump gets its own scrutiny.
+      maven-minor-patch:
+        update-types:
+          - minor
+          - patch
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch
