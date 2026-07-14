@@ -5,6 +5,32 @@
 error lands** instead of polling. It's a tiny read-only server that speaks
 [MCP](https://modelcontextprotocol.io) over stdio. No network, no writes.
 
+## Fastest path (2 minutes)
+
+If you have [JBang](https://www.jbang.dev), there's nothing to download. From your
+**project root** (so `$PWD` resolves the log path for you):
+
+**Claude Code** — one command:
+
+```bash
+claude mcp add stacktale -- jbang run io.github.gabrielbbaldez:stacktale-mcp:0.4.0 --file "$PWD/errors-ai.log"
+```
+
+**Cursor** — drop this into `.cursor/mcp.json` (swap in your absolute path):
+
+```json
+{ "mcpServers": { "stacktale": {
+    "command": "jbang",
+    "args": ["run", "io.github.gabrielbbaldez:stacktale-mcp:0.4.0", "--file", "/abs/path/errors-ai.log"]
+} } }
+```
+
+Then ask your assistant *"what errors has the app had recently?"*. That's it — the log
+file doesn't even need to exist yet; the server picks it up when the first error lands.
+
+The rest of this page covers downloading the jar directly (no JBang), the env-var option,
+Claude Desktop, and troubleshooting.
+
 ## Get the jar
 
 It's on Maven Central. Three ways, easiest first:
