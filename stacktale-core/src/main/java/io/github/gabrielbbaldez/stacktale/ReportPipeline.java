@@ -2,6 +2,7 @@ package io.github.gabrielbbaldez.stacktale;
 
 import java.nio.file.Path;
 import java.time.ZoneId;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -154,8 +155,18 @@ public final class ReportPipeline {
     private final ReportWriter writer; // null = broken config, pipeline is a no-op
     private final AtomicBoolean warnedOnce = new AtomicBoolean();
     private final AtomicBoolean announced = new AtomicBoolean();
-    /** When this thread last produced a full report — used to suppress container echoes. */
-    private final ThreadLocal<Long> lastReportOnThread = new ThreadLocal<>();
+    /**
+     * When a logical thread last produced a full report — used to suppress container echoes.
+     * Keyed by the event's thread NAME (not the physical thread) so it stays correct under
+     * Logback AsyncAppender, where every event is processed on one worker thread. Bounded LRU.
+     */
+    private final Map<String, Long> lastReportByThread =
+            new LinkedHashMap<>(64, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Long> e) {
+                    return size() > 256;
+                }
+            };
 
     private ReportPipeline(Settings settings, Host host, ReportWriter writer, Renderer renderer) {
         this.settings = settings;
@@ -251,7 +262,9 @@ public final class ReportPipeline {
                     }
                     // past this point the report is on disk: a failing shipper must not
                     // undo dedup state (that would duplicate the next occurrence's report)
-                    lastReportOnThread.set(System.currentTimeMillis());
+                    synchronized (lastReportByThread) {
+                        lastReportByThread.put(threadKey(event), System.currentTimeMillis());
+                    }
                     host.selfLog("AI error report #" + fingerprint + " → " + settings.file());
                     if (settings.emitReportsToLogger()) host.emitReport(rendered);
                 }
@@ -281,8 +294,17 @@ public final class ReportPipeline {
             }
         }
         if (!container) return false;
-        Long last = lastReportOnThread.get();
+        Long last;
+        synchronized (lastReportByThread) {
+            last = lastReportByThread.get(threadKey(event));
+        }
         return last != null && System.currentTimeMillis() - last <= settings.echoSuppressionMillis();
+    }
+
+    /** Logical thread name, with a stable fallback for unnamed (e.g. virtual) threads. */
+    private static String threadKey(LogEventData event) {
+        String t = event.threadName();
+        return (t == null || t.isBlank()) ? "<unnamed>" : t;
     }
 
     /** Flushes pending repeat counters and storm-suppressed reports — call on shutdown. */
