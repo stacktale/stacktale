@@ -24,13 +24,13 @@
     <dependency>
       <groupId>net.bytebuddy</groupId>
       <artifactId>byte-buddy</artifactId>
-      <version>1.15.10</version>
+      <version>1.18.11</version>
     </dependency>
 
     <dependency>
       <groupId>net.bytebuddy</groupId>
       <artifactId>byte-buddy-agent</artifactId>
-      <version>1.15.10</version>
+      <version>1.18.11</version>
       <scope>test</scope>
     </dependency>
     <!-- The most common production javaagent; AgentCoexistenceIT runs stacktale-agent
@@ -102,6 +102,22 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
         <version>3.6.0</version>
+        <!-- byte-buddy 1.18 ships Java 24 (class-file major 68) multi-release classes;
+             the shade-plugin's bundled ASM can't read them ("Unsupported class file
+             major version 68"). Pin ASM to a release that understands Java 24 so
+             relocation of net.bytebuddy succeeds. -->
+        <dependencies>
+          <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm</artifactId>
+            <version>9.8</version>
+          </dependency>
+          <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm-commons</artifactId>
+            <version>9.8</version>
+          </dependency>
+        </dependencies>
         <executions>
           <execution>
             <phase>package</phase>
