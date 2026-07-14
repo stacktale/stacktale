@@ -196,7 +196,16 @@ public final class StacktaleMcpServer {
                 boolean changed = key.pollEvents().stream()
                         .anyMatch(e -> target.equals(String.valueOf(e.context())));
                 key.reset();
-                if (changed && subscribed) notifyResourceUpdated();
+                if (!changed) continue;
+                // debounce: one error is often several appends (the block, a flush, maybe a
+                // repeat counter). Swallow the burst and push a SINGLE updated-notification so
+                // the agent re-reads once — not once per write.
+                java.nio.file.WatchKey burst;
+                while ((burst = ws.poll(150, java.util.concurrent.TimeUnit.MILLISECONDS)) != null) {
+                    burst.pollEvents();
+                    burst.reset();
+                }
+                if (subscribed) notifyResourceUpdated();
             }
         } catch (Exception ignored) {
             // the watcher is best-effort; failing it never affects the request loop
