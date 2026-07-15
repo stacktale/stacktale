@@ -106,6 +106,18 @@ All artifacts are on Maven Central.
 </dependency>
 ```
 
+**Gradle (Groovy)**
+
+```groovy
+implementation 'io.github.gabrielbbaldez:stacktale-spring-boot-starter:0.4.0'
+```
+
+**Gradle (Kotlin DSL)**
+
+```kotlin
+implementation("io.github.gabrielbbaldez:stacktale-spring-boot-starter:0.4.0")
+```
+
 That's it — no logback.xml editing. The starter registers the appender on the root
 logger, deduces `← YOUR CODE` packages from your `@SpringBootApplication`, and adds a
 servlet filter that opens every story with the HTTP request line (`GET /orders/889/checkout`)
@@ -120,6 +132,18 @@ via `stacktale.*` properties in `application.yml`.
   <artifactId>stacktale</artifactId>
   <version>0.4.0</version>
 </dependency>
+```
+
+**Gradle (Groovy)**
+
+```groovy
+implementation 'io.github.gabrielbbaldez:stacktale:0.4.0'
+```
+
+**Gradle (Kotlin DSL)**
+
+```kotlin
+implementation("io.github.gabrielbbaldez:stacktale:0.4.0")
 ```
 
 ```xml
@@ -144,6 +168,18 @@ itself on startup, and the file header explains the format to any AI that opens 
   <artifactId>stacktale-log4j2</artifactId>
   <version>0.4.0</version>
 </dependency>
+```
+
+**Gradle (Groovy)**
+
+```groovy
+implementation 'io.github.gabrielbbaldez:stacktale-log4j2:0.4.0'
+```
+
+**Gradle (Kotlin DSL)**
+
+```kotlin
+implementation("io.github.gabrielbbaldez:stacktale-log4j2:0.4.0")
 ```
 
 ```xml
@@ -171,6 +207,18 @@ by default — with no SLF4J bridge:
   <artifactId>stacktale-jul</artifactId>
   <version>0.5.0</version>
 </dependency>
+```
+
+**Gradle (Groovy)**
+
+```groovy
+implementation 'io.github.gabrielbbaldez:stacktale-jul:0.5.0'
+```
+
+**Gradle (Kotlin DSL)**
+
+```kotlin
+implementation("io.github.gabrielbbaldez:stacktale-jul:0.5.0")
 ```
 
 ```properties
