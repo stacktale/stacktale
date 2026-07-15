@@ -31,6 +31,7 @@ class StormLimiterTest {
         StormLimiter limiter = new StormLimiter(1, 60_000, 10_000, now::get);
         limiter.onReport();                       // ALLOW (fills the limit)
         assertThat(limiter.onReport().action()).isEqualTo(StormLimiter.Action.STORM_LINE);
+        limiter.confirmStormLine(1);              // the storm line reached the file
         assertThat(limiter.onReport().action()).isEqualTo(StormLimiter.Action.SUPPRESS);
         now.set(10_000);                          // throttle elapsed
         StormLimiter.Outcome next = limiter.onReport();
@@ -62,9 +63,23 @@ class StormLimiterTest {
         AtomicLong now = new AtomicLong(0);
         StormLimiter limiter = new StormLimiter(1, 60_000, 10_000, now::get);
         limiter.onReport();                       // ALLOW
-        limiter.onReport();                       // STORM_LINE (resets counter)
+        StormLimiter.Outcome line = limiter.onReport(); // STORM_LINE
+        limiter.confirmStormLine(line.suppressed());    // written → counter cleared
         limiter.onReport();                       // SUPPRESS (counter = 1)
         assertThat(limiter.drainSuppressed()).isEqualTo(1);
         assertThat(limiter.drainSuppressed()).isZero(); // idempotent
+    }
+
+    @Test
+    void suppressedCountSurvivesUntilTheStormLineIsConfirmed() {
+        // #57: onReport hands out the storm line's count but does NOT clear it — a failed write
+        // (no confirmStormLine) must carry the count into the next line, not drop it.
+        AtomicLong now = new AtomicLong(0);
+        StormLimiter limiter = new StormLimiter(1, 60_000, 0, now::get); // throttle 0 → a line every time
+        limiter.onReport();                                       // ALLOW (fills the limit)
+        assertThat(limiter.onReport().suppressed()).isEqualTo(1);  // storm line, not yet confirmed
+        assertThat(limiter.onReport().suppressed()).isEqualTo(2);  // write "failed" → count carried over
+        limiter.confirmStormLine(2);                              // this one reached the file
+        assertThat(limiter.onReport().suppressed()).isEqualTo(1);  // counter reset to just the new one
     }
 }

@@ -102,11 +102,18 @@ final class Deduper {
     }
 
     /**
-     * A REPORT decision was handed out but the report could not be written (e.g. a
-     * transient I/O failure). Forget the fingerprint so the next occurrence gets a fresh
-     * REPORT instead of being silently summarized for the rest of the window.
+     * A REPORT decision was handed out but the report was not durably written (a transient
+     * I/O failure or a storm suppression). Reset only the window fields so the next occurrence
+     * gets a fresh REPORT — but keep {@code firstSeen}/{@code total} so the lifetime "seen N×
+     * this session" recurrence survives (#57).
      */
     synchronized void rollback(String fingerprint) {
-        stats.remove(fingerprint);
+        Stats s = stats.get(fingerprint);
+        if (s == null) return;
+        s.count = 0;
+        s.lastWrittenCount = 0;
+        s.lastReport = 0;
+        s.lastSummary = 0;
+        s.reportPending = false;
     }
 }

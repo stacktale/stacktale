@@ -97,4 +97,19 @@ class DeduperTest {
         now.set(3_000);
         assertThat(d.decide("a1").kind()).isEqualTo(Kind.SUMMARY); // now repeats summarize
     }
+
+    @Test
+    void rollbackKeepsTheLifetimeRecurrence() {
+        // #57: re-arming a REPORT after a transient failure / storm suppression must NOT reset
+        // the "seen N× this session" recurrence — firstSeen and total survive.
+        AtomicLong now = new AtomicLong(0);
+        Deduper d = new Deduper(300_000, 60_000, now::get);
+        d.decide("a1");                    // total=1, firstSeen=0
+        d.rollback("a1");
+        now.set(5_000);
+        Decision again = d.decide("a1");   // fresh REPORT, but total=2 and firstSeen still 0
+        assertThat(again.kind()).isEqualTo(Kind.REPORT);
+        assertThat(again.totalOccurrences()).isEqualTo(2);
+        assertThat(again.firstSeenMillis()).isEqualTo(0);
+    }
 }

@@ -63,11 +63,17 @@ final class StormLimiter {
         if (!everEmittedStormLine || now - lastStormLine >= stormLineThrottleMillis) {
             everEmittedStormLine = true;
             lastStormLine = now;
-            int count = suppressedSinceLine;
-            suppressedSinceLine = 0;
-            return new Outcome(Action.STORM_LINE, count);
+            // don't zero the counter yet: the pipeline confirms it only once the storm line is
+            // durably written, so a failed write can't silently drop the suppressed count (#57)
+            return new Outcome(Action.STORM_LINE, suppressedSinceLine);
         }
         return Outcome.SUPPRESS;
+    }
+
+    /** The storm line reflecting {@code count} suppressions reached the file; clear them. */
+    synchronized void confirmStormLine(int count) {
+        // subtract rather than zero: a concurrent onReport() may have counted more since
+        suppressedSinceLine = Math.max(0, suppressedSinceLine - count);
     }
 
     /** Suppressed reports not yet reflected in a storm line — flushed on shutdown. */

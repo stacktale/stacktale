@@ -243,6 +243,7 @@ public final class ReportPipeline {
                     }
                     if (storm.action() == StormLimiter.Action.STORM_LINE) {
                         writer.append(renderer.stormLine(storm.suppressed(), stormLimiter.maxPerWindow()));
+                        stormLimiter.confirmStormLine(storm.suppressed()); // #57: clear only once written
                         deduper.rollback(fingerprint); // #51: this error's own report wasn't written
                         return;
                     }

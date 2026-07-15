@@ -124,7 +124,9 @@ that it cannot be brute-forced from a small domain. A parser that doesn't care m
 ━ #<id> repeated N× (last <HH:mm:ss.SSS>) ━
 ```
 The same error occurred again; `N` is the cumulative count. Emitted instead of a new
-block for repeats within the dedup window, throttled.
+block for repeats within the dedup window, throttled. The line binds to `<id>`: the full
+report block appears earlier in the file (§3) or in a now-rotated backup. A parser **must**
+tolerate a `repeated` line whose report block it has not seen — skip it, don't fail.
 
 ```
 ─── app start <timestamp> (pid <pid>) ───
@@ -207,5 +209,7 @@ Rules:
   secret-position arg becomes `███`, secret-shaped values are redacted. Multi-line values
   keep their newlines (JSON-escaped) instead of being flattened.
 - The `logger` is the full name (the text format abbreviates it for display; JSON does not).
+- A conforming parser **skips** any line that is not valid JSON: a torn or half-written line
+  (a crash or a full disk mid-write) must never abort parsing the rest of the file.
 - Same version discipline as §6: additive members don't bump the major; a breaking change
   bumps to `st-json/2`.
