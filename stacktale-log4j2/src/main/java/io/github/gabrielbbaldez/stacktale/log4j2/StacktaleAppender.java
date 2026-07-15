@@ -109,37 +109,40 @@ public final class StacktaleAppender extends AbstractAppender {
     }
 
     /** All attributes optional; names mirror the Logback appender's properties. */
+    // Log4j2 2.26+ warns-as-error when a @PluginBuilderAttribute field has no public setter.
+    // The plugin system writes these fields directly, so setters would be dead code — each
+    // field carries @SuppressWarnings("log4j.public.setter"). (Harmless no-op on older Log4j2.)
     public static final class Builder implements org.apache.logging.log4j.core.util.Builder<StacktaleAppender> {
 
-        @PluginBuilderAttribute private String name = "STACKTALE";
-        @PluginBuilderAttribute private String file = "errors-ai.log";
-        @PluginBuilderAttribute private String appPackages = "";
-        @PluginBuilderAttribute private int storySize = ReportPipeline.Settings.DEFAULT_STORY_SIZE;
-        @PluginBuilderAttribute private int storyWindowSeconds = ReportPipeline.Settings.DEFAULT_STORY_WINDOW_SECONDS;
-        @PluginBuilderAttribute private int dedupWindowSeconds = ReportPipeline.Settings.DEFAULT_DEDUP_WINDOW_SECONDS;
-        @PluginBuilderAttribute private int maxFileSizeMb = ReportPipeline.Settings.DEFAULT_MAX_FILE_SIZE_MB;
-        @PluginBuilderAttribute private int maxBackups = ReportPipeline.Settings.DEFAULT_MAX_BACKUPS;
-        @PluginBuilderAttribute private boolean truncateOnStart = false;
-        @PluginBuilderAttribute private boolean installUncaughtHandler = true;
-        @PluginBuilderAttribute private boolean reportErrorsWithoutThrowable = true;
-        @PluginBuilderAttribute private boolean captureExceptionFields = true;
-        @PluginBuilderAttribute private boolean redactionEnabled = true;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private String name = "STACKTALE";
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private String file = "errors-ai.log";
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private String appPackages = "";
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private int storySize = ReportPipeline.Settings.DEFAULT_STORY_SIZE;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private int storyWindowSeconds = ReportPipeline.Settings.DEFAULT_STORY_WINDOW_SECONDS;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private int dedupWindowSeconds = ReportPipeline.Settings.DEFAULT_DEDUP_WINDOW_SECONDS;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private int maxFileSizeMb = ReportPipeline.Settings.DEFAULT_MAX_FILE_SIZE_MB;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private int maxBackups = ReportPipeline.Settings.DEFAULT_MAX_BACKUPS;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private boolean truncateOnStart = false;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private boolean installUncaughtHandler = true;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private boolean reportErrorsWithoutThrowable = true;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private boolean captureExceptionFields = true;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private boolean redactionEnabled = true;
         /** Extra redaction regexes, separated by {@code ;;} (regexes may contain commas). */
-        @PluginBuilderAttribute private String redactPatterns = "";
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private String redactPatterns = "";
         /** Opt-in: append a stable keyed-hash token to masked values so an AI can still see repetition ({@code ███(a1b2)}). */
-        @PluginBuilderAttribute private boolean redactionCorrelation = false;
-        @PluginBuilderAttribute private String correlationMdcKeys = ReportPipeline.Settings.DEFAULT_CORRELATION_MDC_KEYS;
-        @PluginBuilderAttribute private String zone = "";
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private boolean redactionCorrelation = false;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private String correlationMdcKeys = ReportPipeline.Settings.DEFAULT_CORRELATION_MDC_KEYS;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private String zone = "";
         /** 0 disables container-echo suppression. */
-        @PluginBuilderAttribute private long echoSuppressionMillis = ReportPipeline.Settings.DEFAULT_ECHO_SUPPRESSION_MILLIS;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private long echoSuppressionMillis = ReportPipeline.Settings.DEFAULT_ECHO_SUPPRESSION_MILLIS;
         /** Comma-separated logger prefixes treated as container echoes, added to the defaults. */
-        @PluginBuilderAttribute private String containerLoggers = "";
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private String containerLoggers = "";
         /** Also emit each report block as ONE event via logger {@code stacktale.reports}. */
-        @PluginBuilderAttribute private boolean emitReportsToLogger = false;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private boolean emitReportsToLogger = false;
         /** Cap full reports per minute (0 = unlimited); excess errors become a storm line. */
-        @PluginBuilderAttribute private int maxReportsPerMinute = 0;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private int maxReportsPerMinute = 0;
         /** {@code text} (default, densest for an LLM) or {@code json} (st-json/1 NDJSON, for parsers). */
-        @PluginBuilderAttribute private String format = "text";
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private String format = "text";
 
         @Override
         public StacktaleAppender build() {
