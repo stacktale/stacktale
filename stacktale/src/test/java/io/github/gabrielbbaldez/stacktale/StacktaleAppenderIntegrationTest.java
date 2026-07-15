@@ -271,6 +271,24 @@ class StacktaleAppenderIntegrationTest {
     }
 
     @Test
+    void capturesSlf4jKeyValuePairs(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("errors-ai.log");
+        startAppender(file, "io.github.gabrielbbaldez");
+        // SLF4J 2.0 fluent API: structured key-values attached to this event
+        ctx.getLogger("com.acme.OrderService")
+                .atError()
+                .addKeyValue("orderId", 889)
+                .addKeyValue("password", "hunter2") // secret-named → must be masked like MDC
+                .setCause(new IllegalStateException("charge refused"))
+                .log("charge failed");
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        assertThat(content)
+                .contains("orderId=889")     // structured context surfaced in the report
+                .doesNotContain("hunter2")    // redaction reaches key-values, not just MDC
+                .contains("password=███");
+    }
+
+    @Test
     void invalidFilePathDegradesToNoOpInsteadOfBreakingStartup(@TempDir Path dir) {
         ctx = new LoggerContext();
         ctx.setMDCAdapter(MDC.getMDCAdapter());

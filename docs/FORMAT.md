@@ -91,7 +91,7 @@ Fields:
 | `at …` | the culprit frame; `← YOUR CODE` is appended **only** when it is genuinely app code (an app-package frame). Absent when the stack is empty. |
 | `wrapped by:` | one line per wrapper exception, innermost-wrapper-first (root cause is the headline, wrappers climb outward). |
 | `log:` | the original SLF4J/Log4j2 message **pattern** (not the interpolated text), its `args`, and the logger name abbreviated `c.a.s.OrderService`. |
-| `mdc:` / `fields:` | space-separated `key=value` pairs, keys sorted. Omitted when empty. |
+| `mdc:` / `fields:` | space-separated `key=value` pairs, keys sorted. Omitted when empty. `mdc:` also carries SLF4J 2.0 event key-values (`log.atError().addKeyValue("orderId", 889)`), merged into the same line — MDC wins on a key clash. |
 | `seen:` | recurrence — `N× this session, first at <HH:mm:ss.SSS>`. Present **only** when the error has occurred before this session (its absence means the error is new). Session-scoped: resets on restart. |
 | `captured:` | present only when the agent is attached; method frames with argument values. |
 | `story` | events leading up to and including the error, oldest first. `<label>` is `traceId=…` (correlated) or `thread <name>` (fallback). The error's own line ends with `   ← this error`. A `… N earlier event(s) older than the story window omitted` line appears when events were dropped by age (vs never logged). Omitted when empty. |
@@ -208,6 +208,7 @@ Rules:
 - Redaction is identical to the text format: a secret-named key masks its value, a
   secret-position arg becomes `███`, secret-shaped values are redacted. Multi-line values
   keep their newlines (JSON-escaped) instead of being flattened.
+- `mdc` also carries SLF4J 2.0 event key-values (`addKeyValue`), merged with the MDC map.
 - The `logger` is the full name (the text format abbreviates it for display; JSON does not).
 - A conforming parser **skips** any line that is not valid JSON: a torn or half-written line
   (a crash or a full disk mid-write) must never abort parsing the rest of the file.

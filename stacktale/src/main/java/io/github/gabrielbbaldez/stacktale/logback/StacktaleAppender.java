@@ -10,6 +10,7 @@ import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.ThrowableProxy;
 import ch.qos.logback.core.UnsynchronizedAppenderBase;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.KeyValuePair;
 
 import java.time.DateTimeException;
 import java.time.ZoneId;
@@ -55,6 +56,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
     private ReportPipeline pipeline;
     private org.slf4j.Logger selfLogger;
     private volatile boolean mdcUnavailable;
+    private volatile boolean keyValuesUnavailable;
 
     @Override
     public void start() {
@@ -159,8 +161,26 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
                 event.getMessage(),
                 event.getArgumentArray(),
                 event.getFormattedMessage(),
-                safeMdc(event),
+                context(event),
                 throwable);
+    }
+
+    /**
+     * The event's structured context: MDC plus any SLF4J 2.0 key-value pairs
+     * ({@code log.atError().addKeyValue("orderId", 889)…}), merged into one map so they
+     * render (the {@code mdc:} line), redact and correlate exactly like MDC. MDC wins on a
+     * key collision. Fast path — the overwhelmingly common no-key-values case returns the
+     * MDC map itself with no extra allocation.
+     */
+    private Map<String, String> context(ILoggingEvent event) {
+        Map<String, String> mdc = safeMdc(event);
+        List<KeyValuePair> pairs = safeKeyValuePairs(event);
+        if (pairs.isEmpty()) return mdc;
+        Map<String, String> merged = new java.util.LinkedHashMap<>(mdc);
+        for (KeyValuePair pair : pairs) {
+            if (pair != null && pair.key != null) merged.putIfAbsent(pair.key, String.valueOf(pair.value));
+        }
+        return merged;
     }
 
     /**
@@ -177,6 +197,22 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
         } catch (Throwable t) {
             mdcUnavailable = true;
             return Map.of();
+        }
+    }
+
+    /**
+     * {@link ILoggingEvent#getKeyValuePairs()} is null when none were added and, like MDC,
+     * can be absent on unusual event implementations — degrade to empty, cache the failure,
+     * never throw out of the happy path.
+     */
+    private List<KeyValuePair> safeKeyValuePairs(ILoggingEvent event) {
+        if (keyValuesUnavailable) return List.of();
+        try {
+            List<KeyValuePair> pairs = event.getKeyValuePairs();
+            return pairs == null ? List.of() : pairs;
+        } catch (Throwable t) {
+            keyValuesUnavailable = true;
+            return List.of();
         }
     }
 
