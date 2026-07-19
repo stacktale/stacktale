@@ -491,7 +491,7 @@ each backed by a passing build:
 |---|---|---|
 | Java | 17+ | 21 |
 | Logback | 1.4+ | 1.5.x |
-| Log4j2 | 2.20+ | 2.24.x |
+| Log4j2 | 2.20+ | 2.26.x |
 | Spring Boot *(starter)* | 3.2+ | 3.5.x |
 
 The Spring Boot starter follows Boot's own Logback version (1.5 on Boot 3.4+); the
