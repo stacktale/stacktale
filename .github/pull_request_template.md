@@ -15,6 +15,9 @@ Closes #
 
 ## Checklist
 
+- [ ] The issue was claimed with a comment before starting (see
+      [CONTRIBUTING](https://github.com/stacktale/stacktale/blob/main/CONTRIBUTING.md#claim-the-issue-before-you-start)
+      — didn't claim it? Open the PR anyway, just say so)
 - [ ] One logical change (unrelated fixes belong in their own PR)
 - [ ] Behavior changes arrive with the test that demanded them; bug fixes start from a
       failing test
