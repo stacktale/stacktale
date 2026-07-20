@@ -25,6 +25,11 @@ Closes #
       current behavior, coverage in `LogbackXmlConfigTest`, and a row in the README
       config table
 
+## AI assistance (optional)
+
+<!-- If an AI tool helped with this change you're welcome to mention it here. Entirely
+     optional — it is not required and makes no difference to the review. -->
+
 <!--
 First time here? Everything above is explained in CONTRIBUTING.md:
 https://github.com/stacktale/stacktale/blob/main/CONTRIBUTING.md
