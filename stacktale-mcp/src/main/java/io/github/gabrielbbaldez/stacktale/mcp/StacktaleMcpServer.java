@@ -36,7 +36,8 @@ import java.util.Set;
  */
 public final class StacktaleMcpServer {
 
-    private static final String PROTOCOL_VERSION = "2024-11-05";
+    /** Our preferred MCP revision — used only when the client doesn't offer one to echo. */
+    private static final String PROTOCOL_VERSION = "2025-06-18";
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private final StReportFile reports;
@@ -119,7 +120,7 @@ public final class StacktaleMcpServer {
 
     private JsonNode handle(String method, JsonNode params) throws IOException {
         return switch (method) {
-            case "initialize" -> initialize();
+            case "initialize" -> initialize(params);
             case "tools/list" -> toolsList();
             case "tools/call" -> toolsCall(params);
             case "resources/list" -> resourcesList();
@@ -131,9 +132,13 @@ public final class StacktaleMcpServer {
         };
     }
 
-    private JsonNode initialize() {
+    private JsonNode initialize(JsonNode params) {
         ObjectNode result = JSON.createObjectNode();
-        result.put("protocolVersion", PROTOCOL_VERSION);
+        // Echo the client's requested revision when it offered one (the spec's negotiation);
+        // only dictate our own when the client sent none. Our capabilities are stable across
+        // these revisions, so accepting the client's keeps every client happy.
+        String requested = params.path("protocolVersion").asText("");
+        result.put("protocolVersion", requested.isBlank() ? PROTOCOL_VERSION : requested);
         ObjectNode capabilities = result.putObject("capabilities");
         capabilities.putObject("tools");
         // resources with subscribe: the AI is TOLD when a new error lands, it doesn't poll
@@ -142,8 +147,14 @@ public final class StacktaleMcpServer {
         res.put("listChanged", false);
         ObjectNode info = result.putObject("serverInfo");
         info.put("name", "stacktale");
-        info.put("version", "0.4.0");
+        info.put("version", serverVersion());
         return result;
+    }
+
+    /** The real artifact version from the jar manifest; {@code "dev"} when run from classes. */
+    private static String serverVersion() {
+        String v = StacktaleMcpServer.class.getPackage().getImplementationVersion();
+        return v != null && !v.isBlank() ? v : "dev";
     }
 
     private JsonNode resourcesList() {

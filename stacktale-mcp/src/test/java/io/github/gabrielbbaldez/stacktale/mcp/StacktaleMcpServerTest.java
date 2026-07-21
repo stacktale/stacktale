@@ -71,6 +71,21 @@ class StacktaleMcpServerTest {
     }
 
     @Test
+    void negotiatesProtocolAndReportsARealVersion() throws Exception {
+        // the client's offered revision is echoed back, not overridden
+        JsonNode[] echoed = roundTrip(
+                "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-03-26\"}}");
+        assertThat(echoed[0].at("/result/protocolVersion").asText()).isEqualTo("2025-03-26");
+        assertThat(echoed[0].at("/result/serverInfo/version").asText())
+                .isNotBlank().isNotEqualTo("0.4.0"); // real version, not the old hard-coded string
+
+        // no offer → our own preferred revision
+        JsonNode[] fallback = roundTrip(
+                "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}");
+        assertThat(fallback[0].at("/result/protocolVersion").asText()).isEqualTo("2025-06-18");
+    }
+
+    @Test
     void listsAndReadsTheReportsResource() throws Exception {
         JsonNode[] r = roundTrip(
                 "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/list\",\"params\":{}}",
