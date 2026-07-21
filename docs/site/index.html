@@ -299,7 +299,7 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
         <div class="stat reveal"><div class="num">98.3%</div><div class="lbl">fewer tokens for a whole session of logs</div></div>
         <div class="stat reveal"><div class="num">80.6%</div><div class="lbl">fewer per single error — carrying more context</div></div>
         <div class="stat reveal"><div class="num">137ns</div><div class="lbl">overhead per log event (JMH, story capture)</div></div>
-        <div class="stat reveal"><div class="num">7</div><div class="lbl">modules — core, Logback, Log4j2, Spring, MCP, agent</div></div>
+        <div class="stat reveal"><div class="num">7</div><div class="lbl">modules — core, Logback, Log4j2, JUL, Spring, MCP, agent</div></div>
       </div>
       <p class="stats-note reveal">a classic log grows with traffic · a report file grows only with distinct errors</p>
     </div>
@@ -336,8 +336,9 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
         <div class="mod reveal"><div class="mn">stacktale-core</div><div class="md">The framework-agnostic report pipeline: story, distiller, dedup, redaction.</div></div>
         <div class="mod reveal"><div class="mn">stacktale</div><div class="md">The Logback appender — a thin adapter over the core.</div></div>
         <div class="mod reveal"><div class="mn">stacktale-log4j2</div><div class="md">The Log4j2 appender. Same format, ThreadContext correlation.</div></div>
+        <div class="mod reveal"><div class="mn">stacktale-jul</div><div class="md">java.util.logging / System.Logger — the same format with no SLF4J or Logback.</div></div>
         <div class="mod reveal"><div class="mn">…-spring-boot-starter</div><div class="md">Zero config. Auto-registers, opens each story with the request line.</div></div>
-        <div class="mod reveal"><div class="mn">stacktale-mcp</div><div class="md">An MCP server — your AI queries reports as tools, not files.</div></div>
+        <div class="mod reveal"><div class="mn">stacktale-mcp</div><div class="md">An MCP server that turns errors into a fix-loop — your AI checks new errors, fixes, re-runs, repeats until clean.</div></div>
         <div class="mod reveal"><div class="mn">stacktale-agent</div><div class="md">A <code style="font-family:var(--mono)">-javaagent</code> capturing method args at the throw site.</div></div>
       </div>
     </div>

@@ -356,9 +356,10 @@ The classic log grows with traffic; the report file grows only with distinct err
 
 ## Query reports as AI tools (MCP)
 
-`stacktale-mcp` is a tiny read-only [MCP](https://modelcontextprotocol.io) server: your
-AI assistant queries reports as tools instead of reading files — across rotations,
-sessions and paths.
+`stacktale-mcp` is a tiny read-only [MCP](https://modelcontextprotocol.io) server that turns
+`errors-ai.log` into a **fix-loop** for an assistant: it fixes an error, re-runs your app,
+asks stacktale *"what's new?"*, and repeats until the app runs clean — without you
+copy-pasting a single stack trace.
 
 ```json
 { "mcpServers": { "stacktale": {
@@ -367,9 +368,16 @@ sessions and paths.
 } } }
 ```
 
-Tools: `list_errors` (id, time, headline, repeat count — newest first), `get_report`
-(the full st/1 block), `errors_since` (blocks after a timestamp). No network, no writes.
-Full per-client setup (Claude Code, Claude Desktop, Cursor) in
+**Six tools**, all read-only (annotated so clients can auto-approve them):
+
+- **`errors_since_last_check`** — the loop primitive: what's 🆕 new or 🔁 still occurring
+  since the last check, or *✓ no new errors* when it's clean.
+- **`match_report`** — paste a raw stack trace, get the full captured report for it.
+- `list_errors`, `get_report`, `errors_since`, `find_similar_errors` — browse and search.
+
+Plus **prompts** (`fix_loop`, `explain_latest_error`) clients surface as slash-commands, and
+a subscription that pushes a notification the moment a new error lands. No network, no
+writes. Per-client setup (Claude Code, Claude Desktop, Cursor) and the loop recipe in
 [docs/mcp-setup.md](docs/mcp-setup.md).
 
 Shipping to aggregators instead? Set `emitReportsToLogger=true` and each report block is
