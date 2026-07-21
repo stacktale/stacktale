@@ -65,10 +65,35 @@ class StacktaleMcpServerTest {
                 "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}");
         assertThat(r[0].at("/result/serverInfo/name").asText()).isEqualTo("stacktale");
         assertThat(r[0].at("/result/capabilities/resources/subscribe").asBoolean()).isTrue();
-        assertThat(r[1].at("/result/tools")).hasSize(5);
+        assertThat(r[1].at("/result/tools")).hasSize(6);
         assertThat(r[1].at("/result/tools/0/name").asText()).isEqualTo("list_errors");
         assertThat(r[1].at("/result/tools/3/name").asText()).isEqualTo("find_similar_errors");
         assertThat(r[1].at("/result/tools/4/name").asText()).isEqualTo("errors_since_last_check");
+        assertThat(r[1].at("/result/tools/5/name").asText()).isEqualTo("match_report");
+    }
+
+    @Test
+    void matchReportReturnsTheFullBlockForAPastedTrace() throws Exception {
+        // a raw trace with a Caused-by whose root cause is the #aaaa1111 NPE in ST_FILE
+        JsonNode[] r = roundTrip(
+                "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"match_report\","
+                + "\"arguments\":{\"trace\":\"jakarta.servlet.ServletException: request failed\\n"
+                + "    at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:100)\\n"
+                + "Caused by: java.lang.NullPointerException: customer is null\\n"
+                + "    at com.acme.Svc.run(Svc.java:1)\"}}}");
+        String text = r[0].at("/result/content/0/text").asText();
+        assertThat(text)
+                .contains("#aaaa1111")                       // matched the root cause, not the wrapper
+                .contains("━━━ ERROR #aaaa1111")             // full report block returned
+                .contains("← YOUR CODE");
+    }
+
+    @Test
+    void matchReportWithNoMatchSaysSo() throws Exception {
+        JsonNode[] r = roundTrip(
+                "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"match_report\","
+                + "\"arguments\":{\"trace\":\"com.acme.WidgetException: the frobnicator jammed\"}}}");
+        assertThat(r[0].at("/result/content/0/text").asText()).contains("No captured report matches");
     }
 
     private static final String NEW_BLOCK = """

@@ -259,6 +259,9 @@ public final class StacktaleMcpServer {
         tools.add(tool("errors_since_last_check",
                 "The fix-loop primitive. First call shows the errors currently on file; after you re-run the app/tests, it reports what's 🆕 new or 🔁 still occurring since your last call — or '✓ No new errors' when it's clean. Call it each round of a fix→run→check loop until clean. Optional reset re-baselines.",
                 "{\"type\":\"object\",\"properties\":{\"reset\":{\"type\":\"boolean\",\"description\":\"forget what was already reported and re-baseline from the current file\"}}}"));
+        tools.add(tool("match_report",
+                "Paste a raw exception + stack trace and get the full stacktale report captured for it (story, fields, distilled stack, env) — matched by root-cause type and message. The bridge from a pasted trace to the agent having the whole context.",
+                "{\"type\":\"object\",\"properties\":{\"trace\":{\"type\":\"string\",\"description\":\"a pasted exception and its stack trace\"}},\"required\":[\"trace\"]}"));
         return result;
     }
 
@@ -283,6 +286,7 @@ public final class StacktaleMcpServer {
             case "errors_since" -> errorsSince(args.path("since").asText());
             case "find_similar_errors" -> findSimilar(args.path("query").asText());
             case "errors_since_last_check" -> errorsSinceLastCheck(args.path("reset").asBoolean(false));
+            case "match_report" -> matchReport(args.path("trace").asText());
             default -> throw new IllegalArgumentException("unknown tool: " + name);
         };
         ObjectNode result = JSON.createObjectNode();
@@ -378,6 +382,46 @@ public final class StacktaleMcpServer {
         sb.append('#').append(r.id()).append("  ").append(r.headline());
         if (r.repeats() > 1) sb.append("  (×").append(r.repeats()).append(')');
         sb.append('\n');
+    }
+
+    /**
+     * Auto-attach: take a raw pasted exception + stack and return the full report stacktale
+     * already captured for it — the bridge from "a human pasted a trace" to "the agent has
+     * the whole story". Matches on the root cause (the deepest {@code Caused by:}), reusing
+     * the similarity ranking, and returns the best block plus any close runners-up.
+     */
+    private String matchReport(String trace) throws IOException {
+        if (trace == null || trace.isBlank()) {
+            return "Paste an exception with its stack trace to match it against captured reports.";
+        }
+        List<StReport> ranked = rank(rootCauseLine(trace), reports.read(), 3);
+        if (ranked.isEmpty()) {
+            return "No captured report matches that trace. (list_errors shows what's on file.)";
+        }
+        StReport best = ranked.get(0);
+        StringBuilder sb = new StringBuilder("Closest captured report #" + best.id()
+                + " (matched on root-cause type + message):\n\n");
+        sb.append(best.repeats() > 1 ? best.block() + "(occurred " + best.repeats() + "× in total)\n" : best.block());
+        if (ranked.size() > 1) {
+            List<String> others = ranked.stream().skip(1).map(r -> "#" + r.id()).toList();
+            sb.append("\nOther candidates: ").append(String.join(", ", others))
+                    .append(" — get_report for those.");
+        }
+        return sb.toString();
+    }
+
+    /** The root-cause line of a raw trace: the last {@code Caused by:}, else the top exception line. */
+    private static String rootCauseLine(String trace) {
+        String root = null;
+        for (String line : trace.split("\\R")) {
+            String t = line.strip();
+            if (t.startsWith("Caused by:")) {
+                root = t.substring("Caused by:".length()).strip();
+            } else if (root == null && !t.isEmpty() && !t.startsWith("at ") && !t.startsWith("...")) {
+                root = t; // first non-frame line = the thrown exception (used when there's no Caused-by)
+            }
+        }
+        return root == null ? trace : root;
     }
 
     private String findSimilar(String query) throws IOException {
