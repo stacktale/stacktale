@@ -159,6 +159,24 @@ class StacktaleMcpServerTest {
     }
 
     @Test
+    void toolsAdvertiseReadOnlyAnnotations() throws Exception {
+        JsonNode[] r = roundTrip(
+                "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}");
+        JsonNode tools = r[0].at("/result/tools");
+        tools.forEach(t -> {
+            assertThat(t.at("/annotations/readOnlyHint").asBoolean()).isTrue();  // all read the file only
+            assertThat(t.at("/annotations/title").asText()).isNotBlank();
+        });
+        JsonNode loop = null;
+        for (JsonNode t : tools) {
+            if ("errors_since_last_check".equals(t.get("name").asText())) loop = t;
+        }
+        assertThat(loop).isNotNull();
+        // the cursor tool mutates session state, so it must NOT claim idempotence
+        assertThat(loop.at("/annotations/idempotentHint").asBoolean()).isFalse();
+    }
+
+    @Test
     void listsAndReadsTheReportsResource() throws Exception {
         JsonNode[] r = roundTrip(
                 "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/list\",\"params\":{}}",

@@ -244,33 +244,40 @@ public final class StacktaleMcpServer {
     private JsonNode toolsList() {
         ObjectNode result = JSON.createObjectNode();
         ArrayNode tools = result.putArray("tools");
-        tools.add(tool("list_errors",
+        tools.add(tool("list_errors", "List error reports", true,
                 "List stacktale error reports (newest first): id, timestamp, headline, repeat count.",
                 "{\"type\":\"object\",\"properties\":{\"limit\":{\"type\":\"integer\",\"description\":\"max entries, default 20\"}}}"));
-        tools.add(tool("get_report",
+        tools.add(tool("get_report", "Get a full report", true,
                 "Get the full st/1 report block for one error id (story, fields, distilled stack, env).",
                 "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"report id, e.g. c73cf755\"}},\"required\":[\"id\"]}"));
-        tools.add(tool("errors_since",
+        tools.add(tool("errors_since", "Errors since a time", true,
                 "Full report blocks with timestamp >= the given moment (format: yyyy-MM-dd HH:mm:ss).",
                 "{\"type\":\"object\",\"properties\":{\"since\":{\"type\":\"string\",\"description\":\"e.g. 2026-07-10 11:00:00\"}},\"required\":[\"since\"]}"));
-        tools.add(tool("find_similar_errors",
+        tools.add(tool("find_similar_errors", "Find similar errors", true,
                 "Find past reports similar to an exception headline or stack snippet, ranked by root-cause type + digit-normalized message. Answers \"have we seen this before?\".",
                 "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"description\":\"an exception headline or stack snippet, e.g. 'NullPointerException: customer is null'\"}},\"required\":[\"query\"]}"));
-        tools.add(tool("errors_since_last_check",
+        // NOT idempotent: it advances the per-session cursor.
+        tools.add(tool("errors_since_last_check", "Check for new errors", false,
                 "The fix-loop primitive. First call shows the errors currently on file; after you re-run the app/tests, it reports what's 🆕 new or 🔁 still occurring since your last call — or '✓ No new errors' when it's clean. Call it each round of a fix→run→check loop until clean. Optional reset re-baselines.",
                 "{\"type\":\"object\",\"properties\":{\"reset\":{\"type\":\"boolean\",\"description\":\"forget what was already reported and re-baseline from the current file\"}}}"));
-        tools.add(tool("match_report",
+        tools.add(tool("match_report", "Match a pasted trace", true,
                 "Paste a raw exception + stack trace and get the full stacktale report captured for it (story, fields, distilled stack, env) — matched by root-cause type and message. The bridge from a pasted trace to the agent having the whole context.",
                 "{\"type\":\"object\",\"properties\":{\"trace\":{\"type\":\"string\",\"description\":\"a pasted exception and its stack trace\"}},\"required\":[\"trace\"]}"));
         return result;
     }
 
-    private JsonNode tool(String name, String description, String schemaJson) {
+    /** Every tool here only reads the local report file — advertise that so clients can auto-approve. */
+    private JsonNode tool(String name, String title, boolean idempotent, String description, String schemaJson) {
         try {
             ObjectNode tool = JSON.createObjectNode();
             tool.put("name", name);
             tool.put("description", description);
             tool.set("inputSchema", JSON.readTree(schemaJson));
+            ObjectNode annotations = tool.putObject("annotations");
+            annotations.put("title", title);
+            annotations.put("readOnlyHint", true);
+            annotations.put("idempotentHint", idempotent);
+            annotations.put("openWorldHint", false);
             return tool;
         } catch (IOException e) {
             throw new IllegalStateException(e);
