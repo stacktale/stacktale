@@ -107,14 +107,22 @@ final class StackDistiller {
             // Recursion first: a StackOverflowError's noise is the app's own
             // code, which the framework collapsing below never touches. Keep
             // one full cycle visible (including the culprit), then mark the rest.
-            RecursionRun recursion = detectRecursion(frames, i, culpritIdx > i ? culpritIdx : frames.length);
+            // Past the frame cap the tail marker below handles everything,
+            // including further recursive runs — no trailing marker pile-up.
+            RecursionRun recursion = shown < MAX_SHOWN_FRAMES
+                    ? detectRecursion(frames, i, culpritIdx > i ? culpritIdx : frames.length)
+                    : null;
             if (recursion != null) {
                 for (int k = 0; k < recursion.period && shown < MAX_SHOWN_FRAMES; k++) {
                     out.add(location(frames[i + k]) + (i + k == culpritIdx ? " ← culprit" : ""));
                     shown++;
                 }
-                out.add("… recursion ×" + (recursion.frameCount - recursion.period)
-                        + " (" + cycleLabel(frames, i, recursion.period) + ")");
+                // Frames, not cycles: "98 recursive frames" of a 2-frame cycle
+                // is 49 repetitions — counting frames keeps the unit identical
+                // to the neighbouring "… N collapsed (…)" marker and avoids
+                // rounding when a run isn't a whole multiple of the period.
+                out.add("… " + (recursion.frameCount - recursion.period)
+                        + " recursive frames (" + cycleLabel(frames, i, recursion.period) + ")");
                 i += recursion.frameCount;
                 continue;
             }

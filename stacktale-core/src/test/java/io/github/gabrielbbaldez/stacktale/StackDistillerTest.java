@@ -118,7 +118,7 @@ class StackDistillerTest {
         assertThat(d.frameLines().get(0))
                 .contains("PricingService.discountFor(PricingService.java:51)")
                 .contains("← culprit");
-        assertThat(d.frameLines().get(1)).isEqualTo("… recursion ×999 (PricingService.discountFor)");
+        assertThat(d.frameLines().get(1)).isEqualTo("… 999 recursive frames (PricingService.discountFor)");
         // One visible frame + one marker, not fifteen identical lines.
         assertThat(d.frameLines().stream()
                 .filter(l -> l.contains("PricingService.discountFor(PricingService.java:51)"))
@@ -139,7 +139,7 @@ class StackDistillerTest {
         assertThat(d.frameLines().get(0)).contains("OrderService.confirm(OrderService.java:20)");
         assertThat(d.frameLines().get(1)).contains("PricingService.apply(PricingService.java:33)");
         assertThat(d.frameLines().get(2))
-                .isEqualTo("… recursion ×98 (OrderService.confirm → PricingService.apply → OrderService.confirm)");
+                .isEqualTo("… 98 recursive frames (OrderService.confirm → PricingService.apply → OrderService.confirm)");
     }
 
     @Test
@@ -156,7 +156,7 @@ class StackDistillerTest {
         DistilledStack d = new StackDistiller(List.of("com.acme")).distill(e);
 
         assertThat(d.frameLines()).hasSize(5);
-        assertThat(d.frameLines()).noneSatisfy(l -> assertThat(l).contains("recursion"));
+        assertThat(d.frameLines()).noneSatisfy(l -> assertThat(l).contains("recursive frames"));
     }
 
     @Test
@@ -172,7 +172,7 @@ class StackDistillerTest {
         DistilledStack d = new StackDistiller(List.of("io.github.gabrielbbaldez")).distill(e);
 
         assertThat(d.frameLines()).anySatisfy(l ->
-                assertThat(l).contains("… recursion ×").contains("StackDistillerTest.recurse"));
+                assertThat(l).contains("recursive frames").contains("StackDistillerTest.recurse"));
         // The report stays tiny even though the raw trace has hundreds of frames.
         assertThat(d.frameLines().size()).isLessThanOrEqualTo(6);
     }
