@@ -270,6 +270,32 @@ class StacktaleMcpServerTest {
     }
 
     @Test
+    void readsTheStJsonFormatToo(@TempDir Path dir) throws Exception {
+        // a format=json errors-ai.log (st-json/1 NDJSON) must work through the same tools
+        Path f = dir.resolve("errors-ai.log");
+        Files.writeString(f, """
+                {"type":"header","format":"st-json/1"}
+                {"type":"report","id":"json1234","ts":"2026-07-10T20:16:40.412Z","thread":"main","error":{"type":"IllegalStateException","message":"payment gateway refused"}}
+                {"type":"repeat","id":"json1234","count":5,"last":"2026-07-10T20:17:00.000Z"}
+                """, StandardCharsets.UTF_8);
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        new StacktaleMcpServer(f).serve(new ByteArrayInputStream((
+                "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"list_errors\",\"arguments\":{}}}\n"
+              + "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"get_report\",\"arguments\":{\"id\":\"json1234\"}}}\n")
+                .getBytes(StandardCharsets.UTF_8)), out);
+        String[] lines = out.toString(StandardCharsets.UTF_8).trim().split("\n");
+
+        String list = JSON.readTree(lines[0]).at("/result/content/0/text").asText();
+        assertThat(list)
+                .contains("json1234")
+                .contains("IllegalStateException: payment gateway refused") // headline built from the JSON error
+                .contains("(×5)");                                          // the repeat entry folded in
+        String report = JSON.readTree(lines[1]).at("/result/content/0/text").asText();
+        assertThat(report).contains("payment gateway refused"); // the report block served from JSON
+    }
+
+    @Test
     void getReportReturnsTheFullBlock() throws Exception {
         JsonNode[] r = roundTrip(
                 "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"get_report\",\"arguments\":{\"id\":\"aaaa1111\"}}}");

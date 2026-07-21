@@ -156,8 +156,8 @@ or the `…StacktaleJulHandler.format` property) to write **NDJSON** instead of 
 blocks: one compact JSON object per line. It carries the same information, but every
 section is an addressable field — for parsers, pipelines and dashboards rather than an LLM
 reading raw. (The text format is denser per token, so it stays the default.) The bundled
-`stacktale-mcp` server reads the **text** format; with `format=json` you consume
-`errors-ai.log` with your own JSON tooling.
+`stacktale-mcp` server reads **either format** — it detects `st/1` vs `st-json/1` from the
+file and serves the same tools regardless.
 
 Each line is one entry, discriminated by `type`:
 

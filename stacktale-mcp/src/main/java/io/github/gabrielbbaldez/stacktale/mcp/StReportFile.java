@@ -1,10 +1,14 @@
 package io.github.gabrielbbaldez.stacktale.mcp;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -26,6 +30,7 @@ final class StReportFile {
             "^━━━ ERROR #(\\w+) ━━━ (\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}) ");
     private static final Pattern REPEAT = Pattern.compile("^━ #(\\w+) repeated (\\d+)× ");
     private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final Path file;
 
@@ -49,9 +54,20 @@ final class StReportFile {
         if (Files.exists(file)) sources.add(file);
 
         for (Path source : sources) {
-            parse(Files.readString(source, StandardCharsets.UTF_8), byId);
+            parseSource(Files.readString(source, StandardCharsets.UTF_8), byId);
         }
         return new ArrayList<>(byId.values());
+    }
+
+    /** Text st/1 or NDJSON st-json/1 — decided by the first non-blank line ('{' = JSON). */
+    private void parseSource(String content, Map<String, StReport> byId) {
+        for (String line : content.split("\n", -1)) {
+            String trimmed = line.strip();
+            if (trimmed.isEmpty()) continue;
+            if (trimmed.startsWith("{")) parseJson(content, byId);
+            else parse(content, byId);
+            return;
+        }
     }
 
     private void parse(String content, Map<String, StReport> byId) {
@@ -92,6 +108,65 @@ final class StReportFile {
                             existing.headline(), Integer.parseInt(repeat.group(2)), existing.block()));
                 }
             }
+        }
+    }
+
+    /** Parses the st-json/1 NDJSON variant into the same {@link StReport} records as the text format. */
+    private void parseJson(String content, Map<String, StReport> byId) {
+        for (String line : content.split("\n", -1)) {
+            String trimmed = line.strip();
+            if (trimmed.isEmpty() || !trimmed.startsWith("{")) continue;
+            JsonNode node;
+            try {
+                node = JSON.readTree(trimmed);
+            } catch (IOException e) {
+                continue; // a torn/half-written line must not abort the rest (FORMAT.md §7)
+            }
+            String type = node.path("type").asText();
+            if ("report".equals(type)) {
+                String id = node.path("id").asText();
+                if (id.isEmpty()) continue;
+                int count = Math.max(node.path("recurrence").path("count").asInt(1), 1);
+                StReport prior = byId.get(id);
+                int repeats = prior == null ? count : Math.max(prior.repeats(), count);
+                String firstTs = prior == null ? jsonTimestamp(node.path("ts").asText()) : prior.timestamp();
+                byId.put(id, new StReport(id, firstTs, jsonHeadline(node.path("error")), repeats, pretty(node)));
+            } else if ("repeat".equals(type)) {
+                StReport existing = byId.get(node.path("id").asText());
+                if (existing != null) {
+                    int count = Math.max(node.path("count").asInt(existing.repeats()), existing.repeats());
+                    byId.put(existing.id(), new StReport(existing.id(), existing.timestamp(),
+                            existing.headline(), count, existing.block()));
+                }
+            }
+            // header / session / storm carry nothing to serve
+        }
+    }
+
+    /** The headline the text format would print for a JSON report's error object. */
+    private static String jsonHeadline(JsonNode error) {
+        if (error.path("noException").asBoolean(false)) {
+            return "ERROR (no exception): " + error.path("message").asText("");
+        }
+        String type = error.path("type").asText("");
+        String message = error.path("message").asText("");
+        return message.isEmpty() ? type : type + ": " + message;
+    }
+
+    /** ISO-8601 (e.g. 2026-07-10T20:16:40.412Z) → the text format's yyyy-MM-dd HH:mm:ss.SSS. */
+    private static String jsonTimestamp(String iso) {
+        try {
+            return OffsetDateTime.parse(iso).toLocalDateTime().format(TS);
+        } catch (RuntimeException e) {
+            return iso; // keep whatever is there rather than dropping the report
+        }
+    }
+
+    private static String pretty(JsonNode node) {
+        try {
+            return JSON.writerWithDefaultPrettyPrinter().writeValueAsString(node) + "\n";
+        } catch (Exception e) {
+            return node.toString() + "\n";
         }
     }
 
