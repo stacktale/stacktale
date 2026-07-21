@@ -105,4 +105,79 @@ class StackDistillerTest {
         assertThat(d.suppressed()).hasSize(1);
         assertThat(d.suppressed().get(0)).contains("IllegalArgumentException").contains("cleanup failed");
     }
+
+    @Test
+    void collapsesSelfRecursionIntoOneMarker() {
+        StackTraceElement[] frames = new StackTraceElement[1024];
+        for (int i = 0; i < 1000; i++) frames[i] = el("com.acme.PricingService", "discountFor", "PricingService.java", 51);
+        for (int i = 1000; i < 1024; i++) frames[i] = el("com.acme.Main", "m" + i, "Main.java", i);
+        StackOverflowError e = withStack(new StackOverflowError(), frames);
+
+        DistilledStack d = new StackDistiller(List.of("com.acme")).distill(e);
+
+        assertThat(d.frameLines().get(0))
+                .contains("PricingService.discountFor(PricingService.java:51)")
+                .contains("← culprit");
+        assertThat(d.frameLines().get(1)).isEqualTo("… 999 recursive frames (PricingService.discountFor)");
+        // One visible frame + one marker, not fifteen identical lines.
+        assertThat(d.frameLines().stream()
+                .filter(l -> l.contains("PricingService.discountFor(PricingService.java:51)"))
+                .count()).isEqualTo(1);
+    }
+
+    @Test
+    void collapsesMutualRecursionNamingTheCycle() {
+        StackTraceElement[] frames = new StackTraceElement[100];
+        for (int i = 0; i < 100; i += 2) {
+            frames[i] = el("com.acme.OrderService", "confirm", "OrderService.java", 20);
+            frames[i + 1] = el("com.acme.PricingService", "apply", "PricingService.java", 33);
+        }
+        StackOverflowError e = withStack(new StackOverflowError(), frames);
+
+        DistilledStack d = new StackDistiller(List.of("com.acme")).distill(e);
+
+        assertThat(d.frameLines().get(0)).contains("OrderService.confirm(OrderService.java:20)");
+        assertThat(d.frameLines().get(1)).contains("PricingService.apply(PricingService.java:33)");
+        assertThat(d.frameLines().get(2))
+                .isEqualTo("… 98 recursive frames (OrderService.confirm → PricingService.apply → OrderService.confirm)");
+    }
+
+    @Test
+    void doesNotCollapseLegitimateRepeats() {
+        // A recursive tree walk of depth 2 plus a retry pair: methods repeat,
+        // but never three full cycles in a row.
+        RuntimeException e = withStack(new RuntimeException("x"),
+                el("com.acme.Tree", "walk", "Tree.java", 12),
+                el("com.acme.Tree", "walk", "Tree.java", 12),
+                el("com.acme.Retry", "call", "Retry.java", 40),
+                el("com.acme.Retry", "call", "Retry.java", 40),
+                el("com.acme.Main", "main", "Main.java", 5));
+
+        DistilledStack d = new StackDistiller(List.of("com.acme")).distill(e);
+
+        assertThat(d.frameLines()).hasSize(5);
+        assertThat(d.frameLines()).noneSatisfy(l -> assertThat(l).contains("recursive frames"));
+    }
+
+    @Test
+    void collapsesARealStackOverflowError() {
+        StackOverflowError e;
+        try {
+            recurse(0);
+            throw new IllegalStateException("expected StackOverflowError");
+        } catch (StackOverflowError caught) {
+            e = caught;
+        }
+
+        DistilledStack d = new StackDistiller(List.of("io.github.gabrielbbaldez")).distill(e);
+
+        assertThat(d.frameLines()).anySatisfy(l ->
+                assertThat(l).contains("recursive frames").contains("StackDistillerTest.recurse"));
+        // The report stays tiny even though the raw trace has hundreds of frames.
+        assertThat(d.frameLines().size()).isLessThanOrEqualTo(6);
+    }
+
+    private static int recurse(int depth) {
+        return recurse(depth + 1);
+    }
 }

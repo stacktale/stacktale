@@ -104,6 +104,28 @@ final class StackDistiller {
         int shown = 0;
         int i = 0;
         while (i < frames.length) {
+            // Recursion first: a StackOverflowError's noise is the app's own
+            // code, which the framework collapsing below never touches. Keep
+            // one full cycle visible (including the culprit), then mark the rest.
+            // Past the frame cap the tail marker below handles everything,
+            // including further recursive runs — no trailing marker pile-up.
+            RecursionRun recursion = shown < MAX_SHOWN_FRAMES
+                    ? detectRecursion(frames, i, culpritIdx > i ? culpritIdx : frames.length)
+                    : null;
+            if (recursion != null) {
+                for (int k = 0; k < recursion.period && shown < MAX_SHOWN_FRAMES; k++) {
+                    out.add(location(frames[i + k]) + (i + k == culpritIdx ? " ← culprit" : ""));
+                    shown++;
+                }
+                // Frames, not cycles: "98 recursive frames" of a 2-frame cycle
+                // is 49 repetitions — counting frames keeps the unit identical
+                // to the neighbouring "… N collapsed (…)" marker and avoids
+                // rounding when a run isn't a whole multiple of the period.
+                out.add("… " + (recursion.frameCount - recursion.period)
+                        + " recursive frames (" + cycleLabel(frames, i, recursion.period) + ")");
+                i += recursion.frameCount;
+                continue;
+            }
             StackTraceElement el = frames[i];
             boolean mustShow = i == 0 || i == culpritIdx || isAppFrame(el);
             if (mustShow) {
@@ -179,6 +201,55 @@ final class StackDistiller {
         String cls = simpleName(el.getClassName());
         String file = el.getFileName() == null ? "Unknown" : el.getFileName();
         return cls + "." + el.getMethodName() + "(" + file + ":" + el.getLineNumber() + ")";
+    }
+
+    // Recursion detection: a run where every frame equals the frame `period`
+    // positions earlier is a recursive cycle (period 1 = self-recursion). Only
+    // runs of at least MIN_RECURSION_REPEATS full cycles collapse, so a method
+    // that legitimately appears two or three times (tree walk, retry) is
+    // rendered exactly as before.
+    private static final int MIN_RECURSION_REPEATS = 3;
+    private static final int MAX_RECURSION_PERIOD = 8;
+
+    private static final class RecursionRun {
+        final int period;
+        final int frameCount;
+
+        RecursionRun(int period, int frameCount) {
+            this.period = period;
+            this.frameCount = frameCount;
+        }
+    }
+
+    private static boolean sameFrame(StackTraceElement a, StackTraceElement b) {
+        return a.getLineNumber() == b.getLineNumber()
+                && a.getClassName().equals(b.getClassName())
+                && a.getMethodName().equals(b.getMethodName());
+    }
+
+    private static RecursionRun detectRecursion(StackTraceElement[] frames, int start, int limit) {
+        for (int period = 1; period <= MAX_RECURSION_PERIOD; period++) {
+            if (start + (long) period * MIN_RECURSION_REPEATS > limit) break;
+            int n = period;
+            while (start + n < limit && sameFrame(frames[start + n], frames[start + n - period])) n++;
+            if (n >= period * MIN_RECURSION_REPEATS) return new RecursionRun(period, n);
+        }
+        return null;
+    }
+
+    private static String cycleLabel(StackTraceElement[] frames, int start, int period) {
+        StringBuilder sb = new StringBuilder();
+        for (int k = 0; k < period; k++) {
+            if (k > 0) sb.append(" → ");
+            sb.append(methodLabel(frames[start + k]));
+        }
+        // Close the loop visually for multi-frame cycles: a → b → a.
+        if (period > 1) sb.append(" → ").append(methodLabel(frames[start]));
+        return sb.toString();
+    }
+
+    private static String methodLabel(StackTraceElement el) {
+        return simpleName(el.getClassName()) + "." + el.getMethodName();
     }
 
     private static String simpleName(String fqn) {
