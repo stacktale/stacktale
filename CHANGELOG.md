@@ -5,6 +5,40 @@ All notable changes to stacktale are documented here. The format follows
 [SemVer](https://semver.org/). The report format (`st/1`) is versioned independently
 and pinned by golden-file tests.
 
+## [1.0.0] — 2026-07-21
+
+**1.0.** The `st/1` report format and the core pipeline are now a stable, committed
+contract — proven, not just intended.
+
+- **Stability commitment.** `st/1` is a public API pinned by golden-file tests. From 1.0,
+  a breaking format change bumps the format version *and* the major. All five logging
+  backends — Logback, Log4j2, `java.util.logging`, `System.Logger`, and the Spring Boot
+  starter — write the same format.
+- **Proven, not just designed.** Mutation testing on the core (PIT, test strength ≈ 85%)
+  confirms the tests actually *catch* regressions in the tricky paths — dedup windows,
+  stack distilling, redaction ordering — not merely execute them (#36). A one-hour memory
+  soak of **8 million events** confirms the pipeline's bounded state (dedup, story and
+  per-thread maps) stays flat under sustained churn — a leak-free ~7.4 MB live set the
+  whole run (#37, `docs/soak.md`).
+- **Recursive stacks.** A `StackOverflowError` now names the recursion
+  (`… N recursive frames (a → b → a)`) instead of printing a wall of identical frames (#105).
+- **Docs & guards.** A "point your assistant at the report" quickstart (#100), and a CI
+  check that keeps the README compatibility table honest against what the build actually
+  tests (#106).
+
+What 1.0 is: seven modules, five logging backends, an MCP server, an optional Java agent,
+GraalVM native-image and JPMS support, correlation-preserving redaction on by default, a
+JSON output variant, and a text format an AI reads in a fraction of the tokens a raw log
+costs — all pinned by a conformance suite and now under a stability guarantee.
+
+### Thanks
+
+Contributions this cycle from **[@dchaudhari7177](https://github.com/dchaudhari7177)** (the
+recursion collapse #105 and the compatibility-table guard #106) and
+**[@adity982](https://github.com/adity982)** (assistant-discovery docs #100). Thank you.
+
+[1.0.0]: https://github.com/stacktale/stacktale/releases/tag/v1.0.0
+
 ## [0.5.0] — 2026-07-20
 
 Any framework, or none. New backends, a machine-readable format, and a durability pass on

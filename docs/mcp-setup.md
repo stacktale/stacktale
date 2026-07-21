@@ -13,7 +13,7 @@ If you have [JBang](https://www.jbang.dev), there's nothing to download. From yo
 **Claude Code** â€” one command:
 
 ```bash
-claude mcp add stacktale -- jbang run io.github.gabrielbbaldez:stacktale-mcp:0.5.0 --file "$PWD/errors-ai.log"
+claude mcp add stacktale -- jbang run io.github.gabrielbbaldez:stacktale-mcp:1.0.0 --file "$PWD/errors-ai.log"
 ```
 
 **Cursor** â€” drop this into `.cursor/mcp.json` (swap in your absolute path):
@@ -21,7 +21,7 @@ claude mcp add stacktale -- jbang run io.github.gabrielbbaldez:stacktale-mcp:0.5
 ```json
 { "mcpServers": { "stacktale": {
     "command": "jbang",
-    "args": ["run", "io.github.gabrielbbaldez:stacktale-mcp:0.5.0", "--file", "/abs/path/errors-ai.log"]
+    "args": ["run", "io.github.gabrielbbaldez:stacktale-mcp:1.0.0", "--file", "/abs/path/errors-ai.log"]
 } } }
 ```
 
@@ -38,21 +38,21 @@ It's on Maven Central. Three ways, easiest first:
 **JBang** (zero install, if you have JBang):
 
 ```bash
-jbang run io.github.gabrielbbaldez:stacktale-mcp:0.5.0 --file /path/to/errors-ai.log
+jbang run io.github.gabrielbbaldez:stacktale-mcp:1.0.0 --file /path/to/errors-ai.log
 ```
 
 **Download the jar directly** (curl):
 
 ```bash
 curl -L -o stacktale-mcp.jar \
-  https://repo1.maven.org/maven2/io/github/gabrielbbaldez/stacktale-mcp/0.5.0/stacktale-mcp-0.5.0.jar
+  https://repo1.maven.org/maven2/io/github/gabrielbbaldez/stacktale-mcp/1.0.0/stacktale-mcp-1.0.0.jar
 ```
 
 **Maven** (into a folder you choose):
 
 ```bash
 mvn dependency:copy \
-  -Dartifact=io.github.gabrielbbaldez:stacktale-mcp:0.5.0 \
+  -Dartifact=io.github.gabrielbbaldez:stacktale-mcp:1.0.0 \
   -DoutputDirectory=.
 ```
 
