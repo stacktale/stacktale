@@ -418,6 +418,28 @@ session — a Spring Boot shop hit over HTTP until 7 distinct failures occurred:
 
 The classic log grows with traffic; the report file grows only with distinct errors.
 
+### Size is the smaller half of it
+
+Counting tokens misses the real problem: the cheap artifact **does not contain the answer**.
+`EfficiencyBenchmarkTest` runs one failing checkout while three other requests are in
+flight — the reason the explaining line is never next to the stack trace — and checks each
+artifact for the five facts needed to fix it without a follow-up question. Run it with
+`mvn -pl stacktale test -Dtest=EfficiencyBenchmarkTest`; it writes
+`stacktale/target/efficiency.md`:
+
+| What the AI reads | Lines | ≈ Tokens | Answers? |
+|---|---:|---:|---|
+| Stack trace alone (what gets pasted) | 89 | 2 376 | 3/5 facts |
+| Stack trace + 200 lines of log tail | 290 | 7 565 | 3/5 facts |
+| Whole `app.log` for the session | 275 | 7 089 | 4/5 facts |
+| **stacktale report (st/1)** | **29** | **463** | **5/5 facts** |
+
+Read the middle row: paying 200 more lines of log buys **no new fact**, because concurrent
+traffic pushed the cache-miss line out of the window. That is the interrogation loop, and
+it is why post-processing cannot fix this — by the time the log is written, the story is
+already scattered. Tokens are the customary `chars / 4` approximation, applied identically
+to every row.
+
 ## Query reports as AI tools (MCP)
 
 `stacktale-mcp` is a tiny read-only [MCP](https://modelcontextprotocol.io) server that turns
