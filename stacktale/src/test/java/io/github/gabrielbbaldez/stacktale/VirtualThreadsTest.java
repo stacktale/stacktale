@@ -92,4 +92,33 @@ class VirtualThreadsTest {
         assertThat(content).contains("lonely vthread failure");
         assertThat(content).doesNotContain("this INFO lives on the test thread only");
     }
+
+    /**
+     * Logback does not hand stacktale a blank thread name even for an unnamed virtual
+     * thread — it synthesizes one. Pinned because the story's isolation depends on it, and
+     * because it is the reason the shared-bucket hazard (covered in {@code StoryBufferTest})
+     * is unreachable through this adapter, while the JUL and Log4j2 paths pass the raw
+     * {@code Thread.getName()} and can be blank.
+     */
+    @Test
+    void logbackNamesUnnamedVirtualThreads(@TempDir Path dir) throws Exception {
+        Path file = start(dir);
+        Logger log = ctx.getLogger("com.acme.VApp");
+
+        ExecutorService vt = virtualExecutor();
+        try {
+            vt.submit(() -> {
+                log.info("handling the request");
+                log.error("it failed", new IllegalStateException("boom"));
+            }).get();
+        } finally {
+            vt.shutdown();
+        }
+
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        assertThat(content).contains("handling the request");
+        // a real, per-thread label — not a shared placeholder
+        assertThat(content).doesNotContain("thread=<unnamed>");
+        assertThat(content).doesNotContain("story (thread <unnamed>");
+    }
 }

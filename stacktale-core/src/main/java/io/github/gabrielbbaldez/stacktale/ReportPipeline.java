@@ -268,8 +268,11 @@ public final class ReportPipeline {
                     // past this point the report is on disk: a failing shipper must not
                     // undo dedup state (that would duplicate the next occurrence's report)
                     deduper.confirmReport(fingerprint); // #51: clears the retry flag now it's written
-                    synchronized (lastReportByThread) {
-                        lastReportByThread.put(threadKey(event), System.currentTimeMillis());
+                    String reportedOn = ThreadKey.of(event);
+                    if (reportedOn != null) {
+                        synchronized (lastReportByThread) {
+                            lastReportByThread.put(reportedOn, System.currentTimeMillis());
+                        }
                     }
                     host.selfLog("AI error report #" + fingerprint + " → " + settings.file());
                     if (settings.emitReportsToLogger()) host.emitReport(rendered);
@@ -300,17 +303,15 @@ public final class ReportPipeline {
             }
         }
         if (!container) return false;
+        // an unidentifiable thread cannot be matched to a report we just wrote; suppressing
+        // on a shared key would drop another request's genuine error
+        String reportedOn = ThreadKey.of(event);
+        if (reportedOn == null) return false;
         Long last;
         synchronized (lastReportByThread) {
-            last = lastReportByThread.get(threadKey(event));
+            last = lastReportByThread.get(reportedOn);
         }
         return last != null && System.currentTimeMillis() - last <= settings.echoSuppressionMillis();
-    }
-
-    /** Logical thread name, with a stable fallback for unnamed (e.g. virtual) threads. */
-    private static String threadKey(LogEventData event) {
-        String t = event.threadName();
-        return (t == null || t.isBlank()) ? "<unnamed>" : t;
     }
 
     /** Flushes pending repeat counters and storm-suppressed reports — call on shutdown. */

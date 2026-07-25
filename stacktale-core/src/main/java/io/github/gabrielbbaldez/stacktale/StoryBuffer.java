@@ -55,7 +55,9 @@ final class StoryBuffer {
                 push(perCorrelation.computeIfAbsent(key, k -> new ArrayDeque<>()), entry);
             }
         } else {
-            String tk = threadKey(event);
+            String tk = ThreadKey.of(event);
+            // an unidentifiable thread gets no bucket: a shared one would mix requests
+            if (tk == null) return;
             synchronized (perThreadName) {
                 push(perThreadName.computeIfAbsent(tk, k -> new ArrayDeque<>()), entry);
             }
@@ -74,7 +76,8 @@ final class StoryBuffer {
             }
             label = key;
         } else {
-            String tk = threadKey(errorEvent);
+            String tk = ThreadKey.of(errorEvent);
+            if (tk == null) return new Story(List.of(), "thread unidentified", 0);
             synchronized (perThreadName) {
                 Deque<StoryEntry> deque = perThreadName.get(tk);
                 snapshot = deque == null ? List.of() : new ArrayList<>(deque);
@@ -102,11 +105,6 @@ final class StoryBuffer {
         return new StoryEntry(event.epochMillis(), event.level(), logger, msg);
     }
 
-    /** Logical thread name, with a stable fallback for unnamed (e.g. virtual) threads. */
-    private static String threadKey(LogEventData event) {
-        String t = event.threadName();
-        return (t == null || t.isBlank()) ? "<unnamed>" : t;
-    }
 
     private String correlationKey(LogEventData event) {
         Map<String, String> mdc = event.mdc();
