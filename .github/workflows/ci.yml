@@ -22,8 +22,10 @@ jobs:
         if: matrix.java == 21
         uses: codecov/codecov-action@v5
         with:
+          # No `files:` on purpose — it is passed through as a path, not shell-expanded, so a
+          # `**` glob can silently match nothing. Letting Codecov auto-discover finds every
+          # module's target/site/jacoco/jacoco.xml in this reactor.
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: "**/target/site/jacoco/jacoco.xml"
           fail_ci_if_error: false
       - name: README compatibility table guard
         if: matrix.java == 21
