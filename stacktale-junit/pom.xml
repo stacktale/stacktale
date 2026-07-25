@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.gabrielbbaldez</groupId>
+    <artifactId>stacktale-parent</artifactId>
+    <version>1.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>stacktale-junit</artifactId>
+  <packaging>jar</packaging>
+
+  <name>stacktale-junit</name>
+  <description>JUnit Platform listener for stacktale: turns a failing test into an AI-ready report in errors-ai.log, so an agent's fix-run-check loop can see a red build.</description>
+
+  <properties>
+    <stacktale.module.name>io.github.gabrielbbaldez.stacktale.junit</stacktale.module.name>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.github.gabrielbbaldez</groupId>
+      <artifactId>stacktale-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <!--
+      The launcher is the listener SPI's home. It is provided by whatever runs the tests
+      (Surefire, Gradle, the IDE), so it must not be dragged onto the user's classpath.
+    -->
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-launcher</artifactId>
+      <version>${junit.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <!--
+      Test-only: proves the listener picks up a running adapter's pipeline, so a test
+      failure's report carries the story the application logged before it broke.
+    -->
+    <dependency>
+      <groupId>io.github.gabrielbbaldez</groupId>
+      <artifactId>stacktale</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <version>${assertj.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

@@ -1,5 +1,6 @@
 package io.github.gabrielbbaldez.stacktale.log4j2;
 
+import io.github.gabrielbbaldez.stacktale.ActivePipeline;
 import io.github.gabrielbbaldez.stacktale.LogEventData;
 import io.github.gabrielbbaldez.stacktale.ReportPipeline;
 import io.github.gabrielbbaldez.stacktale.UncaughtHandler;
@@ -53,6 +54,9 @@ public final class StacktaleAppender extends AbstractAppender {
     @Override
     public void start() {
         super.start();
+        // publish for reporters outside the logging path (stacktale-junit) so their
+        // reports share this file, this dedup window and this story buffer
+        ActivePipeline.register(pipeline);
         if (installUncaughtHandler && pipeline.isActive()) {
             org.apache.logging.log4j.Logger uncaught = LogManager.getLogger(UncaughtHandler.UNCAUGHT_LOGGER);
             UncaughtHandler.install(uncaught::error);
@@ -61,6 +65,7 @@ public final class StacktaleAppender extends AbstractAppender {
 
     @Override
     public boolean stop(long timeout, java.util.concurrent.TimeUnit timeUnit) {
+        ActivePipeline.unregister(pipeline);
         pipeline.close(); // flush pending repeat counters
         return super.stop(timeout, timeUnit);
     }

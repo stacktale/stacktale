@@ -1,5 +1,6 @@
 package io.github.gabrielbbaldez.stacktale.logback;
 
+import io.github.gabrielbbaldez.stacktale.ActivePipeline;
 import io.github.gabrielbbaldez.stacktale.Csv;
 import io.github.gabrielbbaldez.stacktale.LogEventData;
 import io.github.gabrielbbaldez.stacktale.ReportPipeline;
@@ -127,6 +128,9 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
         super.start();
         if (pipeline.isActive()) {
             addInfo("stacktale active → " + file + " (error reports for AI consumption)");
+            // publish for reporters outside the logging path (stacktale-junit) so their
+            // reports share this file, this dedup window and this story buffer
+            ActivePipeline.register(pipeline);
             if (installUncaughtHandler) {
                 org.slf4j.Logger uncaught = LoggerFactory.getLogger(UncaughtHandler.UNCAUGHT_LOGGER);
                 UncaughtHandler.install(uncaught::error);
@@ -136,7 +140,10 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
 
     @Override
     public void stop() {
-        if (pipeline != null) pipeline.close(); // flush pending repeat counters
+        if (pipeline != null) {
+            ActivePipeline.unregister(pipeline);
+            pipeline.close(); // flush pending repeat counters
+        }
         super.stop();
     }
 

@@ -275,6 +275,59 @@ io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.redactPatterns = (pas
 `SEVERE` records become reports; lower levels feed the story (which correlates by thread,
 since JUL has no MDC). No extra dependency — JUL is in the JDK.
 
+### Failing tests
+
+A failing test never reaches an appender — the assertion error is caught by the JUnit
+engine, so nothing is logged and nothing is reported. That is a problem when the reader is
+an agent: told to "fix it, re-run the tests, then check what changed", it would be handed
+`✓ No new errors` on a red build.
+
+`stacktale-junit` closes that. One **test-scoped** dependency, no configuration:
+
+```xml
+<dependency>
+  <groupId>io.github.gabrielbbaldez</groupId>
+  <artifactId>stacktale-junit</artifactId>
+  <version>1.1.0</version>
+  <scope>test</scope>
+</dependency>
+```
+
+```groovy
+testImplementation 'io.github.gabrielbbaldez:stacktale-junit:1.1.0'
+```
+
+The listener is discovered through `META-INF/services`, so Surefire, Gradle and your IDE
+pick it up on their own. Every failing test becomes a normal `st/1` report:
+
+```
+━━━ ERROR #ff76deb3 ━━━ 2026-07-25 16:13:05.435 thread=main ━━━
+NullPointerException: Cannot invoke "java.lang.Integer.intValue()" because "discount" is null
+at CheckoutService.confirm(CheckoutService.java:46) ← YOUR CODE
+log: "test failed: {}" args=[confirmsAnOrder()] logger=c.a.CheckoutServiceTest
+mdc: test.class=com.acme.CheckoutServiceTest test.method=confirmsAnOrder
+
+story (thread main, last 3 events, 12ms):
+  16:13:05.423 INFO  CheckoutService  confirming order 889
+  16:13:05.431 WARN  CheckoutService  discount lookup missed for order 889, got null
+  16:13:05.435 ERROR CheckoutServiceTest  test failed: confirmsAnOrder()   ← this error
+```
+
+Note the culprit: the frame in the code under test, not in the assertion library. And note
+the story — when an appender is already running, the listener reports through **that**
+pipeline, so the report carries what your code logged on the way to failing.
+
+| Property | Default | |
+|---|---|---|
+| `-Dstacktale.junit.enabled` | `true` | `false` turns the listener off |
+| `-Dstacktale.junit.file` | `errors-ai.log` | only used when no appender is running |
+| `-Dstacktale.junit.appPackages` | inferred | overrides the packages inferred from the test plan |
+
+Works with no appender configured too — the module then writes reports on its own, without
+the story. One limitation: if the test sets a correlation key (`traceId`) in the MDC, the
+story is filed under that key and the report cannot reach it, because a listener is
+notified only after the method has returned.
+
 ## Point your assistant at the report
 
 Use the read-only [Query reports as AI tools (MCP)](#query-reports-as-ai-tools-mcp)
@@ -304,6 +357,8 @@ One `stacktale-core`, every entry point — add only the ones your stack uses:
 | **Log4j2** | `stacktale-log4j2` |
 | **java.util.logging / `System.Logger`** | `stacktale-jul` |
 | **Spring Boot** | `stacktale-spring-boot-starter` — zero-config, auto-registered |
+
+| **Failing tests** | `stacktale-junit` — a test-scoped JUnit listener; a red test becomes a report ([below](#failing-tests)) |
 
 | Where the report is consumed | |
 |---|---|

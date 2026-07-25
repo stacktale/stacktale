@@ -1,5 +1,6 @@
 package io.github.gabrielbbaldez.stacktale.jul;
 
+import io.github.gabrielbbaldez.stacktale.ActivePipeline;
 import io.github.gabrielbbaldez.stacktale.Csv;
 import io.github.gabrielbbaldez.stacktale.LogEventData;
 import io.github.gabrielbbaldez.stacktale.ReportPipeline;
@@ -72,6 +73,9 @@ public final class StacktaleJulHandler extends Handler {
 
     public StacktaleJulHandler(ReportPipeline.Settings settings, boolean installUncaughtHandler) {
         this.pipeline = ReportPipeline.create(settings, host());
+        // publish for reporters outside the logging path (stacktale-junit) so their
+        // reports share this file, this dedup window and this story buffer
+        ActivePipeline.register(pipeline);
         // The JVM sends uncaught exceptions to stderr, never through JUL — so without this a
         // thread that dies without a log.error() produces no report (#55). Route them back in
         // via UNCAUGHT_LOGGER, which propagates to this handler on the (parent) root logger.
@@ -113,6 +117,7 @@ public final class StacktaleJulHandler extends Handler {
 
     @Override
     public void close() {
+        ActivePipeline.unregister(pipeline);
         pipeline.close(); // flush pending repeat counters / storm lines
     }
 
