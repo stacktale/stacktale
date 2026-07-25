@@ -185,6 +185,12 @@ implementation("io.github.gabrielbbaldez:stacktale:1.0.0")
 Reports land in `./errors-ai.log`. Point your AI assistant at that file — it announces
 itself on startup, and the file header explains the format to any AI that opens it.
 
+> **Add `errors-ai.log*` to your `.gitignore`.** Reports carry MDC values, log arguments
+> and exception field values — everything stacktale captured at the moment of the error.
+> stacktale redacts common secrets by default (JWTs, bearer tokens, passwords — see
+> [SECURITY.md](SECURITY.md)), but the file is still request-scoped data and does not
+> belong in version control.
+
 ### Log4j2
 
 ```xml
@@ -307,6 +313,7 @@ One `stacktale-core`, every entry point — add only the ones your stack uses:
 | **VS Code / Cursor / Windsurf** | [**stacktale-vscode**](https://github.com/stacktale/stacktale-vscode) — the same view in the activity bar: reports newest-first, click to jump to the culprit, copy-for-AI |
 
 Every library module is Java 17+, [JPMS](#java-modules-jpms)-ready and [GraalVM-native](docs/native.md)-ready.
+API docs are on [javadoc.io](https://javadoc.io/doc/io.github.gabrielbbaldez/stacktale-core).
 On the roadmap: idiomatic starters for **Micronaut** (#81) and **Quarkus** (#82) — both already usable today through the Logback / JUL adapters — plus a **`stacktale` CLI** (#71).
 
 ## What gets captured
@@ -485,7 +492,7 @@ record an object's type and nullness, never its `toString()`). The **MCP server*
 supports resource subscriptions — your AI assistant is notified the moment a new error
 lands, instead of polling.
 
-Async work: wrap hops with [`StacktaleExecutors`](stacktale/src/main/java/io/github/gabrielbbaldez/stacktale/StacktaleExecutors.java)
+Async work: wrap hops with [`StacktaleExecutors`](stacktale-core/src/main/java/io/github/gabrielbbaldez/stacktale/StacktaleExecutors.java)
 (`wrap(executor)` / `wrap(runnable)`) so the MDC — and with it the story — survives
 `CompletableFuture`, pools and virtual threads. Apps already propagating context
 (Micrometer, Reactor) need nothing.
@@ -616,18 +623,24 @@ Reports also record repeated errors and application restarts.
 
 ## Roadmap
 
-The original roadmap (Central, Log4j2, starter, agent, MCP, real-world validation) has
-shipped. What's next lives in the milestones:
+**[1.0.0](https://github.com/stacktale/stacktale/releases/tag/v1.0.0) has shipped** — the
+`st/1` format is frozen, the core is mutation-tested (~85% test strength), and a 3600s
+[soak](docs/soak.md) over 8M events holds a flat heap. See the
+[changelog](CHANGELOG.md) for the full history.
 
-- **[0.4.0](https://github.com/stacktale/stacktale/milestone/1)** — production
-  hardening and the agentic loop: formal `st/1` spec, error-storm rate limiting, MCP
-  push notifications, agent filters, compatibility matrix, one-click releases.
-- **[1.0.0](https://github.com/stacktale/stacktale/milestone/2)** — maturity:
-  frozen format spec, mutation-tested, soak-tested, SBOM + provenance, receiver-state
-  capture exploration.
+What's open next:
 
-Contributions welcome — several issues are labeled `good first issue`. See
-[CONTRIBUTING.md](CONTRIBUTING.md).
+- **Framework starters** — idiomatic [Micronaut](https://github.com/stacktale/stacktale/issues/81)
+  and [Quarkus](https://github.com/stacktale/stacktale/issues/82) modules (both stacks already
+  work today through the Logback / JUL adapters).
+- **[A `stacktale` CLI](https://github.com/stacktale/stacktale/issues/71)** — read and tail
+  `errors-ai.log` from the terminal.
+- **The editor plugins** — [JetBrains](https://github.com/stacktale/stacktale-intellij) and
+  [VS Code](https://github.com/stacktale/stacktale-vscode), heading for their marketplaces.
+
+Contributions welcome — issues labeled
+[`good first issue`](https://github.com/stacktale/stacktale/labels/good%20first%20issue) name
+the files to touch and how to verify. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

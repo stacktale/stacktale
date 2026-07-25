@@ -1,4 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>stacktale — stack traces that tell the tale</title>
+<meta name="description" content="A Logback appender that turns Java errors into AI-ready reports. Root cause first, your culprit frame marked, the story of what led to the error — written alongside your untouched logs.">
+<link rel="canonical" href="https://stacktale.github.io/stacktale/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://stacktale.github.io/stacktale/">
+<meta property="og:title" content="stacktale — stack traces that tell the tale">
+<meta property="og:description" content="A Logback appender that turns Java errors into AI-ready reports. Root cause first, your culprit frame marked, the story of what led to the error.">
+<meta property="og:image" content="https://stacktale.github.io/stacktale/banner.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="stacktale — stack traces that tell the tale">
+<meta name="twitter:description" content="A Logback appender that turns Java errors into AI-ready reports. Root cause first, your culprit frame marked, the story of what led to the error.">
+<meta name="twitter:image" content="https://stacktale.github.io/stacktale/banner.jpg">
+<meta name="theme-color" content="#0c0f15">
 <style>
   :root {
     --bg: #0c0f15;
@@ -181,6 +198,8 @@
     .cursor { animation: none; }
   }
 </style>
+</head>
+<body>
 
 <div class="st">
   <nav class="nav">
@@ -206,7 +225,7 @@
       <div class="tag reveal">stack traces that tell the tale</div>
       <p class="lede reveal">Java error logs were built in the ’90s for a human with <code style="font-family:var(--mono);font-size:0.92em">grep</code> — and for that reader they work. But the reader is changing: an AI assistant or an automated agent reads an error with no muscle memory, and every line is context and token cost. stacktale captures the failure at the source, structured for that reader — alongside your untouched logs.</p>
       <div class="badges reveal">
-        <span class="badge">Maven Central <b>0.3.1</b></span>
+        <span class="badge">Maven Central <b>1.0.0</b></span>
         <span class="badge">Java <b>17+</b></span>
         <span class="badge">Logback · Log4j2</span>
         <span class="badge"><b>Apache-2.0</b></span>
@@ -355,7 +374,7 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
         <div class="term-body"><pre><span class="c-dim">&lt;dependency&gt;</span>
   <span class="c-dim">&lt;groupId&gt;</span><span class="c-white">io.github.gabrielbbaldez</span><span class="c-dim">&lt;/groupId&gt;</span>
   <span class="c-dim">&lt;artifactId&gt;</span><span class="c-amber-b">stacktale-spring-boot-starter</span><span class="c-dim">&lt;/artifactId&gt;</span>
-  <span class="c-dim">&lt;version&gt;</span><span class="c-white">0.3.1</span><span class="c-dim">&lt;/version&gt;</span>
+  <span class="c-dim">&lt;version&gt;</span><span class="c-white">1.0.0</span><span class="c-dim">&lt;/version&gt;</span>
 <span class="c-dim">&lt;/dependency&gt;</span></pre></div>
       </div>
       <p class="qs-note reveal">That's it. Reports land in <code>errors-ai.log</code>; your console stays exactly as it was.</p>
@@ -394,3 +413,6 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
     });
   })();
 </script>
+
+</body>
+</html>
