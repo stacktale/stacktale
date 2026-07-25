@@ -431,7 +431,7 @@ artifact for the five facts needed to fix it without a follow-up question. Run i
 |---|---:|---:|---|
 | Stack trace alone (what gets pasted) | 89 | 2 376 | 3/5 facts |
 | Stack trace + 200 lines of log tail | 290 | 7 565 | 3/5 facts |
-| Whole `app.log` for the session | 275 | 7 089 | 4/5 facts |
+| Whole `app.log` for the session | 395 | 10 119 | 4/5 facts |
 | **stacktale report (st/1)** | **29** | **463** | **5/5 facts** |
 
 Read the middle row: paying 200 more lines of log buys **no new fact**, because concurrent

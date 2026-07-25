@@ -135,27 +135,33 @@ class EfficiencyBenchmarkTest {
         root.addAppender(stacktale);
         root.setLevel(Level.INFO);
 
-        // background traffic: the reason the explaining line ends up far from the trace
-        Thread[] noise = new Thread[3];
-        for (int i = 0; i < noise.length; i++) {
-            final int id = i;
-            noise[i] = new Thread(() -> {
-                Logger log = ctx.getLogger("com.acme.OrderController");
-                for (int n = 0; n < 60; n++) {
-                    log.info("GET /orders/{} → 200 in {}ms", 1000 + id * 100 + n, 12 + n % 7);
-                }
-            }, "http-nio-8080-exec-" + (i + 2));
-            noise[i].start();
-        }
-
         Logger controller = ctx.getLogger("com.acme.OrderController");
         Logger client = ctx.getLogger("com.acme.CustomerClient");
         Logger cache = ctx.getLogger("com.acme.CustomerCache");
         Logger service = ctx.getLogger("com.acme.CheckoutService");
 
+        // this request's own trail — the three lines that explain the failure
         controller.info("POST /orders/{}/confirm", 889);
         client.info("fetching customer {} → HTTP 404", 555);
         cache.warn("cache miss for customer {}, returning null", 555);
+
+        // Other requests, served while this one is still in flight. They run on their own
+        // threads (so stacktale keeps them out of this request's story, as it would in
+        // production) and are joined before the error is logged, so the distance between
+        // the cache-miss line and the stack trace is a fixed 300 lines rather than a
+        // scheduling accident — the measurement has to mean the same thing on every machine.
+        Thread[] traffic = new Thread[3];
+        for (int i = 0; i < traffic.length; i++) {
+            final int id = i;
+            traffic[i] = new Thread(() -> {
+                Logger log = ctx.getLogger("com.acme.OrderController");
+                for (int n = 0; n < 100; n++) {
+                    log.info("GET /orders/{} → 200 in {}ms", 1000 + id * 100 + n, 12 + n % 7);
+                }
+            }, "http-nio-8080-exec-" + (i + 2));
+            traffic[i].start();
+        }
+        for (Thread t : traffic) t.join();
 
         Throwable thrown;
         try {
@@ -165,7 +171,6 @@ class EfficiencyBenchmarkTest {
             service.error("Failed to confirm order {}", 889, e);
         }
 
-        for (Thread t : noise) t.join();
         stacktale.stop();
         classic.stop();
         return thrown;
