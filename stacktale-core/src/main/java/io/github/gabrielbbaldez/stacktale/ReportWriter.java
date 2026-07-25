@@ -57,11 +57,40 @@ final class ReportWriter {
         this.truncateOnStart = truncateOnStart;
         this.maxBackups = Math.max(0, maxBackups);
         this.warn = warn != null ? warn : (m, t) -> { };
+        probeWritable();
+    }
+
+    /**
+     * Fails construction when the destination cannot be written.
+     *
+     * <p>Nothing used to touch the filesystem until the first error arrived, so a read-only
+     * root — the ordinary container case — produced a pipeline that reported itself active,
+     * announced the file it was writing to, and wrote nothing. Failing here instead makes
+     * {@code isActive()} tell the truth and the startup line honest.
+     *
+     * <p>The probe is a temporary file in the destination's directory rather than the
+     * destination itself: touching {@code errors-ai.log} would leave an empty file behind on
+     * every start, and a run with no errors should leave no trace.
+     */
+    private void probeWritable() {
+        try {
+            Path parent = file.getParent();
+            if (parent != null) Files.createDirectories(parent);
+            if (Files.exists(file)) {
+                if (!Files.isWritable(file)) {
+                    throw new IOException("report file is not writable: " + file);
+                }
+                return;
+            }
+            Path probe = Files.createTempFile(parent == null ? Path.of(".") : parent, ".stacktale-", ".probe");
+            Files.delete(probe);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e); // ReportPipeline.create turns this into isActive() == false
+        }
     }
 
     synchronized void append(String block) {
         try {
-            if (file.getParent() != null) Files.createDirectories(file.getParent());
             handleSessionStart();
             long size = Files.exists(file) ? Files.size(file) : 0;
             byte[] bytes = block.getBytes(StandardCharsets.UTF_8);

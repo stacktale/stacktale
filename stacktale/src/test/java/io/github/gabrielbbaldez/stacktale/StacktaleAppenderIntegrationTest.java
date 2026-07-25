@@ -304,6 +304,36 @@ class StacktaleAppenderIntegrationTest {
         assertThat(appender.isStarted()).isTrue();
     }
 
+    /**
+     * Nothing touched the filesystem until the first error arrived, so a destination that
+     * can never be written — a read-only container root, in practice — still announced
+     * "stacktale active → errors-ai.log" and then wrote nothing. Here the parent of the
+     * target is a regular file, which no filesystem will accept as a directory.
+     */
+    @Test
+    void anUnwritableDestinationIsNotAnnouncedAsActive(@TempDir Path dir) throws Exception {
+        Path blocker = Files.createFile(dir.resolve("blocker"));
+        Path unwritable = blocker.resolve("errors-ai.log");
+
+        ctx = new LoggerContext();
+        ctx.setMDCAdapter(MDC.getMDCAdapter());
+        StacktaleAppender appender = new StacktaleAppender();
+        appender.setContext(ctx);
+        appender.setFile(unwritable.toString());
+        appender.setInstallUncaughtHandler(false);
+        appender.start(); // a broken destination cannot break app startup
+        ctx.getLogger(Logger.ROOT_LOGGER_NAME).addAppender(appender);
+        ctx.getLogger(Logger.ROOT_LOGGER_NAME).setLevel(Level.INFO);
+
+        ctx.getLogger("com.acme.X").error("boom", new RuntimeException("x"));
+
+        assertThat(appender.isStarted()).isTrue();
+        assertThat(Files.exists(unwritable)).isFalse();
+        assertThat(ctx.getStatusManager().getCopyOfStatusList())
+                .describedAs("must not claim to be active when it cannot write")
+                .noneSatisfy(status -> assertThat(status.getMessage()).contains("stacktale active"));
+    }
+
     @Test
     void ignoresItsOwnPointerLogger(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("errors-ai.log");

@@ -154,6 +154,21 @@ public final class ReportPipeline {
     private final Renderer renderer;
     private final ReportWriter writer; // null = broken config, pipeline is a no-op
     private final AtomicBoolean warnedOnce = new AtomicBoolean();
+
+    /**
+     * Consecutive failures on the write path, and the switch they trip.
+     *
+     * <p>A rollback re-arms the dedup window so the next occurrence gets a fresh chance —
+     * right when the failure is transient, wrong when it is not. Against a destination that
+     * will never accept a write, every error paid for a full distill, a reflective field
+     * extraction and a render before failing again, forever, with one warning at the start.
+     * After this many in a row the pipeline parks itself: still never throwing, but no
+     * longer burning the application's CPU to produce nothing.
+     */
+    private static final int MAX_CONSECUTIVE_FAILURES = 5;
+    private final java.util.concurrent.atomic.AtomicInteger consecutiveFailures =
+            new java.util.concurrent.atomic.AtomicInteger();
+    private volatile boolean parked;
     private final AtomicBoolean announced = new AtomicBoolean();
     /**
      * When a logical thread last produced a full report — used to suppress container echoes.
@@ -210,7 +225,7 @@ public final class ReportPipeline {
 
     public void process(LogEventData event) {
         try {
-            if (writer == null || SELF_LOGGER.equals(event.loggerName())
+            if (writer == null || parked || SELF_LOGGER.equals(event.loggerName())
                     || REPORTS_LOGGER.equals(event.loggerName())) return;
             if (announced.compareAndSet(false, true)) {
                 host.selfLog("stacktale active → " + settings.file() + " (error reports for AI consumption)");
@@ -285,9 +300,16 @@ public final class ReportPipeline {
                 }
                 case SILENT -> { /* counted; nothing to write */ }
             }
+            consecutiveFailures.set(0); // the write path is healthy again
         } catch (Throwable t) {
+            int failures = consecutiveFailures.incrementAndGet();
             if (warnedOnce.compareAndSet(false, true)) {
-                host.warn("stacktale failed to process an event; further failures are silent", t);
+                host.warn("stacktale failed to process an event", t);
+            }
+            if (failures >= MAX_CONSECUTIVE_FAILURES && !parked) {
+                parked = true;
+                host.warn("stacktale parked after " + failures + " consecutive failures writing "
+                        + settings.file() + "; no further reports will be produced this run", t);
             }
         }
     }
