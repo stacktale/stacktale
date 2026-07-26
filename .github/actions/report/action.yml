@@ -1,0 +1,82 @@
+name: stacktale report
+description: Turn a red build's errors-ai.log into a PR comment and a job summary, instead of a reviewer scrolling raw CI logs.
+
+inputs:
+  file:
+    description: Path to errors-ai.log, relative to the workspace.
+    required: false
+    default: errors-ai.log
+  max-reports:
+    description: How many reports to inline. The rest stay in the uploaded artifact.
+    required: false
+    default: "3"
+  comment:
+    description: Post (and update) a comment on the pull request. Needs pull-requests:write.
+    required: false
+    default: "true"
+  upload-artifact:
+    description: Upload the whole log as a workflow artifact.
+    required: false
+    default: "true"
+  github-token:
+    description: Token used to comment. Defaults to the workflow's GITHUB_TOKEN.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  count:
+    description: Number of complete reports found (0 when the log is absent or empty).
+    value: ${{ steps.summarize.outputs.count }}
+
+runs:
+  using: composite
+  steps:
+    - id: summarize
+      shell: bash
+      run: |
+        set -euo pipefail
+        log="${{ inputs.file }}"
+        if [ ! -f "$log" ]; then
+          echo "count=0" >> "$GITHUB_OUTPUT"
+          echo "No $log — nothing to report."
+          exit 0
+        fi
+        count=$(bash "${{ github.action_path }}/summarize.sh" "$log" "${{ inputs.max-reports }}" "$RUNNER_TEMP/stacktale-summary.md")
+        echo "count=$count" >> "$GITHUB_OUTPUT"
+        if [ "$count" -gt 0 ]; then
+          cat "$RUNNER_TEMP/stacktale-summary.md" >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+    - if: steps.summarize.outputs.count != '0' && inputs.upload-artifact == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: stacktale-errors
+        path: ${{ inputs.file }}
+        if-no-files-found: ignore
+
+    # One comment per PR, edited in place. A new comment per push turns a long-running
+    # branch into a wall of stale reports.
+    - if: steps.summarize.outputs.count != '0' && inputs.comment == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        set -euo pipefail
+        marker='<!-- stacktale-report -->'
+        body="$RUNNER_TEMP/stacktale-comment.md"
+        printf '%s\n' "$marker" > "$body"
+        cat "$RUNNER_TEMP/stacktale-summary.md" >> "$body"
+
+        pr='${{ github.event.pull_request.number }}'
+        existing=$(gh api "repos/${{ github.repository }}/issues/$pr/comments" \
+          --jq "map(select(.body | startswith(\"$marker\"))) | .[0].id // empty")
+
+        if [ -n "$existing" ]; then
+          gh api --method PATCH "repos/${{ github.repository }}/issues/comments/$existing" \
+            -F body=@"$body" --silent
+          echo "Updated the existing stacktale comment."
+        else
+          gh api --method POST "repos/${{ github.repository }}/issues/$pr/comments" \
+            -F body=@"$body" --silent
+          echo "Posted a stacktale comment."
+        fi

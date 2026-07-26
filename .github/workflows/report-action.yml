@@ -1,0 +1,71 @@
+name: Report action
+
+# Exercises .github/actions/report end to end against the golden fixtures, so a change to
+# the extractor cannot quietly stop producing reports. Commenting is off here — this runs
+# on the library's own PRs, which have no errors-ai.log of their own to talk about.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/actions/report/**'
+      - '.github/workflows/report-action.yml'
+      - 'stacktale-core/src/test/resources/golden/**'
+  pull_request:
+    paths:
+      - '.github/actions/report/**'
+      - '.github/workflows/report-action.yml'
+      - 'stacktale-core/src/test/resources/golden/**'
+  workflow_dispatch:
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build a log from the golden fixtures
+        run: |
+          set -euo pipefail
+          g=stacktale-core/src/test/resources/golden
+          {
+            cat "$g/full-report.txt"; echo
+            cat "$g/rich-report.txt"; echo
+            cat "$g/no-throwable.txt"; echo
+            # a half-written tail: the writer appends the block separately, so a read can
+            # catch this. FORMAT.md says a parser must discard it.
+            echo '━━━ ERROR #dead9999 ━━━ 2026-07-26 10:00:00.000 thread=main ━━━'
+            echo 'RuntimeException: truncated, no END line'
+          } > errors-ai.log
+
+      - id: report
+        uses: ./.github/actions/report
+        with:
+          max-reports: "2"
+          comment: "false"
+          upload-artifact: "false"
+
+      - name: The three complete reports are counted, the truncated one is not
+        run: |
+          set -euo pipefail
+          got='${{ steps.report.outputs.count }}'
+          if [ "$got" != "3" ]; then
+            echo "expected 3 complete reports, got '$got'"
+            exit 1
+          fi
+          grep -q 'Showing the first 2' "$GITHUB_STEP_SUMMARY"
+          if grep -q 'dead9999' "$GITHUB_STEP_SUMMARY"; then
+            echo "the truncated block leaked into the summary"
+            exit 1
+          fi
+          echo "ok"
+
+      - name: An absent log is not an error
+        run: rm errors-ai.log
+      - id: empty
+        uses: ./.github/actions/report
+        with:
+          comment: "false"
+          upload-artifact: "false"
+      - run: |
+          [ '${{ steps.empty.outputs.count }}' = '0' ] || { echo "expected 0"; exit 1; }
+          echo "ok"
