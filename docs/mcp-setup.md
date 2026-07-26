@@ -163,7 +163,10 @@ stacktale report for it before reasoning about the fix.
 
 - **"command not found: java"** — the server runs on the JVM; Java must be on the `PATH`
   the client launches with. On Windows, use forward slashes in paths or double backslashes.
-- **Nothing shows up** — always use **absolute** paths for both the jar and the log file;
-  MCP clients don't launch from your project directory.
+- **Nothing shows up** — use **absolute** paths for both the jar and the log file when
+  configuring the server by hand; most MCP clients don't launch from your project
+  directory. (The [Claude Code plugin](../plugins/stacktale/README.md) is the exception —
+  it inherits Claude Code's working directory, so the default relative `errors-ai.log`
+  resolves on its own.)
 - **No live notifications** — subscriptions require a client that supports MCP resource
   subscriptions; tools (`list_errors` etc.) work everywhere.

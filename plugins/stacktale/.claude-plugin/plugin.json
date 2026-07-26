@@ -1,0 +1,13 @@
+{
+  "name": "stacktale",
+  "version": "1.0.0",
+  "description": "Read your Java app's AI-ready error reports, and run a fix-run-check loop until the app is clean.",
+  "author": {
+    "name": "Gabriel Baldez",
+    "url": "https://github.com/GabrielBBaldez"
+  },
+  "homepage": "https://stacktale.github.io/stacktale/",
+  "repository": "https://github.com/stacktale/stacktale",
+  "license": "Apache-2.0",
+  "keywords": ["java", "logging", "debugging", "errors", "spring-boot", "logback"]
+}

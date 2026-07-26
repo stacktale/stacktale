@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "stacktale": {
+      "command": "jbang",
+      "args": ["run", "io.github.gabrielbbaldez:stacktale-mcp:1.0.0"]
+    }
+  }
+}

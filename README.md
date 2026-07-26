@@ -447,6 +447,17 @@ to every row.
 asks stacktale *"what's new?"*, and repeats until the app runs clean — without you
 copy-pasting a single stack trace.
 
+**On Claude Code, install it as a plugin** — it brings the server plus a skill that knows
+how to run the loop:
+
+```
+/plugin marketplace add stacktale/stacktale
+/plugin install stacktale@stacktale
+```
+
+Everything below covers wiring the server up by hand, for Cursor, Claude Desktop, or
+anything else that speaks MCP.
+
 ```json
 { "mcpServers": { "stacktale": {
     "command": "java",
