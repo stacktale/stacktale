@@ -62,7 +62,19 @@ public final class ReportPipeline {
         public static final int DEFAULT_MAX_FILE_SIZE_MB = 5;
         public static final int DEFAULT_MAX_BACKUPS = 1;
         public static final long DEFAULT_ECHO_SUPPRESSION_MILLIS = 2000;
-        public static final String DEFAULT_CORRELATION_MDC_KEYS = "traceId,correlationId,requestId";
+        /**
+         * Keys checked, in order, to group a story by request rather than by thread.
+         *
+         * <p>{@code traceId} is the Micrometer/Spring Boot spelling. {@code trace_id} is what
+         * the OpenTelemetry Java agent injects — a different string, and the single most
+         * common production JVM setup there is; without it an OTel-instrumented app silently
+         * falls back to per-thread correlation, which is exactly wrong on a thread pool.
+         *
+         * <p>{@code span_id} is deliberately absent: it changes per span within a request, so
+         * keying on it would shard one request's story into fragments.
+         */
+        public static final String DEFAULT_CORRELATION_MDC_KEYS =
+                "traceId,trace_id,correlationId,requestId";
 
         public static Builder builder() {
             return new Builder();

@@ -84,7 +84,7 @@ Fields:
 
 | Token | Meaning |
 |---|---|
-| `<id>` | 8 lowercase hex chars — a stable fingerprint of (root type + culprit frame + digit-normalized message). Same error ⇒ same id across occurrences and restarts. |
+| `<id>` | 8 lowercase hex chars — a stable fingerprint of (root type + culprit frame **without its line number** + digit-normalized message, first 1024 chars). Same error ⇒ same id across occurrences, restarts **and edits to the file**. Two throw sites in the same method raising the same exception with the same message shape therefore share an id: identity has to survive the source moving, or a fix-loop cannot tell "still broken" from "new error". |
 | `<timestamp>` | `yyyy-MM-dd HH:mm:ss.SSS` in the configured zone |
 | `<thread>` | the thread that logged the error |
 | `<headline>` | the **root cause**: `<SimpleType>[: <message>]`. For a report with no throwable: `ERROR (no exception): <formatted message>`. |

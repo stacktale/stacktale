@@ -297,6 +297,9 @@ an agent: told to "fix it, re-run the tests, then check what changed", it would 
 testImplementation 'io.github.gabrielbbaldez:stacktale-junit:1.1.0'
 ```
 
+> **Not on Maven Central yet** — this module landed after 1.0.0 and ships in **1.1.0**.
+> Until then, build it locally with `mvn -pl stacktale-junit -am install`.
+
 The listener is discovered through `META-INF/services`, so Surefire, Gradle and your IDE
 pick it up on their own. Every failing test becomes a normal `st/1` report:
 
@@ -557,7 +560,7 @@ Everything is optional — as appender properties in `logback.xml`, or `stacktal
 | `redactionEnabled` | `true` | Mask secrets/PII in report content |
 | `redactPattern` / `redactPatterns` | — | Extra redaction regexes (see note below) |
 | `redactionCorrelation` | `false` | Tag masked values with a stable keyed token (`███(a1b2)`) so an AI can see the same secret recurring |
-| `correlationMdcKeys` | `traceId,correlationId,requestId` | MDC keys that group the story |
+| `correlationMdcKeys` | `traceId,trace_id,correlationId,requestId` | MDC keys that group the story (`traceId` is Micrometer's spelling, `trace_id` the OpenTelemetry agent's) |
 | `zone` | system | Timezone for report timestamps |
 | `echoSuppressionMillis` | `2000` | Skip container re-logs of a failure this thread just reported (0 = off) |
 | `containerLogger` / `containerLoggers` | Tomcat's | Extra logger prefixes treated as container echoes (see note below) |

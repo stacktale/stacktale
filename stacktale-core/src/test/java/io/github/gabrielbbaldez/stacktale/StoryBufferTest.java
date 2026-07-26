@@ -85,6 +85,30 @@ class StoryBufferTest {
     }
 
     /**
+     * The OpenTelemetry Java agent injects {@code trace_id} — not {@code traceId}, which is
+     * Micrometer's spelling. The default key list only had the latter, so the single most
+     * common production JVM setup fell back to per-thread correlation, which on a thread pool
+     * puts one request's lines into another request's story.
+     */
+    @Test
+    void correlatesOnTheOpenTelemetryAgentsMdcKeyByDefault() throws Exception {
+        StoryBuffer buf = new StoryBuffer(10, 60_000,
+                Csv.parse(ReportPipeline.Settings.DEFAULT_CORRELATION_MDC_KEYS), 200);
+        Map<String, String> otel = Map.of("trace_id", "4bf92f3577b34da6");
+
+        Thread t = new Thread(() -> buf.record(event("com.acme.B", "INFO", "handled upstream", 1000, otel)));
+        t.start();
+        t.join();
+        LogEventData err = event("com.acme.A", "ERROR", "boom", 1001, otel);
+        buf.record(err);
+
+        Story story = buf.storyFor(err);
+        assertThat(story.entries()).extracting(StoryEntry::message)
+                .containsExactly("handled upstream", "boom");
+        assertThat(story.contextLabel()).isEqualTo("trace_id=4bf92f3577b34da6");
+    }
+
+    /**
      * A blank name used to fall back to one shared {@code <unnamed>} bucket, so every
      * unnamed virtual thread wrote into the same story and reports carried other requests'
      * log lines. Here the blank name arrives on a *named* caller, which is what a handed-off
