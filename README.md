@@ -366,6 +366,7 @@ One `stacktale-core`, every entry point — add only the ones your stack uses:
 | **Throw-site arguments** | `stacktale-agent` — an optional `-javaagent` capturing method args |
 | **IntelliJ IDEA / JetBrains** | [**stacktale-intellij**](https://github.com/stacktale/stacktale-intellij) — a tool window over `errors-ai.log`: reports newest-first, double-click to jump to the culprit line, copy-for-AI |
 | **VS Code / Cursor / Windsurf** | [**stacktale-vscode**](https://github.com/stacktale/stacktale-vscode) — the same view in the activity bar: reports newest-first, click to jump to the culprit, copy-for-AI |
+| **A red CI build** | [**the report action**](.github/actions/report) — posts the reports as a pull-request comment and a job summary, instead of a reviewer scrolling raw logs |
 
 Every library module is Java 17+, [JPMS](#java-modules-jpms)-ready and [GraalVM-native](docs/native.md)-ready.
 API docs are on [javadoc.io](https://javadoc.io/doc/io.github.gabrielbbaldez/stacktale-core).
