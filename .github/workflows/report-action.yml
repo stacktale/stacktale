@@ -52,8 +52,12 @@ jobs:
             echo "expected 3 complete reports, got '$got'"
             exit 1
           fi
-          grep -q 'Showing the first 2' "$GITHUB_STEP_SUMMARY"
-          if grep -q 'dead9999' "$GITHUB_STEP_SUMMARY"; then
+          # GITHUB_STEP_SUMMARY is a fresh file per step, so assert against the summary the
+          # action actually produced — RUNNER_TEMP is shared across the job.
+          summary="$RUNNER_TEMP/stacktale-summary.md"
+          grep -q 'Showing the first 2' "$summary"
+          grep -q '3 error reports' "$summary"
+          if grep -q 'dead9999' "$summary"; then
             echo "the truncated block leaked into the summary"
             exit 1
           fi
