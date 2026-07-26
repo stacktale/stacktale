@@ -193,6 +193,49 @@ class StackDistillerTest {
         assertThat(three.frameLines()).anySatisfy(l -> assertThat(l).contains("recursive frames"));
     }
 
+    /**
+     * Wrapper messages were always capped; the root's was not. A request body in the
+     * message put megabytes through the fingerprint regex, a dozen transient copies, and
+     * then into a single block that blew past maxFileSizeMb and rotated history away.
+     */
+    @Test
+    void capsAHugeRootMessageAndSaysHowMuchItDropped() {
+        String body = "x".repeat(2_000_000);
+        DistilledStack d = new StackDistiller(List.of("com.acme"))
+                .distill(new IllegalArgumentException("Invalid request: " + body));
+
+        assertThat(d.rootMessage().length())
+                .isLessThan(StackDistiller.MAX_ROOT_MSG + 64); // cap plus the notice
+        assertThat(d.rootMessage()).startsWith("Invalid request: xxx");
+        assertThat(d.rootMessage()).contains("… (truncated ");
+        assertThat(d.rootMessage()).contains(" chars)");
+    }
+
+    @Test
+    void aMessageAtTheCapIsLeftAlone() {
+        String exact = "y".repeat(StackDistiller.MAX_ROOT_MSG);
+        DistilledStack d = new StackDistiller(List.of("com.acme"))
+                .distill(new IllegalArgumentException(exact));
+
+        assertThat(d.rootMessage()).isEqualTo(exact).doesNotContain("truncated");
+    }
+
+    /**
+     * Two errors differing only past the fingerprint window still dedup together — that is
+     * the trade the cap makes, and it should be a decision on the record rather than a
+     * surprise. Differences within the window keep them apart.
+     */
+    @Test
+    void theFingerprintOnlyReadsTheHeadOfTheMessage() {
+        String head = "z".repeat(StackDistiller.MAX_FINGERPRINT_MSG);
+        String a = Fingerprinter.fingerprint("IllegalStateException", "Svc.java:1", head + "AAAA");
+        String b = Fingerprinter.fingerprint("IllegalStateException", "Svc.java:1", head + "BBBB");
+        assertThat(a).isEqualTo(b);
+
+        String different = Fingerprinter.fingerprint("IllegalStateException", "Svc.java:1", "totally other");
+        assertThat(different).isNotEqualTo(a);
+    }
+
     private static int recurse(int depth) {
         return recurse(depth + 1);
     }

@@ -15,8 +15,16 @@ final class Fingerprinter {
     private Fingerprinter() {}
 
     static String fingerprint(String rootType, String culpritLine, String message) {
+        // Bound what the regex sees before running it. The message can carry a request body,
+        // and dedup only needs enough of it to tell two errors apart — hashing megabytes to
+        // decide whether we have seen this before is work nobody asked for. This runs per
+        // occurrence, before dedup has decided anything, so it is the hottest of the two.
+        String head = nz(message);
+        if (head.length() > StackDistiller.MAX_FINGERPRINT_MSG) {
+            head = head.substring(0, StackDistiller.MAX_FINGERPRINT_MSG);
+        }
         String normalized = nz(rootType) + "|" + nz(culpritLine) + "|"
-                + nz(message).replaceAll("(0x[0-9a-fA-F]+|\\d+)", "#");
+                + head.replaceAll("(0x[0-9a-fA-F]+|\\d+)", "#");
         try {
             byte[] d = MessageDigest.getInstance("SHA-1").digest(normalized.getBytes(StandardCharsets.UTF_8));
             return String.format("%02x%02x%02x%02x", d[0], d[1], d[2], d[3]);

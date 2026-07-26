@@ -21,6 +21,28 @@ final class StackDistiller {
     private static final int MAX_SUPPRESSED = 3;
     private static final int MAX_WRAPPER_MSG = 80;
 
+    /**
+     * Cap on the root cause's own message.
+     *
+     * <p>Wrapper and suppressed messages were always capped; the root's was not, on the
+     * reasoning that it is the one thing you must not lose. But it is attacker- and
+     * accident-shaped: {@code throw new IllegalArgumentException("Invalid request: " + body)}
+     * with a multi-megabyte body puts that whole body through the fingerprint's regex, three
+     * copies in {@code flat()}, eight redaction passes, a StringBuilder and a UTF-8 encode —
+     * roughly a dozen transient copies — and then writes it, blowing past {@code
+     * maxFileSizeMb} in a single block and rotating the file's history away.
+     *
+     * <p>4 KB is far past any message a human wrote and far short of anything that hurts.
+     * The truncation is visible in the report, so nobody silently debugs half a message.
+     */
+    static final int MAX_ROOT_MSG = 4096;
+
+    /**
+     * Cap on what the fingerprint hashes. Dedup only needs enough of the message to tell
+     * two errors apart, and the normalizing regex is linear in what it is handed.
+     */
+    static final int MAX_FINGERPRINT_MSG = 1024;
+
     // prefix -> group label; insertion order matters (first match wins)
     private static final Map<String, String> FRAMEWORK_GROUPS = new LinkedHashMap<>();
     static {
@@ -95,8 +117,8 @@ final class StackDistiller {
         }
 
         int shown = (int) frameLines.stream().filter(l -> !l.startsWith("…")).count();
-        return new DistilledStack(simpleName(root.getClass().getName()), root.getMessage(), culprit, culpritIsApp,
-                wrappedBy, frameLines, frames.length, shown, suppressed);
+        return new DistilledStack(simpleName(root.getClass().getName()), capRootMessage(root.getMessage()),
+                culprit, culpritIsApp, wrappedBy, frameLines, frames.length, shown, suppressed);
     }
 
     private List<String> renderFrames(StackTraceElement[] frames, int culpritIdx) {
@@ -259,6 +281,16 @@ final class StackDistiller {
 
     private static String truncate(String s, int max) {
         return s.length() <= max ? s : s.substring(0, max) + "…";
+    }
+
+    /**
+     * Caps the root message, saying how much was dropped — a bare "…" leaves the reader
+     * unable to tell a long message from a truncated one.
+     */
+    static String capRootMessage(String message) {
+        if (message == null || message.length() <= MAX_ROOT_MSG) return message;
+        int dropped = message.length() - MAX_ROOT_MSG;
+        return message.substring(0, MAX_ROOT_MSG) + "… (truncated " + dropped + " chars)";
     }
 
     private static String nullToEmpty(String s) {

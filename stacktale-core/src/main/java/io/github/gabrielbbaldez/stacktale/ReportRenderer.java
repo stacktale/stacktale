@@ -62,8 +62,11 @@ final class ReportRenderer implements Renderer {
                 sb.append("wrapped by: ").append(clean(w)).append('\n');
             }
         } else {
+            // same cap as a root cause message: the formatted result can carry an argument
+            // of any size, and this is the headline of the whole block
             sb.append("ERROR (no exception): ")
-                    .append(clean(MessageFormatter.arrayFormat(r.messagePattern(), r.args()).getMessage()))
+                    .append(clean(StackDistiller.capRootMessage(
+                            MessageFormatter.arrayFormat(r.messagePattern(), r.args()).getMessage())))
                     .append('\n');
         }
 

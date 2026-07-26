@@ -107,6 +107,22 @@ the one-line-per-field invariant that makes the format parseable. No other escap
 applied; the delimiter strings use the `━` (U+2501) box-drawing character, which does not
 occur in normal log text.
 
+### Length caps
+
+Values that a caller controls are bounded before they reach the file, so one oversized
+message cannot blow past `maxFileSizeMb` in a single block and rotate the file's history
+away:
+
+| Value | Cap | On overflow |
+|---|---|---|
+| root cause message (and the `ERROR (no exception):` headline) | 4096 chars | `… (truncated N chars)` appended, where `N` is the number dropped |
+| `wrapped by:` and `suppressed:` messages | 80 chars | `…` appended |
+
+The notice is part of the value, so a reader needs no separate signal: a message that was
+cut says so, and one that merely happens to be long does not. The caps are generous by
+design — they exist to bound the pathological case (a request body in an exception
+message), not to abbreviate ordinary text.
+
 Redaction (on by default) replaces matched secrets with `███` **before** the value
 reaches the file — a parser sees the masked form.
 
