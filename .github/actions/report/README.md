@@ -6,8 +6,10 @@ reviewer — or a PR agent — reads the root cause instead of scrolling raw CI 
 ```yaml
 - run: mvn -B verify
 - if: always()          # the reports only exist when something failed
-  uses: stacktale/stacktale/.github/actions/report@v1.1.0
+  uses: stacktale/stacktale/.github/actions/report@main
 ```
+
+Pin to a tag once one exists — `@main` is the only reference that resolves today.
 
 That is the whole setup. It needs `pull-requests: write` on the job to comment:
 

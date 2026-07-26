@@ -5,6 +5,43 @@ All notable changes to stacktale are documented here. The format follows
 [SemVer](https://semver.org/). The report format (`st/1`) is versioned independently
 and pinned by golden-file tests.
 
+## [Unreleased]
+
+### Added
+
+- **`stacktale-junit`** — a JUnit Platform listener, discovered through `META-INF/services`,
+  that turns a failing test into an `st/1` report. One test-scoped dependency, no
+  configuration. When an adapter is already running it reports through that pipeline, so a
+  test failure carries the story the code logged on its way down. Closes the gap that left
+  the MCP fix-loop blind to a red build.
+- **A Claude Code plugin** — the repo doubles as its own marketplace
+  (`/plugin marketplace add stacktale/stacktale`), bundling the MCP server and a skill that
+  knows how to run the fix-loop.
+- **A GitHub Action** (`.github/actions/report`) that posts a red build's reports as a
+  pull-request comment and a job summary, editing one comment in place rather than
+  appending on every push.
+
+### Fixed
+
+- The report **id no longer changes when the file is edited**. The fingerprint hashed the
+  culprit frame including its source line, so an agent adding a guard clause above the
+  throw site made the same unfixed error mint a new id — and `errors_since_last_check`
+  called it new rather than still occurring. Two throw sites in one method now share an id;
+  see [FORMAT.md](docs/FORMAT.md) §3.
+- **`correlationMdcKeys` now includes `trace_id`**, the key the OpenTelemetry Java agent
+  injects. Micrometer spells it `traceId`, so OTel-instrumented apps were silently falling
+  back to per-thread stories.
+- **Unnamed threads no longer share one story bucket.** Every unnamed virtual thread was
+  filed under a single key, so a report could carry another request's log lines. Reachable
+  through the JUL, Log4j2 and JUnit paths; Logback synthesizes a name and was unaffected.
+- **An unwritable destination now fails loudly.** Nothing touched the filesystem until the
+  first error, so a read-only container root produced a pipeline that announced itself
+  active and wrote nothing — then re-rendered every error forever. The writer probes its
+  destination at construction, and the pipeline parks after five consecutive failures.
+- **The root cause message is capped** at 4096 chars with the dropped count stated. An
+  unbounded message could blow past `maxFileSizeMb` in a single block, rotate the file's
+  history away, and OOM the host.
+
 ## [1.0.0] — 2026-07-21
 
 **1.0.** The `st/1` report format and the core pipeline are now a stable, committed

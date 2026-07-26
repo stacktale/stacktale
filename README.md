@@ -360,7 +360,6 @@ One `stacktale-core`, every entry point — add only the ones your stack uses:
 | **Log4j2** | `stacktale-log4j2` |
 | **java.util.logging / `System.Logger`** | `stacktale-jul` |
 | **Spring Boot** | `stacktale-spring-boot-starter` — zero-config, auto-registered |
-
 | **Failing tests** | `stacktale-junit` — a test-scoped JUnit listener; a red test becomes a report ([below](#failing-tests)) |
 
 | Where the report is consumed | |
