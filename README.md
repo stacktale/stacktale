@@ -726,6 +726,9 @@ What's open next:
   work today through the Logback / JUL adapters).
 - **[A `stacktale` CLI](https://github.com/stacktale/stacktale/issues/71)** — read and tail
   `errors-ai.log` from the terminal.
+- **[A JSON Schema for `st-json/1`](https://github.com/stacktale/stacktale/issues/63)** — a
+  machine-readable contract for the NDJSON line shapes, a byte-for-byte golden conformance
+  test, and a tiny example receiver that tails the NDJSON and forwards each report.
 - **The editor plugins** — [JetBrains](https://github.com/stacktale/stacktale-intellij) and
   [VS Code](https://github.com/stacktale/stacktale-vscode), heading for their marketplaces.
 
