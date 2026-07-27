@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ImportRuntimeHints;
@@ -126,13 +127,37 @@ public class StacktaleAutoConfiguration {
         return "";
     }
 
-    @Bean
+    /**
+     * The servlet filter lives in a nested class, and the servlet condition is on the
+     * <em>class</em>, not on the bean method.
+     *
+     * <p>The distinction matters. {@code @ConditionalOnClass} on a type is evaluated in the
+     * PARSE_CONFIGURATION phase, from bytecode metadata, without loading anything — so on a
+     * reactive app with no servlet API the enclosing class is never touched and neither
+     * {@code FilterRegistrationBean} nor {@link StacktaleRequestFilter} (which
+     * {@code implements jakarta.servlet.Filter}) is ever resolved. A condition on the bean
+     * method is a REGISTER_BEAN-phase condition: by the time it says no, the method's
+     * signature has already been in play. That is the shape that produces
+     * {@code NoClassDefFoundError: jakarta.servlet.Filter} in reactive apps, and it is what
+     * Spring Boot's own auto-configurations avoid by nesting.
+     *
+     * <p>Reported on #62 by a contributor building the WebFlux example. Note the current
+     * arrangement survives a reactive context in test (see
+     * {@code startsOnAReactiveAppWithNoServletApi}) — this is removing the hazard, not
+     * chasing a reproduction.
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(jakarta.servlet.Filter.class)
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     @ConditionalOnProperty(prefix = "stacktale", name = "request-logging", havingValue = "true", matchIfMissing = true)
-    public FilterRegistrationBean<StacktaleRequestFilter> stacktaleRequestFilter(StacktaleAppender appender) {
-        FilterRegistrationBean<StacktaleRequestFilter> registration =
-                new FilterRegistrationBean<>(new StacktaleRequestFilter());
-        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10); // early: open the story before the app runs
-        return registration;
+    static class RequestLoggingConfiguration {
+
+        @Bean
+        public FilterRegistrationBean<StacktaleRequestFilter> stacktaleRequestFilter(StacktaleAppender appender) {
+            FilterRegistrationBean<StacktaleRequestFilter> registration =
+                    new FilterRegistrationBean<>(new StacktaleRequestFilter());
+            registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10); // early: open the story before the app runs
+            return registration;
+        }
     }
 }
