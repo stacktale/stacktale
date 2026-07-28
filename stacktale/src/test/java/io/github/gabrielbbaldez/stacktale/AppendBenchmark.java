@@ -7,6 +7,8 @@ import ch.qos.logback.classic.LoggerContext;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Group;
+import org.openjdk.jmh.annotations.GroupThreads;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
@@ -14,6 +16,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
+import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 
 import java.nio.file.Files;
@@ -21,13 +24,22 @@ import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Backs the "cheap happy path" claim with numbers. Not a CI test — run it manually:
+ * Backs the "cheap happy path" and concurrency claims with numbers.
+ * Not a CI test — run it manually:
  *
  * <pre>
  * mvn -q test-compile dependency:build-classpath -Dmdep.outputFile=target/cp.txt
  * java -cp "target/classes;target/test-classes;$(cat target/cp.txt)" \
  *      io.github.gabrielbbaldez.stacktale.AppendBenchmark
  * </pre>
+ *
+ * <p>Two benchmark groups are published:
+ * <ul>
+ *   <li><b>Single-threaded</b> ({@code Scope.Thread}): measures the uncontended base cost.</li>
+ *   <li><b>Contended</b> ({@code @Threads(Threads.MAX)}): measures throughput under maximum
+ *       hardware concurrency — exposes the global-monitor bottleneck that was present before
+ *       {@link StoryBuffer} switched to {@code ConcurrentHashMap}.</li>
+ * </ul>
  */
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
@@ -75,6 +87,8 @@ public class AppendBenchmark {
         stacktaleCtx.stop();
     }
 
+    // ── Single-threaded benchmarks (uncontended baseline) ──────────────────────────────
+
     /** Logback with no appender attached — the floor we compare against. */
     @Benchmark
     public void infoBaselineNoAppenders() {
@@ -91,6 +105,32 @@ public class AppendBenchmark {
     @Benchmark
     public void errorRepeatedDeduped() {
         errorLogger.error("recurring failure on item {}", i++, recurringError);
+    }
+
+    // ── Contended benchmarks (Threads.MAX — one per available core) ────────────────────
+    // These expose the StoryBuffer global-monitor contention that existed before the
+    // ConcurrentHashMap refactor. Run alongside single-threaded numbers for an honest picture.
+
+    /**
+     * Contended INFO event: all available cores concurrently writing to StoryBuffer.
+     */
+    @Benchmark
+    @Threads(Threads.MAX)
+    @Group("contended")
+    @GroupThreads(1)
+    public void infoWithStacktaleContended() {
+        stacktaleLogger.info("contended item {} in step {}", i++, "checkout");
+    }
+
+    /**
+     * Contended repeated error: all available cores hitting the dedup path simultaneously.
+     */
+    @Benchmark
+    @Threads(Threads.MAX)
+    @Group("contended")
+    @GroupThreads(1)
+    public void errorRepeatedDedupedContended() {
+        errorLogger.error("contended failure on item {}", i++, recurringError);
     }
 
     public static void main(String[] args) throws Exception {
