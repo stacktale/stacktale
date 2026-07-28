@@ -127,7 +127,9 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
         });
         super.start();
         if (pipeline.isActive()) {
-            addInfo("stacktale active → " + file + " (error reports for AI consumption)");
+            // absolute: the configured path is relative to the JVM's working directory,
+            // which a reader of this line has no way to know
+            addInfo("stacktale active → " + java.nio.file.Path.of(file).toAbsolutePath().normalize());
             // publish for reporters outside the logging path (stacktale-junit) so their
             // reports share this file, this dedup window and this story buffer
             ActivePipeline.register(pipeline);

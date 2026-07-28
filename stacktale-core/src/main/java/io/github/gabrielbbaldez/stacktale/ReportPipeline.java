@@ -166,6 +166,7 @@ public final class ReportPipeline {
     private final Renderer renderer;
     private final ReportWriter writer; // null = broken config, pipeline is a no-op
     private final AtomicBoolean warnedOnce = new AtomicBoolean();
+    private volatile String absolutePath;
 
     /**
      * Consecutive failures on the write path, and the switch they trip.
@@ -235,12 +236,36 @@ public final class ReportPipeline {
         return writer != null;
     }
 
+    /**
+     * The report file as an absolute path, for every line a human reads.
+     *
+     * <p>The configured value is normally relative ({@code errors-ai.log}), and it resolves
+     * against the JVM's working directory — which is not something you can tell from a
+     * console line. Printing the relative form leaves the reader hunting for a file whose
+     * location the message was supposed to give them. Resolved once; a failure here falls
+     * back to the configured value rather than costing anyone a report.
+     */
+    private String absoluteFile() {
+        String resolved = absolutePath;
+        if (resolved == null) {
+            try {
+                resolved = Path.of(settings.file()).toAbsolutePath().normalize().toString();
+            } catch (RuntimeException e) {
+                resolved = settings.file();
+            }
+            absolutePath = resolved;
+        }
+        return resolved;
+    }
+
     public void process(LogEventData event) {
         try {
             if (writer == null || parked || SELF_LOGGER.equals(event.loggerName())
                     || REPORTS_LOGGER.equals(event.loggerName())) return;
             if (announced.compareAndSet(false, true)) {
-                host.selfLog("stacktale active → " + settings.file() + " (error reports for AI consumption)");
+                host.selfLog("stacktale active → " + absoluteFile()
+                        + (settings.emitReportsToLogger() ? ""
+                           : " (reports go to the file; set emitReportsToLogger=true to also see them here)"));
             }
             storyBuffer.record(event);
             if (!event.error()) return;
@@ -301,7 +326,7 @@ public final class ReportPipeline {
                             lastReportByThread.put(reportedOn, System.currentTimeMillis());
                         }
                     }
-                    host.selfLog("AI error report #" + fingerprint + " → " + settings.file());
+                    host.selfLog("AI error report #" + fingerprint + " → " + absoluteFile());
                     if (settings.emitReportsToLogger()) host.emitReport(rendered);
                 }
                 case SUMMARY -> {

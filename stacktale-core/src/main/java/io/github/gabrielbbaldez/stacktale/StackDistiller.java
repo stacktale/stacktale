@@ -83,13 +83,24 @@ final class StackDistiller {
         String culprit = null;
         boolean culpritIsApp = false;
         int culpritIdx = -1;
+        // The first app frame is usually the culprit — but a Spring/Hibernate proxy sits in
+        // the application's own package while having no source at all
+        // (Svc$$SpringCGLIB$$0.getQuote(<generated>:-1)). Pointing there gives a frame nobody
+        // can open, so prefer the first app frame that has real source and keep the proxy
+        // only when there is nothing better.
+        int firstAppIdx = -1;
         for (int i = 0; i < frames.length; i++) {
-            if (isAppFrame(frames[i])) {
-                culprit = location(frames[i]);
+            if (!isAppFrame(frames[i])) continue;
+            if (firstAppIdx < 0) firstAppIdx = i;
+            if (!isSynthetic(frames[i])) {
                 culpritIdx = i;
-                culpritIsApp = true;
                 break;
             }
+        }
+        if (culpritIdx < 0) culpritIdx = firstAppIdx;
+        if (culpritIdx >= 0) {
+            culprit = location(frames[culpritIdx]);
+            culpritIsApp = true;
         }
         if (culprit == null && frames.length > 0) {
             // no app frame anywhere — fall back to the throwing frame, but don't claim it's the user's
@@ -275,8 +286,40 @@ final class StackDistiller {
     }
 
     private static String simpleName(String fqn) {
-        int dot = fqn.lastIndexOf('.');
-        return dot >= 0 ? fqn.substring(dot + 1) : fqn;
+        String name = unproxy(fqn);
+        int dot = name.lastIndexOf('.');
+        return dot >= 0 ? name.substring(dot + 1) : name;
+    }
+
+    /** Proxy class-name markers, matched literally — never guessed from a bare {@code $$}. */
+    private static final String[] PROXY_MARKERS = {
+            "$$SpringCGLIB$$", "$$EnhancerBySpringCGLIB$$", "$$FastClassBySpringCGLIB$$",
+            "$$EnhancerByCGLIB$$", "$HibernateProxy$", "_$$_jvst", "$$_hibernate_",
+    };
+
+    /**
+     * Strips a proxy suffix so a frame reads as the class the developer wrote:
+     * {@code QuoteService$$SpringCGLIB$$0} becomes {@code QuoteService}.
+     *
+     * <p>Only the markers above are cut. A bare {@code $} is a nested class
+     * ({@code Outer$Inner}) and a bare {@code $$} also appears in lambda class names, where
+     * collapsing to the outer class would misattribute the method — so neither is touched.
+     */
+    private static String unproxy(String fqn) {
+        for (String marker : PROXY_MARKERS) {
+            int at = fqn.indexOf(marker);
+            if (at > 0) return fqn.substring(0, at);
+        }
+        return fqn;
+    }
+
+    /**
+     * True for a frame the JVM generated: no source file, or a line number the JVM uses to
+     * say it has none ({@code -1} without debug info, {@code -2} for a native method).
+     */
+    private static boolean isSynthetic(StackTraceElement el) {
+        String file = el.getFileName();
+        return file == null || file.isBlank() || "<generated>".equals(file) || el.getLineNumber() < 0;
     }
 
     private static String truncate(String s, int max) {

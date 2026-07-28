@@ -239,4 +239,45 @@ class StackDistillerTest {
     private static int recurse(int depth) {
         return recurse(depth + 1);
     }
+
+    /**
+     * Found in the wild on a Spring Boot app: a @Cacheable service's CGLIB proxy sits in the
+     * application's own package, so it was picked as the culprit — and it has no source at
+     * all, giving the reader Svc$$SpringCGLIB$$0.getQuote(<generated>:-1) to go open.
+     */
+    @Test
+    void prefersARealFrameOverASpringProxy() {
+        StackTraceElement proxy = new StackTraceElement(
+                "com.acme.QuoteService$$SpringCGLIB$$0", "getQuote", "<generated>", -1);
+        StackTraceElement real = el("com.acme.QuoteController", "getQuote", "QuoteController.java", 18);
+
+        DistilledStack d = new StackDistiller(List.of("com.acme"))
+                .distill(withStack(new IllegalStateException("cannot serialize"), proxy, real));
+
+        assertThat(d.culpritLine()).isEqualTo("QuoteController.getQuote(QuoteController.java:18)");
+        assertThat(d.culpritIsAppCode()).isTrue();
+    }
+
+    @Test
+    void keepsTheProxyWhenItIsTheOnlyAppFrame() {
+        StackTraceElement proxy = new StackTraceElement(
+                "com.acme.QuoteService$$SpringCGLIB$$0", "getQuote", "<generated>", -1);
+        StackTraceElement framework = el("org.springframework.X", "run", "X.java", 9);
+
+        DistilledStack d = new StackDistiller(List.of("com.acme"))
+                .distill(withStack(new IllegalStateException("boom"), proxy, framework));
+
+        // the proxy name is unwrapped for display even when it stays the culprit
+        assertThat(d.culpritLine()).startsWith("QuoteService.getQuote(");
+        assertThat(d.culpritLine()).doesNotContain("SpringCGLIB");
+    }
+
+    @Test
+    void aNestedClassIsNotMistakenForAProxy() {
+        StackTraceElement nested = el("com.acme.Outer$Inner", "run", "Outer.java", 12);
+        DistilledStack d = new StackDistiller(List.of("com.acme"))
+                .distill(withStack(new IllegalStateException("boom"), nested));
+
+        assertThat(d.culpritLine()).isEqualTo("Outer$Inner.run(Outer.java:12)");
+    }
 }
