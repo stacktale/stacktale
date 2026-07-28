@@ -1,0 +1,37 @@
+name: First contribution
+
+# Thanks someone the first time a PR of theirs is merged. On merge rather than on open:
+# at that point they've actually given something, so it reads as thanks instead of a pitch.
+#
+# pull_request_target is required to comment on a fork's PR — it runs with the base repo's
+# permissions. It therefore MUST NOT check out or execute the PR's code; this job only
+# posts a comment, and has no checkout step for that reason.
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  thanks:
+    if: >-
+      github.event.pull_request.merged == true &&
+      (github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' ||
+       github.event.pull_request.author_association == 'FIRST_TIMER')
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          gh api --method POST "repos/${{ github.repository }}/issues/$PR/comments" -F body=@- <<EOF
+          Merged — thanks @$AUTHOR, that's your first one here.
+
+          If the project turned out to be useful to you, a ⭐ genuinely helps: stacktale is
+          new, and stars are most of what decides whether anyone else finds it.
+
+          Either way you're welcome back — the [\`good first issue\`](https://github.com/${{ github.repository }}/labels/good%20first%20issue)
+          list is kept honest, and each one names the files to touch and how to verify.
+          EOF
