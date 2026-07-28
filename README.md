@@ -733,6 +733,11 @@ Contributions welcome — issues labeled
 [`good first issue`](https://github.com/stacktale/stacktale/labels/good%20first%20issue) name
 the files to touch and how to verify. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+Questions, ideas, or a case where the report wasn't enough go in
+[**Discussions**](https://github.com/stacktale/stacktale/discussions) — the open one asking
+[what your assistant still asks you for](https://github.com/stacktale/stacktale/discussions/148)
+is the one that shapes the roadmap.
+
 ## License
 
 [Apache-2.0](LICENSE)
