@@ -5,7 +5,12 @@ All notable changes to stacktale are documented here. The format follows
 [SemVer](https://semver.org/). The report format (`st/1`) is versioned independently
 and pinned by golden-file tests.
 
-## [Unreleased]
+## [1.1.0] — 2026-07-29
+
+The release that came out of using the library on a real app and auditing the rest. Most of
+what changed is the difference between a report that is technically correct and one you can
+act on: a path you can open, a frame you wrote, an identity that survives you editing the
+file — and a failing test finally producing a report at all.
 
 ### Added
 
@@ -41,6 +46,28 @@ and pinned by golden-file tests.
 - **The root cause message is capped** at 4096 chars with the dropped count stated. An
   unbounded message could blow past `maxFileSizeMb` in a single block, rotate the file's
   history away, and OOM the host.
+- **The console line prints an absolute path.** It printed the configured value —
+  `errors-ai.log` — which resolves against the JVM's working directory, something a reader
+  of that line has no way to know. The startup line also now names `emitReportsToLogger`
+  when it is off, since that is the setting people are looking for when they want the report
+  in their own log rather than in a file they have to find.
+- **The culprit is no longer a Spring proxy.** A CGLIB proxy sits in the application's own
+  package, so it was picked as the first app frame while having no source at all —
+  `Svc$$SpringCGLIB$$0.getQuote(<generated>:-1)`. The distiller now prefers the first app
+  frame with real source, and strips proxy suffixes for display.
+- **`env: app=` is filled in on Spring Boot** from `spring.application.name` when
+  `build-info.properties` is absent, which it usually is. Thanks @kushalvachar2006.
+- **The Spring servlet filter moved behind a class-level condition.** A condition on the
+  bean method is evaluated too late to stop `jakarta.servlet.Filter` from being resolved,
+  which is the shape that breaks a reactive app. Reported while building the WebFlux
+  example.
+
+### Thanks
+
+@kushalvachar2006 (`spring.application.name`), @Ravindra-Pagidala (Codecov badge),
+@dchaudhari7177 (recursive-frame collapsing, README compatibility guard), @adity982
+(discovery docs), and @asmitayush3021 for finding the reactive auto-configuration problem
+while building the examples.
 
 ## [1.0.0] — 2026-07-21
 

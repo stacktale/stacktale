@@ -103,20 +103,20 @@ All artifacts are on Maven Central.
 <dependency>
   <groupId>io.github.gabrielbbaldez</groupId>
   <artifactId>stacktale-spring-boot-starter</artifactId>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
 </dependency>
 ```
 
 **Gradle (Groovy)**
 
 ```groovy
-implementation 'io.github.gabrielbbaldez:stacktale-spring-boot-starter:1.0.0'
+implementation 'io.github.gabrielbbaldez:stacktale-spring-boot-starter:1.1.0'
 ```
 
 **Gradle (Kotlin DSL)**
 
 ```kotlin
-implementation("io.github.gabrielbbaldez:stacktale-spring-boot-starter:1.0.0")
+implementation("io.github.gabrielbbaldez:stacktale-spring-boot-starter:1.1.0")
 ```
 
 That's it — no logback.xml editing. The starter registers the appender on the root
@@ -155,20 +155,20 @@ written in Kotlin or Java.
 <dependency>
   <groupId>io.github.gabrielbbaldez</groupId>
   <artifactId>stacktale</artifactId>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
 </dependency>
 ```
 
 **Gradle (Groovy)**
 
 ```groovy
-implementation 'io.github.gabrielbbaldez:stacktale:1.0.0'
+implementation 'io.github.gabrielbbaldez:stacktale:1.1.0'
 ```
 
 **Gradle (Kotlin DSL)**
 
 ```kotlin
-implementation("io.github.gabrielbbaldez:stacktale:1.0.0")
+implementation("io.github.gabrielbbaldez:stacktale:1.1.0")
 ```
 
 ```xml
@@ -197,20 +197,20 @@ itself on startup, and the file header explains the format to any AI that opens 
 <dependency>
   <groupId>io.github.gabrielbbaldez</groupId>
   <artifactId>stacktale-log4j2</artifactId>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
 </dependency>
 ```
 
 **Gradle (Groovy)**
 
 ```groovy
-implementation 'io.github.gabrielbbaldez:stacktale-log4j2:1.0.0'
+implementation 'io.github.gabrielbbaldez:stacktale-log4j2:1.1.0'
 ```
 
 **Gradle (Kotlin DSL)**
 
 ```kotlin
-implementation("io.github.gabrielbbaldez:stacktale-log4j2:1.0.0")
+implementation("io.github.gabrielbbaldez:stacktale-log4j2:1.1.0")
 ```
 
 ```xml
@@ -236,20 +236,20 @@ by default — with no SLF4J bridge:
 <dependency>
   <groupId>io.github.gabrielbbaldez</groupId>
   <artifactId>stacktale-jul</artifactId>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
 </dependency>
 ```
 
 **Gradle (Groovy)**
 
 ```groovy
-implementation 'io.github.gabrielbbaldez:stacktale-jul:1.0.0'
+implementation 'io.github.gabrielbbaldez:stacktale-jul:1.1.0'
 ```
 
 **Gradle (Kotlin DSL)**
 
 ```kotlin
-implementation("io.github.gabrielbbaldez:stacktale-jul:1.0.0")
+implementation("io.github.gabrielbbaldez:stacktale-jul:1.1.0")
 ```
 
 ```properties
@@ -297,8 +297,6 @@ an agent: told to "fix it, re-run the tests, then check what changed", it would 
 testImplementation 'io.github.gabrielbbaldez:stacktale-junit:1.1.0'
 ```
 
-> **Not on Maven Central yet** — this module landed after 1.0.0 and ships in **1.1.0**.
-> Until then, build it locally with `mvn -pl stacktale-junit -am install`.
 
 The listener is discovered through `META-INF/services`, so Surefire, Gradle and your IDE
 pick it up on their own. Every failing test becomes a normal `st/1` report:
