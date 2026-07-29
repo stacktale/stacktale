@@ -3,6 +3,11 @@ name: First contribution
 # Thanks someone the first time a PR of theirs is merged. On merge rather than on open:
 # at that point they've actually given something, so it reads as thanks instead of a pitch.
 #
+# Note on the check: author_association is NOT usable here. Merging a PR promotes its author
+# from FIRST_TIME_CONTRIBUTOR to CONTRIBUTOR, and the payload delivered with the `closed`
+# event already carries the new value — so a condition on it never matches. Counting the
+# author's merged PRs is the signal that survives that.
+#
 # pull_request_target is required to comment on a fork's PR — it runs with the base repo's
 # permissions. It therefore MUST NOT check out or execute the PR's code; this job only
 # posts a comment, and has no checkout step for that reason.
@@ -11,27 +16,34 @@ on:
     types: [closed]
 
 permissions:
-  pull-requests: write
+  pull-requests: read
+  issues: write
 
 jobs:
   thanks:
-    if: >-
-      github.event.pull_request.merged == true &&
-      (github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' ||
-       github.event.pull_request.author_association == 'FIRST_TIMER')
+    if: github.event.pull_request.merged == true && github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
     steps:
       - env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
           AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
-          gh api --method POST "repos/${{ github.repository }}/issues/$PR/comments" -F body=@- <<EOF
+          set -euo pipefail
+          merged=$(gh api --paginate "repos/$REPO/pulls?state=closed&per_page=100" \
+            --jq ".[] | select(.user.login==\"$AUTHOR\" and .merged_at != null) | .number" | wc -l)
+          echo "$AUTHOR has $merged merged PR(s) here."
+          if [ "$merged" -ne 1 ]; then
+            echo "Not their first — nothing to say."
+            exit 0
+          fi
+          gh api --method POST "repos/$REPO/issues/$PR/comments" -F body=@- <<EOF
           Merged — thanks @$AUTHOR, that's your first one here.
 
           If the project turned out to be useful to you, a ⭐ genuinely helps: stacktale is
           new, and stars are most of what decides whether anyone else finds it.
 
-          Either way you're welcome back — the [\`good first issue\`](https://github.com/${{ github.repository }}/labels/good%20first%20issue)
+          Either way you're welcome back — the [\`good first issue\`](https://github.com/$REPO/labels/good%20first%20issue)
           list is kept honest, and each one names the files to touch and how to verify.
           EOF
