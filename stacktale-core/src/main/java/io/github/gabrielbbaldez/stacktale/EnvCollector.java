@@ -13,10 +13,13 @@ import java.util.Properties;
 final class EnvCollector {
 
     private final ClassLoader classLoader;
+    private final String configuredAppName, configuredAppVersion;
     private volatile String cached;
 
-    EnvCollector(ClassLoader classLoader) {
+    EnvCollector(ClassLoader classLoader, String configuredAppName, String configuredAppVersion) {
         this.classLoader = classLoader;
+        this.configuredAppName = configuredAppName;
+        this.configuredAppVersion = configuredAppVersion;
     }
 
     String envLine() {
@@ -38,8 +41,18 @@ final class EnvCollector {
         Properties buildInfo = load("META-INF/build-info.properties");
         Properties git = load("git.properties");
 
-        String name = firstNonBlank(System.getProperty("stacktale.app.name"), buildInfo.getProperty("build.name"), "?");
-        String version = firstNonBlank(System.getProperty("stacktale.app.version"), buildInfo.getProperty("build.version"), "");
+        String name = firstNonBlank(
+                System.getProperty("stacktale.app.name"),
+                buildInfo.getProperty("build.name"),
+                configuredAppName,
+                "?"
+        );
+        String version = firstNonBlank(
+                System.getProperty("stacktale.app.version"),
+                buildInfo.getProperty("build.version"),
+                configuredAppVersion,
+                ""
+        );
         String sha = firstNonBlank(git.getProperty("git.commit.id.abbrev"), "");
         String profile = firstNonBlank(System.getProperty("spring.profiles.active"),
                 System.getenv("SPRING_PROFILES_ACTIVE"), System.getenv("APP_ENV"), "");

@@ -19,8 +19,16 @@ class EnvCollectorTest {
 
     @Test
     void readsBuildInfoAndGitPropertiesFromClasspath() {
-        String line = new EnvCollector(getClass().getClassLoader()).envLine();
+        String line = new EnvCollector(getClass().getClassLoader(),"","").envLine();
         assertThat(line).contains("app=shop-api 1.4.2").contains("(git 7e3c1f)").contains("java ");
+    }
+    @Test
+    void configuredAppNameIsUsedWhenBuildInfoIsMissing() {
+        ClassLoader empty = new URLClassLoader(new URL[0], null);
+
+        String line = new EnvCollector(empty, "demo-shop", "").envLine();
+
+        assertThat(line).startsWith("app=demo-shop");
     }
 
     @Test
@@ -28,14 +36,14 @@ class EnvCollectorTest {
         System.setProperty("stacktale.app.name", "override");
         System.setProperty("stacktale.app.version", "9.9.9");
         System.setProperty("spring.profiles.active", "dev");
-        String line = new EnvCollector(getClass().getClassLoader()).envLine();
+        String line = new EnvCollector(getClass().getClassLoader(),"","").envLine();
         assertThat(line).contains("app=override 9.9.9").contains("profile=dev");
     }
 
     @Test
     void degradesGracefullyWithEmptyClasspath() {
         ClassLoader empty = new URLClassLoader(new URL[0], null);
-        String line = new EnvCollector(empty).envLine();
+        String line = new EnvCollector(empty,"","").envLine();
         assertThat(line).startsWith("app=?").doesNotContain("git").contains("java ");
     }
 
@@ -44,7 +52,7 @@ class EnvCollectorTest {
         // Properties.load throws IllegalArgumentException (not IOException) on a broken \-u escape
         java.nio.file.Files.writeString(dir.resolve("git.properties"), "git.commit.id.abbrev=\\uZZZZ");
         try (URLClassLoader cl = new URLClassLoader(new URL[]{dir.toUri().toURL()}, null)) {
-            EnvCollector collector = new EnvCollector(cl);
+            EnvCollector collector = new EnvCollector(cl,"","");
             org.assertj.core.api.Assertions.assertThatCode(collector::envLine).doesNotThrowAnyException();
             assertThat(collector.envLine()).contains("java ");
         }

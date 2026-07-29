@@ -2,6 +2,7 @@ package io.github.gabrielbbaldez.stacktale.spring.demo;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +13,10 @@ import org.springframework.web.server.ResponseStatusException;
 /** Minimal demo app: the only stacktale-related thing it has is the starter dependency. */
 @SpringBootApplication
 public class DemoShopApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(DemoShopApplication.class, args);
+    }
 
     @RestController
     static class CheckoutController {

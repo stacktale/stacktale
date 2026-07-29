@@ -32,6 +32,8 @@ import java.util.regex.Pattern;
 public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
 
     private String file = "errors-ai.log";
+    private String appName = "";
+    private String appVersion = "";
     private String appPackages = "";
     private int storySize = ReportPipeline.Settings.DEFAULT_STORY_SIZE;
     private int storyWindowSeconds = ReportPipeline.Settings.DEFAULT_STORY_WINDOW_SECONDS;
@@ -86,6 +88,8 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
 
         ReportPipeline.Settings settings = ReportPipeline.Settings.builder()
                 .file(file)
+                .appName(appName)
+                .appVersion(appVersion)
                 .appPackages(csv(appPackages))
                 .storySize(storySize)
                 .storyWindowMillis(storyWindowSeconds * 1000L)
@@ -232,6 +236,13 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
     // --- Logback config setters ---
 
     public void setFile(String file) { this.file = file; }
+    public void setAppName(String appName) {
+        this.appName = appName;
+    }
+
+    public void setAppVersion(String appVersion) {
+        this.appVersion = appVersion;
+    }
 
     public void setAppPackages(String appPackages) { this.appPackages = appPackages; }
 
