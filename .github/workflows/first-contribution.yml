@@ -31,6 +31,7 @@ jobs:
           AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           set -euo pipefail
+
           merged=$(gh api --paginate "repos/$REPO/pulls?state=closed&per_page=100" \
             --jq ".[] | select(.user.login==\"$AUTHOR\" and .merged_at != null) | .number" | wc -l)
           echo "$AUTHOR has $merged merged PR(s) here."
@@ -38,7 +39,9 @@ jobs:
             echo "Not their first — nothing to say."
             exit 0
           fi
-          gh api --method POST "repos/$REPO/issues/$PR/comments" -F body=@- <<EOF
+
+          body="$RUNNER_TEMP/thanks.md"
+          cat > "$body" <<EOF
           Merged — thanks @$AUTHOR, that's your first one here.
 
           If the project turned out to be useful to you, a ⭐ genuinely helps: stacktale is
@@ -47,3 +50,10 @@ jobs:
           Either way you're welcome back — the [\`good first issue\`](https://github.com/$REPO/labels/good%20first%20issue)
           list is kept honest, and each one names the files to touch and how to verify.
           EOF
+
+          # An org policy can force workflow tokens to read-only, which makes this POST 403.
+          # Don't fail the run over a thank-you note — a red X on every merged PR is worse
+          # than a missing comment. Switch it on at Settings > Actions > Workflow permissions.
+          if ! gh api --method POST "repos/$REPO/issues/$PR/comments" -F body=@"$body"; then
+            echo "::warning::could not comment — the workflow token is read-only for this org"
+          fi
