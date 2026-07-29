@@ -28,6 +28,8 @@ public final class ReportPipeline {
     /** All knobs, framework-neutral. Times in millis, sizes in bytes. */
     public record Settings(
             String file,
+            String appName,
+            String appVersion,
             List<String> appPackages,
             int storySize,
             long storyWindowMillis,
@@ -88,6 +90,8 @@ public final class ReportPipeline {
          */
         public static final class Builder {
             private String file = "errors-ai.log";
+            private String appName = "";
+            private String appVersion = "";
             private List<String> appPackages = List.of();
             private int storySize = DEFAULT_STORY_SIZE;
             private long storyWindowMillis = DEFAULT_STORY_WINDOW_SECONDS * 1000L;
@@ -109,6 +113,15 @@ public final class ReportPipeline {
             private boolean jsonFormat = false;
 
             public Builder file(String v) { this.file = v; return this; }
+            public Builder appName(String v) {
+                this.appName = v;
+                return this;
+            }
+
+            public Builder appVersion(String v) {
+                this.appVersion = v;
+                return this;
+            }
             public Builder appPackages(List<String> v) { this.appPackages = v; return this; }
             public Builder storySize(int v) { this.storySize = v; return this; }
             public Builder storyWindowMillis(long v) { this.storyWindowMillis = v; return this; }
@@ -130,7 +143,7 @@ public final class ReportPipeline {
             public Builder jsonFormat(boolean v) { this.jsonFormat = v; return this; }
 
             public Settings build() {
-                return new Settings(file, appPackages, storySize, storyWindowMillis, dedupWindowMillis,
+                return new Settings(file, appName,appVersion,appPackages, storySize, storyWindowMillis, dedupWindowMillis,
                         maxFileBytes, maxBackups, truncateOnStart, reportErrorsWithoutThrowable,
                         captureExceptionFields, redactionEnabled, redactPatterns, redactionCorrelation,
                         correlationMdcKeys, zone,
@@ -208,7 +221,9 @@ public final class ReportPipeline {
         this.stormLimiter = settings.maxReportsPerMinute() > 0
                 ? new StormLimiter(settings.maxReportsPerMinute(), 60_000, 10_000, System::currentTimeMillis)
                 : StormLimiter.disabled();
-        this.env = new EnvCollector(Thread.currentThread().getContextClassLoader());
+        this.env = new EnvCollector(Thread.currentThread().getContextClassLoader(),
+                settings.appName(),
+                settings.appVersion());
     }
 
     /** Never throws: a broken configuration produces a warned, no-op pipeline. */

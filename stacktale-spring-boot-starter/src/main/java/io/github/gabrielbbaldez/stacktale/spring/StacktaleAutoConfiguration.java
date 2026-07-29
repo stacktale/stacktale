@@ -16,6 +16,7 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ImportRuntimeHints;
 import org.springframework.core.Ordered;
+import org.springframework.core.env.Environment;
 
 /**
  * Zero-config stacktale for Spring Boot: registers the appender on Logback's root logger
@@ -37,7 +38,7 @@ public class StacktaleAutoConfiguration {
     static final String AUTO_APPENDER_NAME = "STACKTALE_AUTO";
 
     @Bean(destroyMethod = "")
-    public StacktaleAppender stacktaleAppender(StacktaleProperties props, BeanFactory beanFactory) {
+    public StacktaleAppender stacktaleAppender(StacktaleProperties props, BeanFactory beanFactory, Environment environment) {
         if (!(LoggerFactory.getILoggerFactory() instanceof LoggerContext ctx)) {
             // a different SLF4J backend is bound; nothing we can do — stay a no-op
             LoggerFactory.getLogger("stacktale")
@@ -65,6 +66,9 @@ public class StacktaleAutoConfiguration {
         appender.setContext(ctx);
         appender.setName(AUTO_APPENDER_NAME);
         appender.setFile(props.getFile());
+        appender.setAppName(
+                environment.getProperty("spring.application.name", "")
+        );
         appender.setAppPackages(resolveAppPackages(props, beanFactory));
         appender.setStorySize(props.getStorySize());
         appender.setStoryWindowSeconds(props.getStoryWindowSeconds());
