@@ -20,7 +20,7 @@ jobs:
       - run: mvn -B verify
       - name: Upload coverage to Codecov
         if: matrix.java == 21
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           # No `files:` on purpose — it is passed through as a path, not shell-expanded, so a
           # `**` glob can silently match nothing. Letting Codecov auto-discover finds every
