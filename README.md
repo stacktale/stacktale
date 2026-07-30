@@ -615,7 +615,7 @@ each backed by a passing build:
 | Dependency | Supported | Tested up to |
 |---|---|---|
 | Java | 17+ | 21 |
-| Logback | 1.4+ | 1.5.x |
+| Logback | 1.4+ | 1.6.x |
 | Log4j2 | 2.20+ | 2.26.x |
 | Spring Boot *(starter)* | 3.2+ | 3.5.x |
 

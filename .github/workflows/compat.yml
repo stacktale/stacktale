@@ -19,7 +19,9 @@ jobs:
           # Logback 1.5, so "starter + Logback 1.4" is not a real combination
           - name: "Logback 1.4 (core, floor)"
             args: "-pl stacktale-core,stacktale,stacktale-log4j2 -am -Dlogback.version=1.4.14"
-          - name: "Logback 1.5 (current)"
+          # the default build now runs Logback 1.6; this pins the previous minor so that
+          # dropping support for it has to be a decision rather than an accident
+          - name: "Logback 1.5 (previous)"
             args: "-Dlogback.version=1.5.38"
           - name: "Log4j2 2.20 (floor)"
             args: "-Dlog4j2.version=2.20.0"
