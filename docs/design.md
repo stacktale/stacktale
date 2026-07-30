@@ -43,7 +43,7 @@ stacktale is a Logback appender. You add one dependency and one `appender-ref` t
   a distilled stack, and environment info — and appends it to a separate file,
   **`errors-ai.log`**, in a delimited, self-describing, token-efficient format.
 - The human console/file logs are untouched. A single pointer line is emitted through a
-  `stacktale` logger: `AI error report #a1b2 → ./errors-ai.log`.
+  `stacktale` logger: `AI error report #a1b2 → /abs/path/errors-ai.log` (absolute — the configured value is relative to the JVM working directory).
 - Repeated errors are deduplicated: one report + a repeat counter, not 400 dumps.
 
 The file is the interface. An AI coding assistant (Claude Code, Cursor, etc.) reads

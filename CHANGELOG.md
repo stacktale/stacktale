@@ -101,6 +101,7 @@ Contributions this cycle from **[@dchaudhari7177](https://github.com/dchaudhari7
 recursion collapse #105 and the compatibility-table guard #106) and
 **[@adity982](https://github.com/adity982)** (assistant-discovery docs #100). Thank you.
 
+[1.1.0]: https://github.com/stacktale/stacktale/releases/tag/v1.1.0
 [1.0.0]: https://github.com/stacktale/stacktale/releases/tag/v1.0.0
 
 ## [0.5.0] — 2026-07-20

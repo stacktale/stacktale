@@ -225,13 +225,13 @@
       <div class="tag reveal">stack traces that tell the tale</div>
       <p class="lede reveal">Java error logs were built in the ’90s for a human with <code style="font-family:var(--mono);font-size:0.92em">grep</code> — and for that reader they work. But the reader is changing: an AI assistant or an automated agent reads an error with no muscle memory, and every line is context and token cost. stacktale captures the failure at the source, structured for that reader — alongside your untouched logs.</p>
       <div class="badges reveal">
-        <span class="badge">Maven Central <b>1.0.0</b></span>
+        <span class="badge">Maven Central <b>1.1.0</b></span>
         <span class="badge">Java <b>17+</b></span>
-        <span class="badge">Logback · Log4j2</span>
+        <span class="badge">Logback · Log4j2 · JUL · Spring Boot</span>
         <span class="badge"><b>Apache-2.0</b></span>
       </div>
       <div class="cta-row reveal">
-        <a class="btn btn-primary" href="https://github.com/stacktale/stacktale">Get started</a>
+        <a class="btn btn-primary" href="#quickstart">Get started</a>
         <a class="btn btn-ghost" href="https://central.sonatype.com/artifact/io.github.gabrielbbaldez/stacktale">View on Maven Central</a>
       </div>
     </div>
@@ -289,15 +289,15 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
 <span class="c-dim">mdc:</span> traceId=70e1dfe7
 <span class="c-dim">fields:</span> <span class="c-white">orderId=889 retryable=false</span>
 
-<span class="c-dim">story (traceId=70e1dfe7, last 4, 412ms):</span>
+<span class="c-dim">story (traceId=70e1dfe7, last 4 events, 412ms):</span>
   INFO  OrderController  POST /orders/889/confirm
   INFO  CustomerClient   fetch customer 555 → 404
 <span class="hl">  WARN  CustomerCache    miss 555, returns null</span>
   ERROR OrderService     checkout failed 889 <span class="c-amber">←</span>
 
-<span class="c-dim">stack (distilled, 2 of 56):</span>
+<span class="c-dim">stack (distilled, 2 of 56 frames):</span>
   OrderService.confirm(:87) <span class="c-amber">← culprit</span>
-  <span class="c-dim">… 54 collapsed (spring ×24, tomcat ×13)</span>
+  <span class="c-dim">… 37 collapsed (spring ×24, tomcat ×13)</span>
 <span class="c-dim">env: app=shop-api 1.4.2 | java 21 | linux</span>
 <span class="c-amber-b">━━━ END #cddfa41c ━━━</span></pre></div>
           </div>
@@ -318,7 +318,7 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
         <div class="stat reveal"><div class="num">98.3%</div><div class="lbl">fewer tokens for a whole session of logs</div></div>
         <div class="stat reveal"><div class="num">80.6%</div><div class="lbl">fewer per single error — carrying more context</div></div>
         <div class="stat reveal"><div class="num">137ns</div><div class="lbl">overhead per log event (JMH, story capture)</div></div>
-        <div class="stat reveal"><div class="num">7</div><div class="lbl">modules — core, Logback, Log4j2, JUL, Spring, MCP, agent</div></div>
+        <div class="stat reveal"><div class="num">8</div><div class="lbl">modules — core, Logback, Log4j2, JUL, JUnit, Spring, MCP, agent</div></div>
       </div>
       <p class="stats-note reveal">a classic log grows with traffic · a report file grows only with distinct errors</p>
     </div>
@@ -349,13 +349,14 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
     <div class="wrap">
       <div class="sec-head reveal">
         <div class="eyebrow">One core, every surface</div>
-        <h2>Seven modules, pick what you run</h2>
+        <h2>Eight modules, pick what you run</h2>
       </div>
       <div class="mods">
         <div class="mod reveal"><div class="mn">stacktale-core</div><div class="md">The framework-agnostic report pipeline: story, distiller, dedup, redaction.</div></div>
         <div class="mod reveal"><div class="mn">stacktale</div><div class="md">The Logback appender — a thin adapter over the core.</div></div>
         <div class="mod reveal"><div class="mn">stacktale-log4j2</div><div class="md">The Log4j2 appender. Same format, ThreadContext correlation.</div></div>
         <div class="mod reveal"><div class="mn">stacktale-jul</div><div class="md">java.util.logging / System.Logger — the same format with no SLF4J or Logback.</div></div>
+        <div class="mod reveal"><div class="mn">stacktale-junit</div><div class="md">A test-scoped JUnit listener: a failing test becomes a report, so an agent's fix-run-check loop can see a red build.</div></div>
         <div class="mod reveal"><div class="mn">…-spring-boot-starter</div><div class="md">Zero config. Auto-registers, opens each story with the request line.</div></div>
         <div class="mod reveal"><div class="mn">stacktale-mcp</div><div class="md">An MCP server that turns errors into a fix-loop — your AI checks new errors, fixes, re-runs, repeats until clean.</div></div>
         <div class="mod reveal"><div class="mn">stacktale-agent</div><div class="md">A <code style="font-family:var(--mono)">-javaagent</code> capturing method args at the throw site.</div></div>
@@ -363,7 +364,7 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
     </div>
   </section>
 
-  <section>
+  <section id="quickstart">
     <div class="wrap qs">
       <div class="sec-head reveal">
         <div class="eyebrow">Quickstart</div>
@@ -374,10 +375,22 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
         <div class="term-body"><pre><span class="c-dim">&lt;dependency&gt;</span>
   <span class="c-dim">&lt;groupId&gt;</span><span class="c-white">io.github.gabrielbbaldez</span><span class="c-dim">&lt;/groupId&gt;</span>
   <span class="c-dim">&lt;artifactId&gt;</span><span class="c-amber-b">stacktale-spring-boot-starter</span><span class="c-dim">&lt;/artifactId&gt;</span>
-  <span class="c-dim">&lt;version&gt;</span><span class="c-white">1.0.0</span><span class="c-dim">&lt;/version&gt;</span>
+  <span class="c-dim">&lt;version&gt;</span><span class="c-white">1.1.0</span><span class="c-dim">&lt;/version&gt;</span>
 <span class="c-dim">&lt;/dependency&gt;</span></pre></div>
       </div>
       <p class="qs-note reveal">That's it. Reports land in <code>errors-ai.log</code>; your console stays exactly as it was.</p>
+
+      <div class="sec-head reveal" style="margin-top:52px">
+        <div class="eyebrow">Then the loop</div>
+        <h2>Let the assistant read them</h2>
+        <p>The file is the artefact; the loop is the point. Your assistant fixes an error, re-runs the app or the tests, asks stacktale what changed, and repeats until it answers <em>no new errors</em>.</p>
+      </div>
+      <div class="term reveal">
+        <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title">Claude Code</span></div>
+        <div class="term-body"><pre><span class="c-green">/plugin</span> marketplace add stacktale/stacktale
+<span class="c-green">/plugin</span> install stacktale@stacktale</pre></div>
+      </div>
+      <p class="qs-note reveal">Cursor, Claude Desktop and anything else that speaks MCP: see <a href="https://github.com/stacktale/stacktale/blob/main/docs/mcp-setup.md" style="color:var(--amber-ink)">mcp-setup.md</a>. There are also <a href="https://github.com/stacktale/stacktale-intellij" style="color:var(--amber-ink)">IntelliJ</a> and <a href="https://github.com/stacktale/stacktale-vscode" style="color:var(--amber-ink)">VS Code</a> extensions, and a <a href="https://github.com/stacktale/stacktale/tree/main/.github/actions/report" style="color:var(--amber-ink)">GitHub Action</a> that posts the reports on a red build.</p>
     </div>
   </section>
 

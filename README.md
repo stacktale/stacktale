@@ -87,11 +87,19 @@ In a traditional log, the story lines were 300 lines up, tangled with other thre
 the exception's state didn't exist at all. An AI (or you) reads this block once and knows
 what happened, with which values, in which environment.
 
-Your console meanwhile shows a single extra line:
+Your console meanwhile shows two extra lines — one when the appender starts, one per
+report:
 
 ```
-INFO stacktale -- AI error report #c73cf755 → ./errors-ai.log
+INFO stacktale -- stacktale active → /srv/shop-api/errors-ai.log (reports go to the file; set emitReportsToLogger=true to also see them here)
+INFO stacktale -- AI error report #c73cf755 → /srv/shop-api/errors-ai.log
 ```
+
+The path is absolute on purpose: the configured value is normally relative and resolves
+against the JVM's working directory, which the person reading that line has no way to know.
+Set `emitReportsToLogger=true` and the whole report block also arrives as **one** event on
+the `stacktale.reports` logger, which is what you want if you would rather read it in your
+own log than open a file.
 
 ## Quickstart
 
@@ -306,12 +314,19 @@ pick it up on their own. Every failing test becomes a normal `st/1` report:
 NullPointerException: Cannot invoke "java.lang.Integer.intValue()" because "discount" is null
 at CheckoutService.confirm(CheckoutService.java:46) ← YOUR CODE
 log: "test failed: {}" args=[confirmsAnOrder()] logger=c.a.CheckoutServiceTest
-mdc: test.class=com.acme.CheckoutServiceTest test.method=confirmsAnOrder
+mdc: test.class=com.acme.CheckoutServiceTest test.displayName=confirmsAnOrder() test.method=confirmsAnOrder
 
 story (thread main, last 3 events, 12ms):
   16:13:05.423 INFO  CheckoutService  confirming order 889
   16:13:05.431 WARN  CheckoutService  discount lookup missed for order 889, got null
   16:13:05.435 ERROR CheckoutServiceTest  test failed: confirmsAnOrder()   ← this error
+
+stack (distilled, 2 of 2 frames):
+  CheckoutService.confirm(CheckoutService.java:46) ← culprit
+  CheckoutServiceTest.confirmsAnOrder(CheckoutServiceTest.java:31)
+
+env: app=shop-api 1.4.2 | java 21.0.6 | linux
+━━━ END #ff76deb3 ━━━
 ```
 
 Note the culprit: the frame in the code under test, not in the assertion library. And note
@@ -383,7 +398,7 @@ On the roadmap: idiomatic starters for **Micronaut** (#81) and **Quarkus** (#82)
 | `fields` | **State carried by the exception chain itself** — `orderId`, `statusCode`, `retryable` — read from public getters/fields with hard safety caps |
 | `captured` | *(with `stacktale-agent`)* **Method arguments at the throw site** — `confirmOrder(orderId=889, customer=null)` — even when the code logged nothing |
 | `story` | The last events from the same request (MDC `traceId`) or thread — the narrative that led to the error |
-| `stack` | Distilled: framework runs collapse into `… 39 collapsed (spring ×24, tomcat ×11)` |
+| `stack` | Distilled: framework runs collapse into `… 35 collapsed (spring ×24, tomcat ×11)` |
 | `env` | App name/version, git sha, Java version, profile, OS — collected once |
 | repeats | The same error again doesn't dump again: `━ #c73cf755 repeated 47× ━` |
 | restarts | `─── app start … ───` markers separate application runs |
