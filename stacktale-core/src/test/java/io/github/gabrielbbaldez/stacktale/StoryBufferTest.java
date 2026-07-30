@@ -176,4 +176,24 @@ class StoryBufferTest {
                     .doesNotContain("request " + other, "boom " + other);
         });
     }
+
+    @Test
+    void anEventJustRecordedIsAlwaysRetrievable() {
+        StoryBuffer buf = new StoryBuffer(10, 60_000, List.of("traceId"), 200);
+        for (int i = 0; i < 300; i++) {
+            buf.record(event("com.acme.A", "INFO", "filler " + i, 1000 + i, Map.of("traceId", "fill-" + i)));
+        }
+
+        int lost = 0;
+        for (int i = 0; i < 3000; i++) {
+            final String expectedMessage = "handling " + i;
+            LogEventData e = event("com.acme.A", "ERROR", expectedMessage, 5000 + i, Map.of("traceId", "req-" + i));
+            buf.record(e);
+            if (buf.storyFor(e).entries().stream().noneMatch(s -> s.message().equals(expectedMessage))) {
+                lost++;
+            }
+        }
+        assertThat(lost).isZero();
+    }
 }
+

@@ -38,9 +38,7 @@ final class StoryBuffer {
     //
     // ConcurrentHashMap replaces the previous access-ordered LinkedHashMap whose get()
     // mutated internal state and therefore required a global exclusive lock on every read.
-    // Eviction is probabilistic: once the map exceeds MAX_CONTEXTS the oldest visible key
-    // returned by keySet().iterator() is removed. This trades strict LRU for lock-free
-    // reads and writes; in practice MAX_CONTEXTS contexts are rarely all hot at once.
+    // Eviction skips the newly added/active key so a just-recorded event is never lost.
     private final ConcurrentHashMap<String, Deque<StoryEntry>> perCorrelation = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Deque<StoryEntry>> perThreadName = new ConcurrentHashMap<>();
 
@@ -55,12 +53,12 @@ final class StoryBuffer {
         StoryEntry entry = toEntry(event);
         String key = correlationKey(event);
         if (key != null) {
-            push(dequeFor(perCorrelation, key), entry);
+            pushAndEnsure(perCorrelation, key, entry);
         } else {
             String tk = ThreadKey.of(event);
             // an unidentifiable thread gets no bucket: a shared one would mix requests
             if (tk == null) return;
-            push(dequeFor(perThreadName, tk), entry);
+            pushAndEnsure(perThreadName, tk, entry);
         }
     }
 
@@ -88,28 +86,29 @@ final class StoryBuffer {
     // ── internal helpers ────────────────────────────────────────────────────────────────
 
     /**
-     * Returns the deque for {@code key}, creating one atomically if absent. When the map
-     * size exceeds {@code MAX_CONTEXTS} one key is evicted to keep memory bounded.
+     * Appends {@code entry} to the deque for {@code key}, ensuring the key remains in
+     * {@code map} and evicting a distinct candidate key if {@code MAX_CONTEXTS} is exceeded.
      */
-    private static Deque<StoryEntry> dequeFor(
-            ConcurrentHashMap<String, Deque<StoryEntry>> map, String key) {
+    private void pushAndEnsure(
+            ConcurrentHashMap<String, Deque<StoryEntry>> map, String key, StoryEntry entry) {
         Deque<StoryEntry> deque = map.computeIfAbsent(key, k -> new ArrayDeque<>());
-        // probabilistic eviction — remove the first key the iterator finds when over limit
-        if (map.size() > MAX_CONTEXTS) {
-            String eldest = map.keys().nextElement();
-            map.remove(eldest);
-        }
-        return deque;
-    }
-
-    /**
-     * Appends {@code entry} to {@code deque}, evicting the oldest element when at capacity.
-     * The per-deque monitor is the only lock taken; no outer map lock is held.
-     */
-    private void push(Deque<StoryEntry> deque, StoryEntry entry) {
         synchronized (deque) {
             if (deque.size() >= capacity) deque.pollFirst();
             deque.addLast(entry);
+        }
+        // Ensure the active key remains present even if another thread evicted it during push
+        map.putIfAbsent(key, deque);
+
+        // Evict a different key if capacity exceeds MAX_CONTEXTS
+        if (map.size() > MAX_CONTEXTS) {
+            var iterator = map.keySet().iterator();
+            while (iterator.hasNext()) {
+                String candidate = iterator.next();
+                if (!candidate.equals(key)) {
+                    map.remove(candidate);
+                    break;
+                }
+            }
         }
     }
 
