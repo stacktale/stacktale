@@ -11,8 +11,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * Bounded ring buffers of recent log events. Events carrying a correlation MDC key are
  * grouped by that key (so the story survives thread hops); everything else falls back to a
  * ring keyed by the event's logical thread name (which survives Logback's AsyncAppender
- * worker thread). Old contexts are evicted by a probabilistic size-cap; old entries fall
- * out of the ring and out of the time window.
+ * worker thread). Old contexts are evicted by an approximate sample-based LRU size-cap; old
+ * entries fall out of the ring and out of the time window.
  *
  * <p><b>Concurrency model</b>: Both context maps are {@link ConcurrentHashMap}s — no global
  * monitor is taken on the map itself. {@code computeIfAbsent} is atomic, so concurrent
@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 final class StoryBuffer {
 
     private static final int MAX_CONTEXTS = 256;
+    private static final int EVICTION_SAMPLE_SIZE = 8;
 
     private final int capacity;
     private final long windowMillis;
@@ -38,9 +39,19 @@ final class StoryBuffer {
     //
     // ConcurrentHashMap replaces the previous access-ordered LinkedHashMap whose get()
     // mutated internal state and therefore required a global exclusive lock on every read.
-    // Eviction skips the newly added/active key so a just-recorded event is never lost.
-    private final ConcurrentHashMap<String, Deque<StoryEntry>> perCorrelation = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Deque<StoryEntry>> perThreadName = new ConcurrentHashMap<>();
+    // Sample-based LRU (similar to Redis allkeys-lru) updates lastTouchedNanos on record & read,
+    // sampling up to 8 candidate keys on overflow to evict the coldest key.
+    private final ConcurrentHashMap<String, ContextHolder> perCorrelation = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ContextHolder> perThreadName = new ConcurrentHashMap<>();
+
+    static final class ContextHolder {
+        final Deque<StoryEntry> deque = new ArrayDeque<>();
+        volatile long lastTouchedNanos = System.nanoTime();
+
+        void touch() {
+            lastTouchedNanos = System.nanoTime();
+        }
+    }
 
     StoryBuffer(int capacity, long windowMillis, List<String> correlationKeys, int maxMessageLength) {
         this.capacity = capacity;
@@ -68,14 +79,16 @@ final class StoryBuffer {
         List<StoryEntry> snapshot;
         String label;
         if (key != null) {
-            Deque<StoryEntry> deque = perCorrelation.get(key);
-            snapshot = snapshot(deque);
+            ContextHolder holder = perCorrelation.get(key);
+            if (holder != null) holder.touch();
+            snapshot = snapshot(holder);
             label = key;
         } else {
             String tk = ThreadKey.of(errorEvent);
             if (tk == null) return new Story(List.of(), "thread unidentified", 0);
-            Deque<StoryEntry> deque = perThreadName.get(tk);
-            snapshot = snapshot(deque);
+            ContextHolder holder = perThreadName.get(tk);
+            if (holder != null) holder.touch();
+            snapshot = snapshot(holder);
             label = "thread " + tk;
         }
         List<StoryEntry> kept = snapshot.stream().filter(e -> e.epochMillis() >= cutoff).toList();
@@ -86,37 +99,58 @@ final class StoryBuffer {
     // ── internal helpers ────────────────────────────────────────────────────────────────
 
     /**
-     * Appends {@code entry} to the deque for {@code key}, ensuring the key remains in
-     * {@code map} and evicting a distinct candidate key if {@code MAX_CONTEXTS} is exceeded.
+     * Appends {@code entry} to the deque for {@code key}, updating {@code lastTouchedNanos} and
+     * evicting the coldest sample key if {@code MAX_CONTEXTS} is exceeded.
      */
     private void pushAndEnsure(
-            ConcurrentHashMap<String, Deque<StoryEntry>> map, String key, StoryEntry entry) {
-        Deque<StoryEntry> deque = map.computeIfAbsent(key, k -> new ArrayDeque<>());
-        synchronized (deque) {
-            if (deque.size() >= capacity) deque.pollFirst();
-            deque.addLast(entry);
+            ConcurrentHashMap<String, ContextHolder> map, String key, StoryEntry entry) {
+        ContextHolder holder = map.computeIfAbsent(key, k -> new ContextHolder());
+        holder.touch();
+        synchronized (holder.deque) {
+            if (holder.deque.size() >= capacity) holder.deque.pollFirst();
+            holder.deque.addLast(entry);
         }
         // Ensure the active key remains present even if another thread evicted it during push
-        map.putIfAbsent(key, deque);
+        map.putIfAbsent(key, holder);
 
-        // Evict a different key if capacity exceeds MAX_CONTEXTS
+        // Approximate LRU: sample candidate keys on overflow and evict the coldest
         if (map.size() > MAX_CONTEXTS) {
-            var iterator = map.keySet().iterator();
-            while (iterator.hasNext()) {
-                String candidate = iterator.next();
-                if (!candidate.equals(key)) {
-                    map.remove(candidate);
-                    break;
-                }
-            }
+            evictColdest(map, key);
         }
     }
 
-    /** Takes an atomic snapshot of {@code deque} contents for read-only iteration. */
-    private static List<StoryEntry> snapshot(Deque<StoryEntry> deque) {
-        if (deque == null) return List.of();
-        synchronized (deque) {
-            return new ArrayList<>(deque);
+    private static void evictColdest(ConcurrentHashMap<String, ContextHolder> map, String activeKey) {
+        String coldestKey = null;
+        ContextHolder coldestHolder = null;
+        long oldestNanos = Long.MAX_VALUE;
+
+        int sampled = 0;
+        var iterator = map.entrySet().iterator();
+        while (iterator.hasNext() && sampled < EVICTION_SAMPLE_SIZE) {
+            var entry = iterator.next();
+            String k = entry.getKey();
+            ContextHolder v = entry.getValue();
+            if (!k.equals(activeKey)) {
+                sampled++;
+                long t = v.lastTouchedNanos;
+                if (t < oldestNanos) {
+                    oldestNanos = t;
+                    coldestKey = k;
+                    coldestHolder = v;
+                }
+            }
+        }
+
+        if (coldestKey != null && coldestHolder != null) {
+            map.remove(coldestKey, coldestHolder);
+        }
+    }
+
+    /** Takes an atomic snapshot of {@code holder}'s deque contents for read-only iteration. */
+    private static List<StoryEntry> snapshot(ContextHolder holder) {
+        if (holder == null) return List.of();
+        synchronized (holder.deque) {
+            return new ArrayList<>(holder.deque);
         }
     }
 

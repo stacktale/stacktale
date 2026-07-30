@@ -195,5 +195,20 @@ class StoryBufferTest {
         }
         assertThat(lost).isZero();
     }
+
+    @Test
+    void longLivedHotRequestIsNotEvictedByInterleavedRequests() {
+        StoryBuffer buf = new StoryBuffer(200, 600_000, List.of("traceId"), 200);
+        for (int i = 0; i < 4_000; i++) {
+            buf.record(event("com.acme.A", "INFO", "other " + i, 2_000 + i, Map.of("traceId", "req-" + i)));
+            buf.record(event("com.acme.A", "INFO", "hot step " + i, 2_000 + i, Map.of("traceId", "hot")));
+        }
+        LogEventData boom = event("com.acme.A", "ERROR", "boom", 6_001, Map.of("traceId", "hot"));
+        buf.record(boom);
+
+        Story story = buf.storyFor(boom);
+        assertThat(story.entries()).hasSize(200);
+        assertThat(story.entries().getLast().message()).isEqualTo("boom");
+    }
 }
 

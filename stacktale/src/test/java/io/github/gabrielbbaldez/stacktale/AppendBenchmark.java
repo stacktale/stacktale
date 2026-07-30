@@ -116,8 +116,6 @@ public class AppendBenchmark {
      */
     @Benchmark
     @Threads(Threads.MAX)
-    @Group("contended")
-    @GroupThreads(1)
     public void infoWithStacktaleContended() {
         stacktaleLogger.info("contended item {} in step {}", i++, "checkout");
     }
@@ -127,8 +125,6 @@ public class AppendBenchmark {
      */
     @Benchmark
     @Threads(Threads.MAX)
-    @Group("contended")
-    @GroupThreads(1)
     public void errorRepeatedDedupedContended() {
         errorLogger.error("contended failure on item {}", i++, recurringError);
     }
