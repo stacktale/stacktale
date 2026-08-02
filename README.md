@@ -314,6 +314,30 @@ an agent: told to "fix it, re-run the tests, then check what changed", it would 
 testImplementation 'io.github.gabrielbbaldez:stacktale-junit:1.1.0'
 ```
 
+**If your tests set a correlation key**, add `StacktaleExtension`. The listener is notified
+after the test method returns, when the MDC is already unwound — so the failure event has no
+`traceId`, looks in the thread bucket, and the report comes out with a story of one line:
+itself. The extension runs inside the test's own lifecycle and snapshots the MDC while it is
+still there.
+
+```java
+@ExtendWith(StacktaleExtension.class)
+class CheckoutIT { … }
+```
+
+Or once for the whole build, in `junit-platform.properties`:
+
+```properties
+junit.jupiter.extensions.autodetection.enabled = true
+```
+
+It is opt-in: the zero-config listener behaves exactly as it does without it, and a project
+that does not depend on Jupiter never sees it. Tests that never touch the MDC — most unit
+tests — need nothing. One case stays out of reach: a test that clears its own MDC in a
+`finally` inside the method body has already unwound it before the exception leaves, and no
+hook runs earlier than that. Clearing in `@AfterEach`, which is where a fixture or filter
+does it, works.
+
 
 The listener is discovered through `META-INF/services`, so Surefire, Gradle and your IDE
 pick it up on their own. Every failing test becomes a normal `st/1` report:

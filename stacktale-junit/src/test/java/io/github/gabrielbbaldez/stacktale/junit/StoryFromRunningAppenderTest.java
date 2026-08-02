@@ -70,7 +70,7 @@ class StoryFromRunningAppenderTest {
      * needs a Jupiter extension rather than a launcher listener.
      */
     @Test
-    void aCorrelationKeySetByTheTestStrandsTheStory(@TempDir Path dir) throws Exception {
+    void aCorrelationKeySetByTheTestStrandsTheStoryWithoutTheExtension(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("errors-ai.log");
         startAppender(file);
         Holder.log = ctx.getLogger("com.acme.CheckoutService");
@@ -80,8 +80,30 @@ class StoryFromRunningAppenderTest {
         ctx.stop();
         String written = Files.readString(file);
 
+        // The listener alone still behaves exactly as it did: it is notified after the test
+        // method returned, so the MDC is unwound, the failure event carries no traceId, and it
+        // reads the thread bucket while the log line went to the traceId one. Kept as a test
+        // rather than deleted — the zero-config path is the headline feature and this is the
+        // shape of its one limitation.
         assertThat(written).contains("IllegalStateException: gateway refused");
         assertThat(written).doesNotContain("confirming order 889");
+    }
+
+    @Test
+    void theExtensionGivesTheCorrelatedTestItsStoryBack(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("errors-ai.log");
+        startAppender(file);
+        Holder.log = ctx.getLogger("com.acme.CheckoutService");
+
+        runInOwnLauncher(ExtendedCorrelatedSample.class);
+
+        ctx.stop();
+        String written = Files.readString(file);
+
+        assertThat(written).contains("IllegalStateException: gateway refused");
+        // the whole point: the lead-up, not just the failure repeated back
+        assertThat(written).contains("confirming order 889");
+        assertThat(written).contains("traceId=9f3a");
     }
 
     @Test
@@ -138,6 +160,29 @@ class StoryFromRunningAppenderTest {
         void confirmsAnOrder() {
             Holder.log.info("confirming order {}", 889);
             Holder.log.warn("gateway timeout, retrying once");
+            throw new IllegalStateException("gateway refused");
+        }
+    }
+
+    /**
+     * The same, but with a correlation key in the MDC, and with the extension registered so
+     * the key survives long enough for the listener to use it.
+     */
+    @org.junit.jupiter.api.extension.ExtendWith(StacktaleExtension.class)
+    static class ExtendedCorrelatedSample {
+        // Teardown, the way a filter, a request scope or a Spring test fixture unwinds it —
+        // @AfterEach runs after afterTestExecution, so the key is still there to capture.
+        // A test that clears its own MDC in a finally inside the method body is out of reach
+        // for any hook: that block runs before the exception even leaves the method.
+        @org.junit.jupiter.api.AfterEach
+        void clearContext() {
+            MDC.remove("traceId");
+        }
+
+        @Test
+        void confirmsAnOrder() {
+            MDC.put("traceId", "9f3a");
+            Holder.log.info("confirming order {}", 889);
             throw new IllegalStateException("gateway refused");
         }
     }

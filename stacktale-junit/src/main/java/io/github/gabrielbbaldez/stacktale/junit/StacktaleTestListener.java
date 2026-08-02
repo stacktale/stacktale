@@ -113,6 +113,11 @@ public final class StacktaleTestListener implements TestExecutionListener {
     /** Test coordinates as MDC, so they render on the report's {@code mdc:} line. */
     private Map<String, String> context(TestIdentifier identifier, String testClass, String displayName) {
         Map<String, String> mdc = new LinkedHashMap<>();
+        // What the test had in its MDC when its body ended, if StacktaleExtension was
+        // registered to capture it. Empty otherwise, which is the behaviour without it.
+        // First, so the correlation key is present for storyFor to resolve the right bucket —
+        // and so the test coordinates below win on a name collision, since those are ours.
+        mdc.putAll(TestMdc.take(identifier.getUniqueId()));
         mdc.put("test.class", testClass);
         methodName(identifier).ifPresent(m -> mdc.put("test.method", m));
         mdc.put("test.displayName", displayName);
