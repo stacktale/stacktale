@@ -54,6 +54,9 @@ public final class StacktaleJulHandler extends Handler {
 
     private final ReportPipeline pipeline;
 
+    /** Remembered so {@link #close()} restores the previous default handler it displaced. */
+    private final boolean installedUncaughtHandler;
+
     /** Reads configuration from {@code logging.properties} — the JUL-native path. */
     public StacktaleJulHandler() {
         this(settingsFromLogManager(), installUncaughtHandlerFromLogManager());
@@ -79,7 +82,8 @@ public final class StacktaleJulHandler extends Handler {
         // The JVM sends uncaught exceptions to stderr, never through JUL — so without this a
         // thread that dies without a log.error() produces no report (#55). Route them back in
         // via UNCAUGHT_LOGGER, which propagates to this handler on the (parent) root logger.
-        if (installUncaughtHandler && pipeline.isActive()) {
+        this.installedUncaughtHandler = installUncaughtHandler && pipeline.isActive();
+        if (installedUncaughtHandler) {
             UncaughtHandler.install((message, thrown) ->
                     Logger.getLogger(UncaughtHandler.UNCAUGHT_LOGGER).log(Level.SEVERE, message, thrown));
         }
@@ -119,6 +123,9 @@ public final class StacktaleJulHandler extends Handler {
     public void close() {
         ActivePipeline.unregister(pipeline);
         pipeline.close(); // flush pending repeat counters / storm lines
+        // leaving it installed pins this handler, and its sink would go on feeding the
+        // pipeline just closed above
+        if (installedUncaughtHandler) UncaughtHandler.uninstall();
     }
 
     private ReportPipeline.Host host() {

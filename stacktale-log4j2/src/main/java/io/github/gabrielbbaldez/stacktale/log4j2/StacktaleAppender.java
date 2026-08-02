@@ -67,6 +67,9 @@ public final class StacktaleAppender extends AbstractAppender {
     public boolean stop(long timeout, java.util.concurrent.TimeUnit timeUnit) {
         ActivePipeline.unregister(pipeline);
         pipeline.close(); // flush pending repeat counters
+        // leaving it installed pins this context, and its sink would go on feeding the
+        // pipeline just closed above
+        if (installUncaughtHandler) UncaughtHandler.uninstall();
         return super.stop(timeout, timeUnit);
     }
 

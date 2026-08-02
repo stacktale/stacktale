@@ -138,7 +138,12 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
             // reports share this file, this dedup window and this story buffer
             ActivePipeline.register(pipeline);
             if (installUncaughtHandler) {
-                org.slf4j.Logger uncaught = LoggerFactory.getLogger(UncaughtHandler.UNCAUGHT_LOGGER);
+                // context-local, for the same reason selfLogger and reportsLogger are: the
+                // global LoggerFactory can point at a different context than the one this
+                // appender belongs to, and then the sink writes somewhere else entirely
+                ch.qos.logback.classic.Logger uncaught =
+                        ((ch.qos.logback.classic.LoggerContext) getContext())
+                                .getLogger(UncaughtHandler.UNCAUGHT_LOGGER);
                 UncaughtHandler.install(uncaught::error);
             }
         }
@@ -150,6 +155,9 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
             ActivePipeline.unregister(pipeline);
             pipeline.close(); // flush pending repeat counters
         }
+        // before super.stop(): leaving it installed pins this context, and its sink would go
+        // on feeding the pipeline just closed above
+        if (installUncaughtHandler) UncaughtHandler.uninstall();
         super.stop();
     }
 
