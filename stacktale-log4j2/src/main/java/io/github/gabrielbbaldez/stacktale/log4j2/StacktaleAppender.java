@@ -45,8 +45,13 @@ public final class StacktaleAppender extends AbstractAppender {
     private final ReportPipeline pipeline;
     private final boolean installUncaughtHandler;
 
-    private StacktaleAppender(String name, ReportPipeline pipeline, boolean installUncaughtHandler) {
-        super(name, null, null, true, Property.EMPTY_ARRAY);
+    private StacktaleAppender(String name, org.apache.logging.log4j.core.Filter filter,
+                              boolean ignoreExceptions, Property[] properties,
+                              ReportPipeline pipeline, boolean installUncaughtHandler) {
+        // The filter used to be hard-coded null here, which is what made a nested <Filters>
+        // element do nothing: AppenderControl.isFilteredByAppender asks the appender for its
+        // filter, saw null, and let everything through (#122).
+        super(name, filter, null, ignoreExceptions, properties);
         this.pipeline = pipeline;
         this.installUncaughtHandler = installUncaughtHandler;
     }
@@ -120,9 +125,12 @@ public final class StacktaleAppender extends AbstractAppender {
     // Log4j2 2.26+ warns-as-error when a @PluginBuilderAttribute field has no public setter.
     // The plugin system writes these fields directly, so setters would be dead code — each
     // field carries @SuppressWarnings("log4j.public.setter"). (Harmless no-op on older Log4j2.)
-    public static final class Builder implements org.apache.logging.log4j.core.util.Builder<StacktaleAppender> {
+    public static final class Builder extends AbstractAppender.Builder<Builder>
+            implements org.apache.logging.log4j.core.util.Builder<StacktaleAppender> {
 
-        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private String name = "STACKTALE";
+        // `name`, `ignoreExceptions`, the @PluginElement Filter and Property[] all come from
+        // AbstractAppender.Builder. Declaring name here again would shadow the inherited one
+        // and leave the plugin system with two fields of that name to choose between.
         @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private String file = "errors-ai.log";
         @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private String appPackages = "";
         @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private int storySize = ReportPipeline.Settings.DEFAULT_STORY_SIZE;
@@ -216,14 +224,14 @@ public final class StacktaleAppender extends AbstractAppender {
                     LogManager.getLogger(ReportPipeline.REPORTS_LOGGER).info(block);
                 }
             });
-            return new StacktaleAppender(name, pipeline, installUncaughtHandler);
+            return new StacktaleAppender(getName(), getFilter(), isIgnoreExceptions(),
+                    getPropertyArray(), pipeline, installUncaughtHandler);
         }
 
         private static List<String> csv(String s) {
             return io.github.gabrielbbaldez.stacktale.Csv.parse(s);
         }
 
-        public Builder setName(String name) { this.name = name; return this; }
         public Builder setFile(String file) { this.file = file; return this; }
         public Builder setAppPackages(String appPackages) { this.appPackages = appPackages; return this; }
     }

@@ -1,6 +1,7 @@
 package io.github.gabrielbbaldez.stacktale.log4j2;
 
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.MarkerManager;
 import org.apache.logging.log4j.ThreadContext;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.config.Configurator;
@@ -108,5 +109,71 @@ class Log4j2IntegrationTest {
         String content = Files.readString(file, StandardCharsets.UTF_8);
         assertThat(content).contains("ERROR (no exception): payment rejected for order 77");
         assertThat(content).doesNotContain("stack (distilled,");
+    }
+
+    @Test
+    void aNestedFilterIsHonoured(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("errors-ai.log");
+        // The idiomatic Log4j2 shape, and the mechanism a user reaches for to keep a noisy
+        // logger out of the story. It did nothing: the Builder implemented util.Builder
+        // directly, so it declared no @PluginElement Filter, and the appender was constructed
+        // with a hard-coded null one (#122).
+        String xml = """
+                <Configuration status="WARN" packages="io.github.gabrielbbaldez.stacktale.log4j2">
+                  <Appenders>
+                    <Stacktale name="STACKTALE" file="%s" appPackages="com.acme"
+                               installUncaughtHandler="false">
+                      <MarkerFilter marker="SKIP" onMatch="DENY" onMismatch="NEUTRAL"/>
+                    </Stacktale>
+                  </Appenders>
+                  <Loggers>
+                    <Root level="info">
+                      <AppenderRef ref="STACKTALE"/>
+                    </Root>
+                  </Loggers>
+                </Configuration>
+                """.formatted(file.toString().replace("\\", "/"));
+        ConfigurationSource source = new ConfigurationSource(
+                new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+        ctx = Configurator.initialize(null, source);
+
+        Logger log = ctx.getLogger("com.acme.OrderService");
+        log.error(MarkerManager.getMarker("SKIP"), "denied by the nested filter");
+        log.error("this one gets through");
+
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        assertThat(content).contains("this one gets through");
+        assertThat(content).doesNotContain("denied by the nested filter");
+    }
+
+    @Test
+    void theSameConfigOnLogbackAndLog4j2AgreeOnFiltering(@TempDir Path dir) throws Exception {
+        // Logback runs getFilterChainDecision in UnsynchronizedAppenderBase.doAppend and JUL
+        // runs Handler.isLoggable, so both already honoured a nested filter. This asserts the
+        // Log4j2 adapter no longer stands alone in ignoring one.
+        Path file = dir.resolve("errors-ai.log");
+        String xml = """
+                <Configuration status="WARN" packages="io.github.gabrielbbaldez.stacktale.log4j2">
+                  <Appenders>
+                    <Stacktale name="STACKTALE" file="%s" appPackages="com.acme"
+                               installUncaughtHandler="false">
+                      <ThresholdFilter level="FATAL" onMatch="ACCEPT" onMismatch="DENY"/>
+                    </Stacktale>
+                  </Appenders>
+                  <Loggers>
+                    <Root level="info">
+                      <AppenderRef ref="STACKTALE"/>
+                    </Root>
+                  </Loggers>
+                </Configuration>
+                """.formatted(file.toString().replace("\\", "/"));
+        ConfigurationSource source = new ConfigurationSource(
+                new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+        ctx = Configurator.initialize(null, source);
+
+        ctx.getLogger("com.acme.OrderService").error("below the threshold", new IllegalStateException("x"));
+
+        // nothing reached the pipeline, so nothing was written — not even a header
+        assertThat(Files.exists(file) && Files.size(file) > 0).isFalse();
     }
 }
