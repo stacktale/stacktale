@@ -278,6 +278,15 @@ io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.maxReportsPerMinute =
 io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.redactionEnabled = true
 io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.redactionCorrelation = false
 io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.redactPatterns = (password|token)=.*;;secret=\w+
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.captureExceptionFields = true
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.reportErrorsWithoutThrowable = true
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.truncateOnStart = false
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.echoSuppressionMillis = 2000
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.containerLoggers = org.apache.catalina.core.ContainerBase
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.emitReportsToLogger = false
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.zone = America/Sao_Paulo
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.installUncaughtHandler = true
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler..level = ALL
 ```
 
 `SEVERE` records become reports; lower levels feed the story (which correlates by thread,
@@ -304,6 +313,30 @@ an agent: told to "fix it, re-run the tests, then check what changed", it would 
 ```groovy
 testImplementation 'io.github.gabrielbbaldez:stacktale-junit:1.1.0'
 ```
+
+**If your tests set a correlation key**, add `StacktaleExtension`. The listener is notified
+after the test method returns, when the MDC is already unwound — so the failure event has no
+`traceId`, looks in the thread bucket, and the report comes out with a story of one line:
+itself. The extension runs inside the test's own lifecycle and snapshots the MDC while it is
+still there.
+
+```java
+@ExtendWith(StacktaleExtension.class)
+class CheckoutIT { … }
+```
+
+Or once for the whole build, in `junit-platform.properties`:
+
+```properties
+junit.jupiter.extensions.autodetection.enabled = true
+```
+
+It is opt-in: the zero-config listener behaves exactly as it does without it, and a project
+that does not depend on Jupiter never sees it. Tests that never touch the MDC — most unit
+tests — need nothing. One case stays out of reach: a test that clears its own MDC in a
+`finally` inside the method body has already unwound it before the exception leaves, and no
+hook runs earlier than that. Clearing in `@AfterEach`, which is where a fixture or filter
+does it, works.
 
 
 The listener is discovered through `META-INF/services`, so Surefire, Gradle and your IDE
@@ -418,6 +451,8 @@ through the same pipeline.
 
 ~110 ns per happy-path event on an ordinary dev machine (JDK 21, Windows, single JMH
 fork — reproduce with [`AppendBenchmark`](stacktale/src/test/java/io/github/gabrielbbaldez/stacktale/AppendBenchmark.java)).
+The number is measured on Logback. The Log4j2 and JUL adapters take the same
+allocation-free path for an event with no context, but have no benchmark of their own.
 Writing a full report costs milliseconds — errors are rare, that's the deal.
 
 ## Token economics (measured)
@@ -587,8 +622,8 @@ Everything is optional — as appender properties in `logback.xml`, or `stacktal
 contain commas, so commas are not the delimiter).
 
 **Container loggers by framework.** Logback: repeatable `<containerLogger>` elements.
-Log4j2: a comma-separated `containerLoggers` attribute. JUL: uses the built-in default
-(`org.apache.catalina.core.ContainerBase`) and does not currently support custom values.
+Log4j2 and JUL: a comma-separated `containerLoggers` attribute/property. All three
+default to Tomcat's `org.apache.catalina.core.ContainerBase`.
 
 The **agent** takes `-javaagent:stacktale-agent.jar=packages=com.your.app` plus optional
 `excludes=`, `maxFrames=`, `maxValueLength=`, and `renderToString=false` (privacy mode:
