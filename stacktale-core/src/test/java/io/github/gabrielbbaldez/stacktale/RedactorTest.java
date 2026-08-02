@@ -127,4 +127,49 @@ class RedactorTest {
         java.util.regex.Matcher m = Pattern.compile("███\\(([0-9a-f]+)\\)").matcher(redacted);
         return m.find() ? m.group(1) : null;
     }
+
+    @Test
+    void aCatastrophicCustomPatternCannotWedgeTheLoggingThread() {
+        // A nested quantifier alone is not enough: Pattern pulls out a required literal and
+        // pre-scans for it, so (x+x+)+y over a string with no 'y' returns immediately. A
+        // backreference leaves nothing to scan for, so the engine has to walk every split.
+        // Unpatched this takes ~3.8s at 27 characters and ~30s at 30.
+        Redactor redactor = Redactor.withDefaults(List.of(Pattern.compile("(a+)+\\1b")));
+        String hostile = "a".repeat(30);
+
+        long startedAt = System.nanoTime();
+        String out = redactor.redact(hostile);
+        long elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000;
+
+        // redact() runs on the application's logging thread, inside the user's log.error call,
+        // so this is time a request is blocked. The budget is 100ms; allow for a loaded runner.
+        assertThat(elapsedMillis).isLessThan(2_000);
+        assertThat(out).isEqualTo(hostile); // nothing matched, and nothing was lost
+    }
+
+    @Test
+    void theDeadlineIsSharedAcrossPatternsRatherThanGrantedToEach() {
+        // Ten copies of the same runaway rule must cost one budget, not ten.
+        Pattern runaway = Pattern.compile("(a+)+\\1b");
+        Redactor redactor = Redactor.withDefaults(
+                java.util.Collections.nCopies(10, runaway));
+
+        long startedAt = System.nanoTime();
+        redactor.redact("a".repeat(30));
+        long elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000;
+
+        assertThat(elapsedMillis).isLessThan(2_000);
+    }
+
+    @Test
+    void aSlowPatternCostsOnlyItsOwnRuleAndNotTheBuiltInOnes() {
+        // The built-ins reassign `s` in turn before the custom loop, so the catch that swallows
+        // the deadline still returns everything they masked. Degraded, not discarded.
+        Redactor redactor = Redactor.withDefaults(List.of(Pattern.compile("(a+)+\\1b")));
+
+        String out = redactor.redact("contact bob@example.com about " + "a".repeat(30));
+
+        assertThat(out).doesNotContain("bob@example.com");
+        assertThat(out).contains("███");
+    }
 }

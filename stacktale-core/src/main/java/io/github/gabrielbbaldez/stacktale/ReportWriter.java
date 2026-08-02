@@ -58,6 +58,7 @@ final class ReportWriter {
         this.maxBackups = Math.max(0, maxBackups);
         this.warn = warn != null ? warn : (m, t) -> { };
         probeWritable();
+        recoverInterruptedRotation();
     }
 
     /**
@@ -150,11 +151,7 @@ final class ReportWriter {
             return rotationBlocked(blocked);
         }
         try {
-            Files.deleteIfExists(backup(maxBackups));
-            for (int i = maxBackups - 1; i >= 1; i--) {
-                Path from = backup(i);
-                if (Files.exists(from)) Files.move(from, backup(i + 1), StandardCopyOption.REPLACE_EXISTING);
-            }
+            rollBackups();
             Files.move(pending, backup(1), StandardCopyOption.REPLACE_EXISTING);
             rotationBlockedWarned = false;
             return true;
@@ -179,6 +176,62 @@ final class ReportWriter {
                     + "retrying on the next report", e);
         }
         return false;
+    }
+
+    /** Shifts {@code .1…N-1} up one, dropping what falls off the end. */
+    private void rollBackups() throws IOException {
+        Files.deleteIfExists(backup(maxBackups));
+        for (int i = maxBackups - 1; i >= 1; i--) {
+            Path from = backup(i);
+            if (Files.exists(from)) Files.move(from, backup(i + 1), StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    /**
+     * Finishes a rotation a previous run did not, folding an orphaned {@code <file>.rotating}
+     * into the backups.
+     *
+     * <p>Rotation moves the live file aside before rolling backups, so a process killed in
+     * between — SIGKILL, an OOM-killed container, power loss — leaves that sibling behind.
+     * Nothing used to clear it, and {@code Files.move} into it has no {@code REPLACE_EXISTING},
+     * so from then on <em>every</em> rotation attempt failed with {@code FileAlreadyExists}:
+     * not only for the rest of that run but for every run afterwards. The file then grew
+     * without bound and {@code maxFileSizeMb} meant nothing, with one {@code addWarn} per
+     * process as the only sign.
+     *
+     * <p>The orphan is folded in rather than deleted because it <em>is</em> the previous live
+     * file — it holds the newest reports written before the crash, and nothing else can reach
+     * them: {@code StReportFile.read()} scans {@code <file>} and {@code <file>.1…N} only.
+     *
+     * <p>Deleting it is still better than leaving it, so a failure to fold does that and says
+     * so. An orphan that survives would wedge rotation forever, which is the worse outcome.
+     */
+    private void recoverInterruptedRotation() {
+        Path pending = file.resolveSibling(file.getFileName() + ROTATING_SUFFIX);
+        // A directory by that name is someone else's, or a test standing in for a locked
+        // file; either way it is not an interrupted rotation of ours to finish.
+        if (!Files.isRegularFile(pending)) return;
+
+        try {
+            if (maxBackups == 0) {
+                Files.delete(pending); // no backups configured: rotation discards, so does this
+                return;
+            }
+            // Shift only when .1 is taken. A crash after the shift but before the last move
+            // leaves .1 free, and shifting again would push the oldest backup off the end
+            // to make room nobody needs.
+            if (Files.exists(backup(1))) rollBackups();
+            Files.move(pending, backup(1), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            try {
+                Files.deleteIfExists(pending);
+            } catch (IOException ignored) {
+                // nothing left to try; the next run will attempt the same recovery
+            }
+            warn.accept("stacktale found an interrupted rotation of " + file.getFileName()
+                    + " and could not fold it into the backups; discarded it so rotation "
+                    + "works again", e);
+        }
     }
 
     private Path backup(int n) {

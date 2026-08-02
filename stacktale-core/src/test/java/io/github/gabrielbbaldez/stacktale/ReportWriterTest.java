@@ -130,4 +130,58 @@ class ReportWriterTest {
         assertThat(Files.readString(file, StandardCharsets.UTF_8)).startsWith("# h\n").contains("b").doesNotContain("a");
         assertThat(Files.exists(dir.resolve("errors-ai.log.1"))).isFalse();
     }
+
+    @Test
+    void anOrphanRotatingFileIsFoldedInAndRotationWorksAgain(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("errors-ai.log");
+        // the state a SIGKILL between "move the live file aside" and "roll it into .1" leaves
+        Files.writeString(dir.resolve("errors-ai.log.rotating"), "newest, written before the crash\n");
+        Files.writeString(dir.resolve("errors-ai.log.1"), "older\n");
+
+        List<String> warnings = new ArrayList<>();
+        ReportWriter w = new ReportWriter(file, 40, "# h\n", null, false, 3, (m, t) -> warnings.add(m));
+
+        // the orphan is gone, and its reports are reachable again as .1 — StReportFile.read()
+        // scans <file> and <file>.1..N, so anywhere else they would be lost
+        assertThat(Files.exists(dir.resolve("errors-ai.log.rotating"))).isFalse();
+        assertThat(Files.readString(dir.resolve("errors-ai.log.1"), StandardCharsets.UTF_8))
+                .contains("before the crash");
+        assertThat(Files.readString(dir.resolve("errors-ai.log.2"), StandardCharsets.UTF_8))
+                .contains("older");
+        assertThat(warnings).isEmpty(); // finishing the job is not a problem worth reporting
+
+        // and the thing the orphan used to break: rotation itself
+        w.append("a".repeat(30) + "\n");
+        w.append("b".repeat(30) + "\n");
+        assertThat(Files.readString(file, StandardCharsets.UTF_8)).contains("b").doesNotContain("a");
+        assertThat(Files.readString(dir.resolve("errors-ai.log.1"), StandardCharsets.UTF_8)).contains("a");
+    }
+
+    @Test
+    void anOrphanFromACrashAfterTheShiftDoesNotCostAnExtraBackupSlot(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("errors-ai.log");
+        // crashed one step later: the shift already happened, so .1 is free and .2/.3 hold
+        // what used to be .1/.2. Shifting again would push .3 off the end for no reason.
+        Files.writeString(dir.resolve("errors-ai.log.rotating"), "newest\n");
+        Files.writeString(dir.resolve("errors-ai.log.2"), "middle\n");
+        Files.writeString(dir.resolve("errors-ai.log.3"), "oldest\n");
+
+        new ReportWriter(file, 40, "# h\n", null, false, 3);
+
+        assertThat(Files.readString(dir.resolve("errors-ai.log.1"), StandardCharsets.UTF_8)).contains("newest");
+        assertThat(Files.readString(dir.resolve("errors-ai.log.2"), StandardCharsets.UTF_8)).contains("middle");
+        assertThat(Files.readString(dir.resolve("errors-ai.log.3"), StandardCharsets.UTF_8)).contains("oldest");
+    }
+
+    @Test
+    void anOrphanIsDiscardedWhenNoBackupsAreKept(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("errors-ai.log");
+        Files.writeString(dir.resolve("errors-ai.log.rotating"), "nowhere to put this\n");
+
+        new ReportWriter(file, 40, "# h\n", null, false, 0);
+
+        // maxBackups=0 means rotation deletes rather than keeps; recovery matches that choice
+        assertThat(Files.exists(dir.resolve("errors-ai.log.rotating"))).isFalse();
+        assertThat(Files.exists(dir.resolve("errors-ai.log.1"))).isFalse();
+    }
 }
