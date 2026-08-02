@@ -278,6 +278,15 @@ io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.maxReportsPerMinute =
 io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.redactionEnabled = true
 io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.redactionCorrelation = false
 io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.redactPatterns = (password|token)=.*;;secret=\w+
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.captureExceptionFields = true
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.reportErrorsWithoutThrowable = true
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.truncateOnStart = false
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.echoSuppressionMillis = 2000
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.containerLoggers = org.apache.catalina.core.ContainerBase
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.emitReportsToLogger = false
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.zone = America/Sao_Paulo
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler.installUncaughtHandler = true
+io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler..level = ALL
 ```
 
 `SEVERE` records become reports; lower levels feed the story (which correlates by thread,
@@ -587,8 +596,8 @@ Everything is optional — as appender properties in `logback.xml`, or `stacktal
 contain commas, so commas are not the delimiter).
 
 **Container loggers by framework.** Logback: repeatable `<containerLogger>` elements.
-Log4j2: a comma-separated `containerLoggers` attribute. JUL: uses the built-in default
-(`org.apache.catalina.core.ContainerBase`) and does not currently support custom values.
+Log4j2 and JUL: a comma-separated `containerLoggers` attribute/property. All three
+default to Tomcat's `org.apache.catalina.core.ContainerBase`.
 
 The **agent** takes `-javaagent:stacktale-agent.jar=packages=com.your.app` plus optional
 `excludes=`, `maxFrames=`, `maxValueLength=`, and `renderToString=false` (privacy mode:

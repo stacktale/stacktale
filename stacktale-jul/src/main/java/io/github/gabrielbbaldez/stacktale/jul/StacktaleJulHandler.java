@@ -191,6 +191,46 @@ public final class StacktaleJulHandler extends Handler {
 
         String format = m.getProperty(p + "format");
         if (format != null) b.jsonFormat("json".equalsIgnoreCase(format.trim()));
+
+        // captureExceptionFields is a privacy control, not a tuning knob: it decides whether
+        // getters on the user's own exception types are called and their values written to the
+        // report. Dropping it meant a JUL user whose exceptions expose PII had no way off.
+        Boolean captureFields = boolProp(m, p + "captureExceptionFields");
+        if (captureFields != null) b.captureExceptionFields(captureFields);
+
+        Boolean truncate = boolProp(m, p + "truncateOnStart");
+        if (truncate != null) b.truncateOnStart(truncate);
+
+        Boolean withoutThrowable = boolProp(m, p + "reportErrorsWithoutThrowable");
+        if (withoutThrowable != null) b.reportErrorsWithoutThrowable(withoutThrowable);
+
+        Boolean toLogger = boolProp(m, p + "emitReportsToLogger");
+        if (toLogger != null) b.emitReportsToLogger(toLogger);
+
+        String echo = m.getProperty(p + "echoSuppressionMillis");
+        if (echo != null && !echo.isBlank()) {
+            try {
+                b.echoSuppressionMillis(Long.parseLong(echo.trim()));
+            } catch (NumberFormatException ignored) {
+                // keep the default rather than fail handler construction
+            }
+        }
+
+        String containerLoggers = m.getProperty(p + "containerLoggers");
+        if (containerLoggers != null) b.containerLoggers(Csv.parse(containerLoggers));
+
+        // A bad zone silently landing every timestamp in the system default is the worst of
+        // both worlds — the reports look fine and are wrong. Keep the default, but say so.
+        String zone = m.getProperty(p + "zone");
+        if (zone != null && !zone.isBlank()) {
+            try {
+                b.zone(java.time.ZoneId.of(zone.trim()));
+            } catch (java.time.DateTimeException e) {
+                Logger.getLogger(ReportPipeline.SELF_LOGGER).warning(
+                        "stacktale: invalid zone '" + zone.trim() + "', using the system default");
+            }
+        }
+
         return b.build();
     }
 
@@ -202,5 +242,11 @@ public final class StacktaleJulHandler extends Handler {
         } catch (NumberFormatException e) {
             return fallback;
         }
+    }
+
+    /** {@code null} when the key is absent, so an unset property keeps the builder's default. */
+    private static Boolean boolProp(LogManager m, String key) {
+        String v = m.getProperty(key);
+        return v == null || v.isBlank() ? null : Boolean.parseBoolean(v.trim());
     }
 }
