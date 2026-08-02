@@ -87,9 +87,29 @@ public final class StacktaleAppender extends AbstractAppender {
         }
     }
 
+    /**
+     * The event's ThreadContext as a map, without paying for one when there is nothing in it.
+     *
+     * <p>{@code ReadOnlyStringMap.toMap()} is {@code new HashMap<>(size())} plus a copy loop
+     * and it does that unconditionally — including for an empty context. {@code adapt()} runs
+     * on every event, error or not, so that was an allocation on the happy path for every
+     * application that never touches the ThreadContext, which is most of them.
+     *
+     * <p>CONTRIBUTING names the cheap happy path as an invariant, and the Logback adapter
+     * protects it explicitly (see {@code context(ILoggingEvent)} there). This adapter did not,
+     * so the README's ~110 ns per happy-path event — a Logback-only figure from
+     * {@code AppendBenchmark} — was not true for this backend.
+     */
+    // package-private so the allocation invariant can be asserted directly rather than
+    // inferred from a benchmark that CI does not run
+    static Map<String, String> contextData(LogEvent event) {
+        org.apache.logging.log4j.util.ReadOnlyStringMap data = event.getContextData();
+        return data == null || data.isEmpty() ? Map.of() : data.toMap();
+    }
+
     private LogEventData adapt(LogEvent event) {
         org.apache.logging.log4j.message.Message message = event.getMessage();
-        Map<String, String> mdc = event.getContextData() == null ? Map.of() : event.getContextData().toMap();
+        Map<String, String> mdc = contextData(event);
         Throwable thrown = event.getThrown();
         String formatted = message.getFormattedMessage();
         // non-parameterized Message types (MapMessage, ObjectMessage, StructuredData…)

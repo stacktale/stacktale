@@ -427,6 +427,8 @@ through the same pipeline.
 
 ~110 ns per happy-path event on an ordinary dev machine (JDK 21, Windows, single JMH
 fork — reproduce with [`AppendBenchmark`](stacktale/src/test/java/io/github/gabrielbbaldez/stacktale/AppendBenchmark.java)).
+The number is measured on Logback. The Log4j2 and JUL adapters take the same
+allocation-free path for an event with no context, but have no benchmark of their own.
 Writing a full report costs milliseconds — errors are rare, that's the deal.
 
 ## Token economics (measured)
