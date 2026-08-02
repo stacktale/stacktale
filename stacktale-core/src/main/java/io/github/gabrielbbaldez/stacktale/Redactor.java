@@ -33,6 +33,14 @@ final class Redactor {
     private static final int MIN_CORRELATION_LENGTH = 8;
 
     /**
+     * How long every custom pattern gets, together, on one string. Redaction runs on the
+     * application's logging thread inside the user's {@code log.error(...)}, so this is time
+     * their request is blocked. The built-in rules finish a few KB in microseconds; a sane
+     * custom rule is in the same class, and 100ms leaves three orders of magnitude of slack.
+     */
+    private static final long CUSTOM_PATTERN_BUDGET_NANOS = 100_000_000L;
+
+    /**
      * Per-process HMAC key: correlation is session-scoped (like {@code seen:}). A random
      * key means the suffix is a stable equality signal within one run, never a rainbow-table
      * target across runs or a hash an attacker can precompute from a guessed value.
@@ -127,12 +135,81 @@ final class Redactor {
             s = LONG_HEX.matcher(s).replaceAll(m -> mask(m.group()));
             s = EMAIL.matcher(s).replaceAll(m -> mask(m.group()));
             s = CARD_CANDIDATE.matcher(s).replaceAll(this::maskIfLuhnValid);
+            // One budget for all custom rules together, not one each: a config with twenty
+            // patterns must not buy twenty times as much of the caller's thread.
+            long expiresAt = System.nanoTime() + CUSTOM_PATTERN_BUDGET_NANOS;
             for (Pattern p : customPatterns) {
-                s = p.matcher(s).replaceAll(m -> mask(m.group()));
+                s = p.matcher(new Deadline(s, expiresAt)).replaceAll(m -> mask(m.group()));
             }
             return s;
         } catch (Throwable t) {
-            return s; // a broken pattern must never break a report
+            // A pattern that is broken, or one stopped by the deadline, must never break a
+            // report. `s` still carries every built-in rule, because they reassign it in turn.
+            return s;
+        }
+    }
+
+    /**
+     * Bounds how long one custom pattern may run.
+     *
+     * <p>{@link java.util.regex.Matcher} has no timeout and no cancel. The one hook a caller
+     * gets into a match already under way is {@code charAt}, which the engine calls for every
+     * character it examines — so a pattern backtracking exponentially calls it billions of
+     * times, and a deadline checked there is what stops it.
+     *
+     * <p>The check is sampled rather than made on every call, because {@code nanoTime()} on
+     * each character would cost more than the matching it guards.
+     *
+     * <p>Worth knowing for anyone reproducing this: most textbook catastrophic patterns do
+     * <em>not</em> hang here. {@code Pattern} extracts a required literal and pre-scans for it
+     * with {@code indexOf}, so {@code (x+x+)+y} against a string with no {@code y} returns at
+     * once without entering the loop. The shapes that do reach the loop are the ones with
+     * nothing scannable — a backreference tail such as {@code (a+)+\1b} is the reliable one,
+     * and it goes from 15ms to 30s between a 18- and a 30-character input.
+     */
+    private static final class Deadline implements CharSequence {
+
+        private static final int SAMPLE_EVERY = 4096;
+
+        private final CharSequence text;
+        private final long expiresAtNanos;
+        private int untilNextCheck = SAMPLE_EVERY;
+
+        Deadline(CharSequence text, long expiresAtNanos) {
+            this.text = text;
+            this.expiresAtNanos = expiresAtNanos;
+        }
+
+        @Override
+        public char charAt(int index) {
+            if (--untilNextCheck <= 0) {
+                untilNextCheck = SAMPLE_EVERY;
+                // subtraction, not <: nanoTime() has no fixed origin and can be negative
+                if (System.nanoTime() - expiresAtNanos > 0) throw new RedactionTooSlow();
+            }
+            return text.charAt(index);
+        }
+
+        @Override
+        public int length() {
+            return text.length();
+        }
+
+        @Override
+        public CharSequence subSequence(int start, int end) {
+            return text.subSequence(start, end);
+        }
+
+        @Override
+        public String toString() {
+            return text.toString();
+        }
+    }
+
+    /** Control flow, not a fault: no message, no stack, nothing to fill in or read. */
+    private static final class RedactionTooSlow extends RuntimeException {
+        RedactionTooSlow() {
+            super(null, null, false, false);
         }
     }
 
