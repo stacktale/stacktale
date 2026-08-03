@@ -1,0 +1,36 @@
+name: Build Examples
+
+on:
+  pull_request:
+    paths:
+      - "examples/**"
+      - ".github/workflows/examples.yml"
+  push:
+    paths:
+      - "examples/**"
+      - ".github/workflows/examples.yml"
+
+jobs:
+  build-examples:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        example:
+          - examples/plain-java-jul
+          - examples/spring-boot-mvc
+          - examples/spring-boot-webflux
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      - name: Compile example
+        working-directory: ${{ matrix.example }}
+        run: mvn -B -q compile
