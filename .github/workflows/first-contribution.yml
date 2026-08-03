@@ -1,40 +1,75 @@
 name: First contribution
 
-# Thanks someone the first time a PR of theirs is merged. On merge rather than on open:
-# at that point they've actually given something, so it reads as thanks instead of a pitch.
+# Thanks someone the first time a PR of theirs is merged. On merge rather than on open: at
+# that point they've actually given something, so it reads as thanks instead of a pitch.
 #
-# Note on the check: author_association is NOT usable here. Merging a PR promotes its author
-# from FIRST_TIME_CONTRIBUTOR to CONTRIBUTOR, and the payload delivered with the `closed`
-# event already carries the new value — so a condition on it never matches. Counting the
-# author's merged PRs is the signal that survives that.
+# On `push` to main rather than `pull_request_target: closed`. The 403s that prompted the
+# change turned out to be the permissions block below, not the trigger — so treat this as a
+# preference, not a fix: a push to main is plainly not fork-triggered, which takes the whole
+# question of what token a fork PR gets off the table. `pull_request_target` would very
+# possibly work now too; it was never tested with the permission right, because the
+# permission was wrong the entire time.
 #
-# pull_request_target is required to comment on a fork's PR — it runs with the base repo's
-# permissions. It therefore MUST NOT check out or execute the PR's code; this job only
-# posts a comment, and has no checkout step for that reason.
+# Every run before that fix was green. A 403 here only raises a ::warning::, and nobody reads
+# a warning on a green run — which is why this went unnoticed through several merges.
+#
+# Note on the check: author_association is NOT usable here either. Merging a PR promotes its
+# author from FIRST_TIME_CONTRIBUTOR to CONTRIBUTOR before the event is delivered, so a
+# condition on it never matches. Counting the author's merged PRs survives that.
 on:
-  pull_request_target:
-    types: [closed]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "PR number to thank for (testing; skips the push-derived lookup)"
+        required: true
 
 permissions:
-  pull-requests: read
-  issues: write
+  contents: read
+  # write, and it must be pull-requests rather than issues. The comment goes through
+  # POST /repos/:owner/:repo/issues/:number/comments, so `issues: write` is the obvious
+  # reading and it is wrong: GitHub scopes that endpoint by what the number points at, and
+  # for a pull request the permission checked is pull-requests. Declaring `pull-requests:
+  # read` here was the denial — an explicit permissions block is absolute, so it capped the
+  # very thing being asked for while `issues: write` was granted and never consulted.
+  pull-requests: write
 
 jobs:
   thanks:
-    if: github.event.pull_request.merged == true && github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
     steps:
       - env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-          PR: ${{ github.event.pull_request.number }}
-          AUTHOR: ${{ github.event.pull_request.user.login }}
+          SHA: ${{ github.sha }}
+          MANUAL_PR: ${{ inputs.pr }}
         run: |
           set -euo pipefail
 
+          if [ -n "${MANUAL_PR:-}" ]; then
+            pr="$MANUAL_PR"
+          else
+            # Whatever PR this commit came from, however it was merged. Reading the API
+            # rather than parsing the commit subject: squash writes "(#12)", a merge commit
+            # writes "Merge pull request #12", and a rebase merge writes neither.
+            pr=$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '.[0].number // empty')
+          fi
+          if [ -z "$pr" ]; then
+            echo "No pull request behind this commit — direct push."
+            exit 0
+          fi
+
+          author=$(gh api "repos/$REPO/pulls/$pr" --jq '.user.login')
+          type=$(gh api "repos/$REPO/pulls/$pr" --jq '.user.type')
+          if [ "$type" = "Bot" ]; then
+            echo "$author is a bot."
+            exit 0
+          fi
+
           merged=$(gh api --paginate "repos/$REPO/pulls?state=closed&per_page=100" \
-            --jq ".[] | select(.user.login==\"$AUTHOR\" and .merged_at != null) | .number" | wc -l)
-          echo "$AUTHOR has $merged merged PR(s) here."
+            --jq ".[] | select(.user.login==\"$author\" and .merged_at != null) | .number" | wc -l)
+          echo "$author has $merged merged PR(s) here."
           if [ "$merged" -ne 1 ]; then
             echo "Not their first — nothing to say."
             exit 0
@@ -42,7 +77,7 @@ jobs:
 
           body="$RUNNER_TEMP/thanks.md"
           cat > "$body" <<EOF
-          Merged — thanks @$AUTHOR, that's your first one here.
+          Merged — thanks @$author, that's your first one here.
 
           If the project turned out to be useful to you, a ⭐ genuinely helps: stacktale is
           new, and stars are most of what decides whether anyone else finds it.
@@ -51,9 +86,9 @@ jobs:
           list is kept honest, and each one names the files to touch and how to verify.
           EOF
 
-          # An org policy can force workflow tokens to read-only, which makes this POST 403.
-          # Don't fail the run over a thank-you note — a red X on every merged PR is worse
-          # than a missing comment. Switch it on at Settings > Actions > Workflow permissions.
-          if ! gh api --method POST "repos/$REPO/issues/$PR/comments" -F body=@"$body"; then
-            echo "::warning::could not comment — the workflow token is read-only for this org"
+          # Still tolerated rather than fatal: a red X on main over a thank-you note is worse
+          # than a missing note. The ::warning:: is what makes it visible instead of silent.
+          if ! gh api --method POST "repos/$REPO/issues/$pr/comments" -F body=@"$body"; then
+            echo "::warning::could not comment — check the permissions block above and"
+            echo "::warning::Settings > Actions > Workflow permissions"
           fi
