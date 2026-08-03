@@ -208,7 +208,8 @@ class StoryBufferTest {
 
         Story story = buf.storyFor(boom);
         assertThat(story.entries()).hasSize(200);
-        assertThat(story.entries().getLast().message()).isEqualTo("boom");
+        List<StoryEntry> entries = story.entries();
+        assertThat(entries.get(entries.size() - 1).message()).isEqualTo("boom");
     }
 }
 
