@@ -111,20 +111,20 @@ All artifacts are on Maven Central.
 <dependency>
   <groupId>io.github.gabrielbbaldez</groupId>
   <artifactId>stacktale-spring-boot-starter</artifactId>
-  <version>1.1.0</version>
+  <version>1.2.0</version>
 </dependency>
 ```
 
 **Gradle (Groovy)**
 
 ```groovy
-implementation 'io.github.gabrielbbaldez:stacktale-spring-boot-starter:1.1.0'
+implementation 'io.github.gabrielbbaldez:stacktale-spring-boot-starter:1.2.0'
 ```
 
 **Gradle (Kotlin DSL)**
 
 ```kotlin
-implementation("io.github.gabrielbbaldez:stacktale-spring-boot-starter:1.1.0")
+implementation("io.github.gabrielbbaldez:stacktale-spring-boot-starter:1.2.0")
 ```
 
 That's it — no logback.xml editing. The starter registers the appender on the root
@@ -163,20 +163,20 @@ written in Kotlin or Java.
 <dependency>
   <groupId>io.github.gabrielbbaldez</groupId>
   <artifactId>stacktale</artifactId>
-  <version>1.1.0</version>
+  <version>1.2.0</version>
 </dependency>
 ```
 
 **Gradle (Groovy)**
 
 ```groovy
-implementation 'io.github.gabrielbbaldez:stacktale:1.1.0'
+implementation 'io.github.gabrielbbaldez:stacktale:1.2.0'
 ```
 
 **Gradle (Kotlin DSL)**
 
 ```kotlin
-implementation("io.github.gabrielbbaldez:stacktale:1.1.0")
+implementation("io.github.gabrielbbaldez:stacktale:1.2.0")
 ```
 
 ```xml
@@ -205,20 +205,20 @@ itself on startup, and the file header explains the format to any AI that opens 
 <dependency>
   <groupId>io.github.gabrielbbaldez</groupId>
   <artifactId>stacktale-log4j2</artifactId>
-  <version>1.1.0</version>
+  <version>1.2.0</version>
 </dependency>
 ```
 
 **Gradle (Groovy)**
 
 ```groovy
-implementation 'io.github.gabrielbbaldez:stacktale-log4j2:1.1.0'
+implementation 'io.github.gabrielbbaldez:stacktale-log4j2:1.2.0'
 ```
 
 **Gradle (Kotlin DSL)**
 
 ```kotlin
-implementation("io.github.gabrielbbaldez:stacktale-log4j2:1.1.0")
+implementation("io.github.gabrielbbaldez:stacktale-log4j2:1.2.0")
 ```
 
 ```xml
@@ -244,20 +244,20 @@ by default — with no SLF4J bridge:
 <dependency>
   <groupId>io.github.gabrielbbaldez</groupId>
   <artifactId>stacktale-jul</artifactId>
-  <version>1.1.0</version>
+  <version>1.2.0</version>
 </dependency>
 ```
 
 **Gradle (Groovy)**
 
 ```groovy
-implementation 'io.github.gabrielbbaldez:stacktale-jul:1.1.0'
+implementation 'io.github.gabrielbbaldez:stacktale-jul:1.2.0'
 ```
 
 **Gradle (Kotlin DSL)**
 
 ```kotlin
-implementation("io.github.gabrielbbaldez:stacktale-jul:1.1.0")
+implementation("io.github.gabrielbbaldez:stacktale-jul:1.2.0")
 ```
 
 ```properties
@@ -305,13 +305,13 @@ an agent: told to "fix it, re-run the tests, then check what changed", it would 
 <dependency>
   <groupId>io.github.gabrielbbaldez</groupId>
   <artifactId>stacktale-junit</artifactId>
-  <version>1.1.0</version>
+  <version>1.2.0</version>
   <scope>test</scope>
 </dependency>
 ```
 
 ```groovy
-testImplementation 'io.github.gabrielbbaldez:stacktale-junit:1.1.0'
+testImplementation 'io.github.gabrielbbaldez:stacktale-junit:1.2.0'
 ```
 
 **If your tests set a correlation key**, add `StacktaleExtension`. The listener is notified
