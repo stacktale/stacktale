@@ -5,6 +5,83 @@ All notable changes to stacktale are documented here. The format follows
 [SemVer](https://semver.org/). The report format (`st/1`) is versioned independently
 and pinned by golden-file tests.
 
+## [1.2.0] — 2026-08-03
+
+A bug-fix release, and the bugs are the kind that hide: every one of them left the library
+looking like it worked. A wedged logging thread, a rotation that stops forever after one
+crash, an uncaught-exception path that recursed until the stack ran out, a Log4j2 filter
+that silently did nothing, seven JUL settings read by nobody, and a repeat counter that
+ended up wrong rather than absent.
+
+### Added
+
+- **`StacktaleExtension`** for `stacktale-junit` — optional, registered with `@ExtendWith`
+  or JUnit's extension autodetection. A test that sets a correlation key used to get a
+  report whose story was one line: itself. The listener is notified after the test method
+  returns, when the MDC is already unwound, so the failure event looked in the thread
+  bucket while everything the test logged went to the `traceId` one. The extension runs
+  inside the test's lifecycle and snapshots the MDC while it still exists. The zero-config
+  listener behaves exactly as before without it. (#134)
+- **`examples/`** — three runnable projects, one per entry point: plain Java with JUL,
+  Spring Boot MVC, Spring Boot WebFlux including the Reactor scheduler-hop case. Built in
+  CI on every change so they cannot drift from the library. (#62)
+
+### Fixed
+
+- **A custom `redactPattern` could wedge the application's logging thread.** Redaction runs
+  synchronously inside `log.error(...)`, and the existing `catch (Throwable)` does not help
+  because a hang is not a throw. Custom patterns now match through a `CharSequence` that
+  enforces a deadline from `charAt` — the only hook into a match already under way, since
+  `Matcher` has no timeout — with a 100ms budget shared by all custom rules. Measured on a
+  backreference pattern: 30 characters took **30.6 seconds** before. (#118)
+- **An orphaned `.rotating` file disabled rotation permanently.** A process killed between
+  moving the live file aside and rolling it into `.1` left the sibling behind, and every
+  later rotation failed with `FileAlreadyExists` — for that run and every run afterwards,
+  so `errors-ai.log` grew without bound and `maxFileSizeMb` meant nothing. The writer now
+  completes the interrupted rotation on construction, folding the orphan in rather than
+  deleting it: it holds the newest reports written before the crash. (#120)
+- **Uncaught exceptions recursed until the stack ran out.** With no previous handler — the
+  ordinary case, since most applications never set one — the fallback handed the throwable
+  to the thread's `ThreadGroup`, whose root ends by calling the default handler, which is
+  ours. Every uncaught exception died as a `StackOverflowError` instead of being reported.
+  Separately, `install()` now replaces a stale handler and `uninstall()` runs from every
+  adapter's stop, so a DevTools restart no longer feeds a closed pipeline or pins the dead
+  `LoggerContext`. (#121)
+- **The Log4j2 appender ignored a nested `<Filters>` element.** The builder declared no
+  `@PluginElement Filter` and the appender was constructed with a hard-coded null one, so
+  the idiomatic configuration did nothing — silently, and only on this backend. Logback and
+  JUL both honoured it. (#122)
+- **Seven documented `logging.properties` keys were read by nobody** on `stacktale-jul`:
+  `zone`, `captureExceptionFields`, `truncateOnStart`, `reportErrorsWithoutThrowable`,
+  `echoSuppressionMillis`, `containerLoggers` and `emitReportsToLogger`.
+  `captureExceptionFields` is a privacy control — it decides whether getters on the user's
+  own exception types run and land in the report — so a JUL user whose exceptions carry PII
+  had no way to turn it off. An invalid `zone` now keeps the system default and says so
+  rather than silently shifting every timestamp. (#124)
+- **The trailing repeat counters were lost on plain Logback.** `close()` drains them and
+  runs from `stop()`, which Logback calls only on `LoggerContext.stop()` — and Logback
+  registers no shutdown hook unless `<shutdownHook/>` is configured. Fifty identical errors
+  left `repeated 2×` as the last word in the file: not missing but stale, which reads as
+  real. The appender registers its own hook; no configuration needed. (#127)
+- **`StoryBuffer` took a global monitor on every event**, and its published benchmark was
+  single-threaded. Now a `ConcurrentHashMap` with sample-based LRU eviction, keeping the
+  guarantee that matters: a request still logging its way to a failure does not lose its
+  story to another request's traffic. Thanks @Shubh2-0. (#125)
+- **The Log4j2 adapter allocated a map per event.** `ReadOnlyStringMap.toMap()` copies
+  unconditionally, empty ThreadContext or not, so every application that never touches it
+  paid for a map on the happy path — which the README's ~110 ns figure, measured on
+  Logback, did not include. (#123)
+
+### Changed
+
+- **A Log4j2 `<Stacktale>` element now requires a `name`.** The builder extends
+  `AbstractAppender.Builder` to pick up the `Filter` element, and the inherited `name` is
+  required where the local one defaulted to `STACKTALE`. Every documented example sets one,
+  and an unnamed appender cannot be referenced from `<AppenderRef>`, so it was never usable
+  in a real configuration — but a hand-written config relying on the default will now fail
+  to start rather than start wrong. (#122)
+- `containerLoggers` is configurable on JUL, which the README previously said it was not.
+
 ## [1.1.0] — 2026-07-29
 
 The release that came out of using the library on a real app and auditing the rest. Most of
