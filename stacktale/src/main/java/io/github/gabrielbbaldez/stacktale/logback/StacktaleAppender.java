@@ -57,6 +57,8 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
     private boolean jsonFormat = false;
 
     private ReportPipeline pipeline;
+    /** The JVM hook that drains trailing repeat counters; null when not registered. */
+    Thread shutdownDrain;
     private org.slf4j.Logger selfLogger;
     private volatile boolean mdcUnavailable;
     private volatile boolean keyValuesUnavailable;
@@ -146,11 +148,60 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
                                 .getLogger(UncaughtHandler.UNCAUGHT_LOGGER);
                 UncaughtHandler.install(uncaught::error);
             }
+            installShutdownDrain();
+        }
+    }
+
+    /**
+     * Flushes the trailing repeat counters when the JVM exits.
+     *
+     * <p>{@link ReportPipeline#close()} is what drains them, and it runs from {@link #stop()},
+     * which Logback calls only on {@code LoggerContext.stop()}. Logback registers no shutdown
+     * hook of its own unless {@code <shutdownHook/>} is in the configuration — so for the exact
+     * quickstart this project documents, that drain never happened.
+     *
+     * <p>The counter is not merely missing then, it is <em>stale</em>, which is worse: the file
+     * ends with whatever the last burst flush wrote and a reader believes it. Fifty identical
+     * errors left {@code repeated 2×} as the final word (#127).
+     *
+     * <p>Log4j2 drains through {@code DefaultShutdownCallbackRegistry} and JUL through the
+     * {@code LogManager} reset, so plain Logback was the only backend where the number lied.
+     * Documenting {@code <shutdownHook/>} would have made that asymmetry the user's problem.
+     *
+     * <p>Safe to pair with Logback's own hook: {@code close()} is idempotent, because
+     * {@code drainPending()} advances {@code lastWrittenCount} and a second pass finds nothing.
+     */
+    private void installShutdownDrain() {
+        if (shutdownDrain != null) return; // start() can be called again on a re-configured appender
+        ReportPipeline forHook = pipeline;
+        Thread hook = new Thread(forHook::close, "stacktale-shutdown-drain");
+        try {
+            Runtime.getRuntime().addShutdownHook(hook);
+            shutdownDrain = hook;
+        } catch (IllegalStateException shuttingDown) {
+            // the JVM is already on its way out; there is nothing left to schedule
+        }
+    }
+
+    /**
+     * Removes the hook so a stopped context is not pinned by it — the same leak {@link
+     * UncaughtHandler} had. Does nothing when shutdown is already under way, which is the
+     * normal case: the hook is running, or Logback's own hook is stopping this context.
+     */
+    private void removeShutdownDrain() {
+        Thread hook = shutdownDrain;
+        shutdownDrain = null;
+        if (hook == null) return;
+        try {
+            Runtime.getRuntime().removeShutdownHook(hook);
+        } catch (IllegalStateException shuttingDown) {
+            // removeShutdownHook throws once shutdown has begun; the hook will simply run
         }
     }
 
     @Override
     public void stop() {
+        removeShutdownDrain();
         if (pipeline != null) {
             ActivePipeline.unregister(pipeline);
             pipeline.close(); // flush pending repeat counters

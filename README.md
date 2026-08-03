@@ -645,6 +645,10 @@ Async work: wrap hops with [`StacktaleExecutors`](stacktale-core/src/main/java/i
   header teaches it to any AI. Format changes are deliberate and versioned.
 - **Nothing leaves the machine.** A local file, same trust boundary as your logs. No
   network, no phone-home. Redaction on by default anyway.
+- **The last count is the true count.** Repeated errors are summarised as
+  `━ #id repeated N× ━` rather than re-reported, and that line is flushed on JVM exit —
+  no `<shutdownHook/>` needed in `logback.xml`. Without it the file would end at whatever
+  the last flush wrote, which is worse than missing: a stale number reads as a real one.
 
 ## Limitations (honest ones)
 
