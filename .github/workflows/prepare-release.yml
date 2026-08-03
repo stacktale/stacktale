@@ -1,20 +1,42 @@
 name: Prepare release
+
+# Cuts a release without pushing to `main`, because it cannot: the `main` ruleset requires a
+# pull request and its only bypass is OrganizationAdmin. github-actions[bot] is not one, and
+# a RepositoryRole bypass does not cover it either — both were tested, and the second is why
+# 1.2.0 had to be finished by hand (#153).
+#
+# So the version bumps go to a branch and a PR, which is what the rule is asking for. The
+# tag is created on the release commit *on that branch* and published immediately, so
+# Central does not wait on a human. Merging the PR with a merge commit then brings the
+# tagged commit into main's history.
+#
+# Two failures from 1.2.0 shaped the rest:
+#
+#   - `git push origin HEAD --tags` pushes two independent refs. The branch was rejected and
+#     the tag went through anyway, leaving v1.2.0 pointing at a commit that existed nowhere.
+#     The pushes are separate steps now, and the tag never happens unless the branch landed.
+#   - That tag then triggered nothing, because a push authenticated with GITHUB_TOKEN does
+#     not start workflows. Publishing is a `workflow_call` into release.yml, not a hope.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Release version (e.g. 0.4.0)
+        description: Release version (e.g. 1.3.0)
         required: true
       nextSnapshot:
-        description: Next dev version (e.g. 0.5.0-SNAPSHOT) — leave blank to auto-bump minor
+        description: Next dev version (e.g. 1.4.0-SNAPSHOT) — leave blank to auto-bump minor
         required: false
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   prepare:
     runs-on: ubuntu-latest
+    outputs:
+      tag: v${{ inputs.version }}
+      branch: ${{ steps.branch.outputs.name }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -26,6 +48,19 @@ jobs:
           cache: maven
           gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: The CHANGELOG must already describe this version
+        run: |
+          set -euo pipefail
+          # Checked before anything is built or pushed. Finding out afterwards means either
+          # an empty release or deleting a published tag, and 1.2.0 did both.
+          if ! grep -q "^## \[${{ inputs.version }}\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [${{ inputs.version }}]' section — write it first"
+            exit 1
+          fi
+
+      - id: branch
+        run: echo "name=release/${{ inputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Compute next snapshot
         id: next
@@ -47,20 +82,83 @@ jobs:
 
       - name: Update README versions
         run: |
-          sed -i -E 's|(<artifactId>stacktale[a-z0-9-]*</artifactId>\s*<version>)[0-9.]+(</version>)|\1${{ inputs.version }}\2|g' README.md || true
-          sed -i -E 's|(io\.github\.gabrielbbaldez</groupId>\s*<artifactId>stacktale[a-z0-9-]*</artifactId>\s*<version>)[0-9.]+|\1${{ inputs.version }}|g' README.md || true
+          set -euo pipefail
+          sed -i -E 's|(<artifactId>stacktale[a-z0-9-]*</artifactId>[[:space:]]*<version>)[0-9.]+(</version>)|\1${{ inputs.version }}\2|g' README.md
+          sed -i -E 's|(io\.github\.gabrielbbaldez:stacktale[a-z0-9-]*:)[0-9.]+|\1${{ inputs.version }}|g' README.md
+          bash scripts/check-readme-compat.sh
 
-      - name: Commit, tag and open next snapshot
+      - name: Commit the release, then the next snapshot
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git switch -c "${{ steps.branch.outputs.name }}"
           git commit -am "release: ${{ inputs.version }}"
-          git tag -a "v${{ inputs.version }}" -m "stacktale ${{ inputs.version }}"
+          echo "RELEASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           mvn -B -q versions:set -DnewVersion=${{ steps.next.outputs.value }} -DgenerateBackupPoms=false
           git commit -am "chore: open ${{ steps.next.outputs.value }}"
-          git push origin HEAD --tags
 
-      - name: Summary
+      - name: Push the branch
+        run: git push origin "${{ steps.branch.outputs.name }}"
+
+      # Only now. A tag pushed beside a rejected branch is what left v1.2.0 pointing at a
+      # commit reachable from nothing, and that state is invisible until someone looks.
+      - name: Tag the release commit
         run: |
-          echo "Tagged **v${{ inputs.version }}** (the release workflow publishes it to Central) and opened **${{ steps.next.outputs.value }}**." >> "$GITHUB_STEP_SUMMARY"
-          echo "Remember to write the GitHub release notes and the CHANGELOG entry." >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          git tag -a "v${{ inputs.version }}" -m "stacktale ${{ inputs.version }}" "$RELEASE_SHA"
+          git push origin "refs/tags/v${{ inputs.version }}"
+
+      - name: Open the pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/pr.md"
+          cat > "$body" <<EOF
+          Version bumps for **${{ inputs.version }}**, opened by \`prepare-release\`.
+
+          The tag \`v${{ inputs.version }}\` already points at the \`release:\` commit on this
+          branch, and Maven Central is published from it in the same run — this PR is what
+          brings that commit into \`main\`'s history.
+
+          **Merge with a merge commit, not a squash.** A squash creates a new commit, and the
+          tag would be left pointing at one reachable from nowhere.
+          EOF
+          gh pr create --base main --head "${{ steps.branch.outputs.name }}" \
+            --title "release: ${{ inputs.version }}" --body-file "$body"
+
+  publish:
+    needs: prepare
+    uses: ./.github/workflows/release.yml
+    secrets: inherit
+    with:
+      ref: ${{ needs.prepare.outputs.tag }}
+
+  announce:
+    needs: [prepare, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+      - name: GitHub Release from the CHANGELOG
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          notes="$RUNNER_TEMP/notes.md"
+          # index() against a literal, not a dynamic regex: building "^## \[$VERSION\]" as an
+          # awk string loses a level of escaping, awk warns that `\[` is plain `[`, and the
+          # match silently returns nothing — a green step that extracts zero lines.
+          awk -v h="## [$VERSION]" 'index($0,h)==1 {f=1; next} /^## \[/{f=0} f' CHANGELOG.md > "$notes"
+          # Empty here would publish a release with no notes, which is the outcome this step
+          # exists to prevent rather than to relocate.
+          if [ ! -s "$notes" ]; then
+            echo "::error::no CHANGELOG section for $VERSION — refusing to publish empty notes"
+            exit 1
+          fi
+          gh release create "v$VERSION" --title "$VERSION" --notes-file "$notes"

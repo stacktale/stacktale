@@ -1,13 +1,33 @@
 name: Release to Maven Central
+
+# Two ways in, and the second one is the one that matters.
+#
+# `push: tags` is kept for a tag pushed by a person — the emergency path, and how 1.2.0
+# eventually shipped. It cannot be the only one: a tag pushed with GITHUB_TOKEN does not
+# trigger workflows at all (GitHub suppresses it to prevent loops), so when prepare-release
+# tags, nothing here ever fires. That is not a failure anyone sees — no run, no red X.
+#
+# `workflow_call` is how prepare-release publishes: it invokes this directly rather than
+# hoping a push wakes it up.
 on:
   push:
     tags: ["v*"]
+  workflow_call:
+    inputs:
+      ref:
+        description: The tag or commit to publish
+        required: true
+        type: string
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # on workflow_call the caller's ref is checked out by default, which would publish
+          # whatever prepare-release happens to be running from rather than the tag
+          ref: ${{ inputs.ref || github.ref }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -18,6 +38,16 @@ jobs:
           server-password: MAVEN_PASSWORD
           gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Refuse to publish a snapshot
+        run: |
+          set -euo pipefail
+          version=$(mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout)
+          echo "publishing $version"
+          case "$version" in
+            *-SNAPSHOT) echo "::error::$version is a snapshot — the ref is wrong"; exit 1 ;;
+          esac
+
       - name: Publish
         run: mvn -B -Prelease deploy
         env:
