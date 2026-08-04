@@ -55,6 +55,7 @@ check_row() {
 check_row "Logback" 'Logback \|' "logback.version"
 check_row "Log4j2" 'Log4j2 \|' "log4j2.version"
 check_row "Spring Boot" 'Spring Boot ' "spring-boot.version"
+check_row "JUnit Platform" 'JUnit Platform ' "junit.platform.version"
 
 # Java: the floor ("17+") tracks the pom's compiler release; "Tested up to"
 # tracks the highest java-version in the CI matrices.
