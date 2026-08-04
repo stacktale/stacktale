@@ -31,6 +31,8 @@ jobs:
             args: "-Dspring-boot.version=3.3.13"
           - name: "Spring Boot 3.5"
             args: "-Dspring-boot.version=3.5.6"
+          - name: "JUnit Platform 1.10 (floor)"
+            args: "-pl stacktale-core,stacktale-junit -am -Djunit.platform.version=1.10.0 -Djunit.jupiter.version=5.10.0"
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v7

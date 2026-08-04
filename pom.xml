@@ -53,6 +53,8 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <logback.version>1.6.1</logback.version>
     <junit.version>6.1.2</junit.version>
+    <junit.platform.version>${junit.version}</junit.platform.version>
+    <junit.jupiter.version>${junit.version}</junit.jupiter.version>
     <assertj.version>3.27.7</assertj.version>
     <spring-boot.version>3.5.16</spring-boot.version>
     <log4j2.version>2.26.1</log4j2.version>
