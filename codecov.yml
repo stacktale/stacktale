@@ -1,0 +1,74 @@
+# Without this file Codecov invents its own thresholds, and a PR comment that says
+# "all modified and coverable lines are covered by tests" on a diff of three lines carries
+# no information. The settings below decide what a red mark actually means here.
+
+coverage:
+  # Coverage is a signal, not a gate. The one number worth blocking on is a *drop*: a change
+  # that removes tests, or adds a branch nobody exercises, is the thing worth catching. An
+  # absolute floor would only produce a red mark on the day someone touches the weakest
+  # module for an unrelated reason.
+  status:
+    project:
+      default:
+        # Round-off from a refactor is not a regression. Anything past this is.
+        threshold: 1%
+        target: auto
+        # Coverage is advisory here — CI already fails on a real test failure, and a red
+        # cross for a percentage teaches people to ignore red crosses.
+        informational: true
+    patch:
+      default:
+        # New code is where the standard is worth holding. Below the project average is a
+        # question worth asking in review, not a merge blocker.
+        target: 70%
+        threshold: 5%
+        informational: true
+
+# One comment per PR, rewritten in place. Codecov's default appends a new one on every push,
+# which buries the review conversation on a PR that takes several rounds — and the ones that
+# take several rounds are exactly the ones where the conversation matters.
+comment:
+  layout: "condensed_header, diff, condensed_files"
+  behavior: once
+  require_changes: true # silence when coverage did not move; nobody needs "no change" twice
+
+# The reactor's eight modules, so the report says which one moved rather than only that the
+# total did. Named after the artifacts, not the paths, because that is how the README, the
+# CHANGELOG and every issue refer to them.
+flag_management:
+  default_rules:
+    carryforward: true
+
+component_management:
+  individual_components:
+    - component_id: core
+      name: stacktale-core
+      paths: [stacktale-core/**]
+    - component_id: logback
+      name: stacktale (Logback)
+      paths: [stacktale/**]
+    - component_id: log4j2
+      name: stacktale-log4j2
+      paths: [stacktale-log4j2/**]
+    - component_id: jul
+      name: stacktale-jul
+      paths: [stacktale-jul/**]
+    - component_id: junit
+      name: stacktale-junit
+      paths: [stacktale-junit/**]
+    - component_id: spring
+      name: stacktale-spring-boot-starter
+      paths: [stacktale-spring-boot-starter/**]
+    - component_id: mcp
+      name: stacktale-mcp
+      paths: [stacktale-mcp/**]
+    - component_id: agent
+      name: stacktale-agent
+      paths: [stacktale-agent/**]
+
+ignore:
+  # Benchmarks and the demo app: real code, deliberately not unit-tested, and counting them
+  # would make the number say something other than what it means.
+  - "**/AppendBenchmark.java"
+  - "**/EfficiencyBenchmarkTest.java"
+  - "examples/**"
