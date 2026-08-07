@@ -78,7 +78,10 @@ jobs:
         run: |
           set -euo pipefail
           cp .github/actions/report/fixtures/sample-st-json.ndjson errors-ai.log
-          count=$(bash .github/actions/report/summarize.sh errors-ai.log 1 /tmp/st-json-summary.md)
+          # 2, not 1: the assertions below cover both fixture entries, and the second one
+          # is what exercises the noException headline branch. With max=1 the summary
+          # legitimately stops after the first and the check three lines down fails.
+          count=$(bash .github/actions/report/summarize.sh errors-ai.log 2 /tmp/st-json-summary.md)
           if [ "$count" != "2" ]; then
             echo "expected 2 st-json reports, got '$count'"
             exit 1
