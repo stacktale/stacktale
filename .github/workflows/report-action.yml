@@ -73,3 +73,22 @@ jobs:
       - run: |
           [ '${{ steps.empty.outputs.count }}' = '0' ] || { echo "expected 0"; exit 1; }
           echo "ok"
+
+      - name: st-json/1 logs are summarized when jq is available
+        run: |
+          set -euo pipefail
+          cp .github/actions/report/fixtures/sample-st-json.ndjson errors-ai.log
+          count=$(bash .github/actions/report/summarize.sh errors-ai.log 1 /tmp/st-json-summary.md)
+          if [ "$count" != "2" ]; then
+            echo "expected 2 st-json reports, got '$count'"
+            exit 1
+          fi
+          grep -q '2 error reports' /tmp/st-json-summary.md
+          grep -q 'IllegalStateException: payment gateway refused' /tmp/st-json-summary.md
+          grep -q 'ERROR (no exception): checkout timed out' /tmp/st-json-summary.md
+          grep -q 'json0001' /tmp/st-json-summary.md
+          if grep -q '"type": "repeat"' /tmp/st-json-summary.md; then
+            echo "repeat entries should not appear as reports in the summary"
+            exit 1
+          fi
+          echo "ok"

@@ -42,7 +42,10 @@ Useful for gating later steps.
   line has not arrived rather than show half a report.
 - **A missing log is not a failure.** A green build has nothing to say, and the action
   exits quietly with `count=0`.
-- **No runtime dependency.** The extractor is awk, so it works on any runner.
+- **No runtime dependency for text logs.** The st/1 extractor is awk, so it works on any
+  runner. **st-json/1** logs (`format=json`) are summarized with `jq` when it is on the
+  PATH (GitHub-hosted runners include it). Without `jq`, the action prints a clear notice
+  and still uploads the log as an artifact.
 
 ## Where the reports come from
 
