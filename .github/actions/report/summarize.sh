@@ -13,23 +13,58 @@ log="$1"
 max="$2"
 out="$3"
 
+trim_line() {
+  local line="$1"
+  line="${line#"${line%%[![:space:]]*}"}"
+  line="${line%"${line##*[![:space:]]}"}"
+  printf '%s' "$line"
+}
+
+first_non_blank_line() {
+  local line
+  while IFS= read -r line || [ -n "$line" ]; do
+    line=$(trim_line "$line")
+    [ -n "$line" ] && { printf '%s' "$line"; return 0; }
+  done < "$log"
+  return 1
+}
+
+looks_like_json_log() {
+  local first
+  first=$(first_non_blank_line || true)
+  [ -n "$first" ] || return 1
+  [[ "$first" == \{* ]]
+}
+
 is_st_json_log() {
   local first
-  first=$(grep -m1 -v '^[[:space:]]*$' "$log" 2>/dev/null || true)
+  first=$(first_non_blank_line || true)
   [ -n "$first" ] || return 1
   [[ "$first" == \{* ]] || return 1
   if command -v jq >/dev/null 2>&1; then
-    echo "$first" | jq -e '.format == "st-json/1"' >/dev/null 2>&1
-  else
-    [[ "$first" == *"st-json/1"* ]]
+    if echo "$first" | jq -e '.format == "st-json/1"' >/dev/null 2>&1; then
+      return 0
+    fi
   fi
+  [[ "$first" == *"st-json/1"* ]]
+}
+
+write_st_json_unsupported_notice() {
+  {
+    echo "### stacktale report"
+    echo
+    echo "This log is **st-json/1** (NDJSON). This action cannot summarize it without \`jq\`."
+    echo "The full \`$(basename "$log")\` is still uploaded as an artifact when \`upload-artifact\` is enabled."
+    echo
+    echo '<sub>Produced by <a href="https://github.com/stacktale/stacktale">stacktale</a></sub>'
+  } > "$out"
+  echo "cannot summarize st-json/1 without jq — the log is still uploaded as an artifact" >&2
 }
 
 count_st_json_reports() {
   local count=0 line type
   while IFS= read -r line || [ -n "$line" ]; do
-    line="${line#"${line%%[![:space:]]*}"}"
-    line="${line%"${line##*[![:space:]]}"}"
+    line=$(trim_line "$line")
     [ -z "$line" ] || [[ "$line" != \{* ]] && continue
     type=$(echo "$line" | jq -r '.type // empty' 2>/dev/null) || continue
     if [ "$type" = "report" ]; then
@@ -67,10 +102,9 @@ summarize_st_json() {
       echo "Showing the first ${shown}. The full \`$(basename "$log")\` is attached to this run as an artifact."
       echo
     fi
-    local count=0 line type headline
+    local count=0 line type headline id ts
     while IFS= read -r line || [ -n "$line" ]; do
-      line="${line#"${line%%[![:space:]]*}"}"
-      line="${line%"${line##*[![:space:]]}"}"
+      line=$(trim_line "$line")
       [ -z "$line" ] || [[ "$line" != \{* ]] && continue
       type=$(echo "$line" | jq -r '.type // empty' 2>/dev/null) || continue
       [ "$type" = "report" ] || continue
@@ -96,27 +130,38 @@ summarize_st_json() {
   } > "$out"
 }
 
-if is_st_json_log; then
+handle_st_json_log() {
   if ! command -v jq >/dev/null 2>&1; then
+    write_st_json_unsupported_notice
+    echo 0
+    return 0
+  fi
+
+  local total
+  total=$(count_st_json_reports)
+  if [ "$total" -eq 0 ] && grep -q '"type"[[:space:]]*:[[:space:]]*"report"' "$log" 2>/dev/null; then
     {
       echo "### stacktale report"
       echo
-      echo "This log is **st-json/1** (NDJSON). This action cannot summarize it without \`jq\`."
+      echo "This log looks like **st-json/1**, but the action could not parse it with \`jq\`."
       echo "The full \`$(basename "$log")\` is still uploaded as an artifact when \`upload-artifact\` is enabled."
       echo
       echo '<sub>Produced by <a href="https://github.com/stacktale/stacktale">stacktale</a></sub>'
     } > "$out"
-    echo "st-json/1 is not yet supported by this action without jq — the log is still uploaded as an artifact" >&2
+    echo "could not parse st-json/1 with jq — the log is still uploaded as an artifact" >&2
     echo 0
-    exit 0
+    return 0
   fi
 
-  total=$(count_st_json_reports)
   echo "$total"
   if [ "$total" -eq 0 ]; then
-    exit 0
+    return 0
   fi
   summarize_st_json "$total"
+}
+
+if is_st_json_log; then
+  handle_st_json_log
   exit 0
 fi
 
@@ -131,6 +176,9 @@ total=${total:-0}
 echo "$total"
 
 if [ "$total" -eq 0 ]; then
+  if looks_like_json_log; then
+    handle_st_json_log
+  fi
   exit 0
 fi
 

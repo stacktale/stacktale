@@ -52,3 +52,7 @@ Useful for gating later steps.
 The library writes them. A failing *test* only produces one if `stacktale-junit` is on the
 test classpath — without it, a red `mvn test` writes nothing and this action has nothing to
 show. See the [quickstart](../../../README.md#quickstart).
+
+Projects configured with `format=json` write **st-json/1** NDJSON (one JSON object per line)
+instead of the default **st/1** text blocks. The action summarizes both when `jq` is
+available.
