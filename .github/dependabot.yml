@@ -24,3 +24,17 @@ updates:
         update-types:
           - minor
           - patch
+  # A second entry, because the first does not cover this. For github-actions,
+  # `directory: "/"` means .github/workflows only — a composite action's own
+  # action.yml needs the directory it lives in named explicitly. Without this,
+  # .github/actions/report pinned actions/upload-artifact@v4 while every workflow
+  # had moved to v7, and nothing was ever going to say so.
+  - package-ecosystem: github-actions
+    directory: "/.github/actions/report"
+    schedule:
+      interval: weekly
+    groups:
+      report-action-minor-patch:
+        update-types:
+          - minor
+          - patch

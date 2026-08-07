@@ -47,8 +47,10 @@ runs:
           cat "$RUNNER_TEMP/stacktale-summary.md" >> "$GITHUB_STEP_SUMMARY"
         fi
 
+    # No count gate on purpose: an st-json/1 log on a runner without jq summarizes to 0,
+    # and that is exactly when having the raw file attached matters most.
     - if: inputs.upload-artifact == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: stacktale-errors
         path: ${{ inputs.file }}
