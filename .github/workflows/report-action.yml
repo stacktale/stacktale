@@ -73,3 +73,65 @@ jobs:
       - run: |
           [ '${{ steps.empty.outputs.count }}' = '0' ] || { echo "expected 0"; exit 1; }
           echo "ok"
+
+      - name: st-json/1 logs are summarized when jq is available
+        run: |
+          set -euo pipefail
+          cp .github/actions/report/fixtures/sample-st-json.ndjson errors-ai.log
+          # 2, not 1: the assertions below cover both fixture entries, and the second one
+          # is what exercises the noException headline branch. With max=1 the summary
+          # legitimately stops after the first and the check three lines down fails.
+          count=$(bash .github/actions/report/summarize.sh errors-ai.log 2 /tmp/st-json-summary.md)
+          if [ "$count" != "2" ]; then
+            echo "expected 2 st-json reports, got '$count'"
+            exit 1
+          fi
+          grep -q '2 error reports' /tmp/st-json-summary.md
+          grep -q 'IllegalStateException: payment gateway refused' /tmp/st-json-summary.md
+          grep -q 'ERROR (no exception): checkout timed out' /tmp/st-json-summary.md
+          grep -q 'json0001' /tmp/st-json-summary.md
+          if grep -q '"type": "repeat"' /tmp/st-json-summary.md; then
+            echo "repeat entries should not appear as reports in the summary"
+            exit 1
+          fi
+          echo "ok"
+
+      - name: st-json/1 with leading whitespace on the header still parses
+        run: |
+          set -euo pipefail
+          printf '  {"type":"header","format":"st-json/1"}\n' > errors-ai.log
+          printf '{"type":"report","id":"ws0001","ts":"2026-07-10T20:16:40.412Z","thread":"main","error":{"type":"RuntimeException","message":"leading space header"}}\n' >> errors-ai.log
+          count=$(bash .github/actions/report/summarize.sh errors-ai.log 1 /tmp/st-json-ws-summary.md)
+          [ "$count" = "1" ] || { echo "expected 1 report, got '$count'"; exit 1; }
+          grep -q 'RuntimeException: leading space header' /tmp/st-json-ws-summary.md
+          echo "ok"
+
+      - name: st-json/1 without jq writes a notice instead of failing silently
+        run: |
+          set -euo pipefail
+          cp .github/actions/report/fixtures/sample-st-json.ndjson errors-ai.log
+          mkdir -p /tmp/no-jq-bin
+          for cmd in bash basename cat grep printf env; do
+            ln -sf "$(command -v "$cmd")" "/tmp/no-jq-bin/$cmd"
+          done
+          count=$(env PATH=/tmp/no-jq-bin bash .github/actions/report/summarize.sh errors-ai.log 1 /tmp/st-json-nojq-summary.md)
+          [ "$count" = "0" ] || { echo "expected 0 without jq, got '$count'"; exit 1; }
+          grep -q 'cannot summarize it without' /tmp/st-json-nojq-summary.md
+          echo "ok"
+
+      - name: st-json/1 end to end through the composite action
+        run: cp .github/actions/report/fixtures/sample-st-json.ndjson errors-ai.log
+      - id: json-report
+        uses: ./.github/actions/report
+        with:
+          max-reports: "2"
+          comment: "false"
+          upload-artifact: "false"
+      - run: |
+          set -euo pipefail
+          got='${{ steps.json-report.outputs.count }}'
+          [ "$got" = "2" ] || { echo "expected action count 2, got '$got'"; exit 1; }
+          summary="$RUNNER_TEMP/stacktale-summary.md"
+          grep -q '2 error reports' "$summary"
+          grep -q 'IllegalStateException: payment gateway refused' "$summary"
+          echo "ok"

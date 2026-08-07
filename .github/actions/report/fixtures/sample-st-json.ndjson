@@ -1,0 +1,4 @@
+{"type":"header","format":"st-json/1","docs":"https://github.com/stacktale/stacktale/blob/main/docs/FORMAT.md"}
+{"type":"report","id":"json0001","ts":"2026-07-10T20:16:40.412Z","thread":"main","error":{"type":"IllegalStateException","message":"payment gateway refused"}}
+{"type":"report","id":"json0002","ts":"2026-07-10T20:17:01.000Z","thread":"worker-1","error":{"noException":true,"message":"checkout timed out"}}
+{"type":"repeat","id":"json0001","count":3,"last":"2026-07-10T20:17:30.000Z"}

@@ -43,11 +43,13 @@ runs:
         fi
         count=$(bash "${{ github.action_path }}/summarize.sh" "$log" "${{ inputs.max-reports }}" "$RUNNER_TEMP/stacktale-summary.md")
         echo "count=$count" >> "$GITHUB_OUTPUT"
-        if [ "$count" -gt 0 ]; then
+        if [ -s "$RUNNER_TEMP/stacktale-summary.md" ]; then
           cat "$RUNNER_TEMP/stacktale-summary.md" >> "$GITHUB_STEP_SUMMARY"
         fi
 
-    - if: steps.summarize.outputs.count != '0' && inputs.upload-artifact == 'true'
+    # No count gate on purpose: an st-json/1 log on a runner without jq summarizes to 0,
+    # and that is exactly when having the raw file attached matters most.
+    - if: inputs.upload-artifact == 'true'
       uses: actions/upload-artifact@v7
       with:
         name: stacktale-errors
