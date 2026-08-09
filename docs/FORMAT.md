@@ -58,8 +58,10 @@ log: "<message-pattern>" [args=[<v>, …]] logger=<abbreviated-logger>
 [fields: <k>=<v> …]
 [captured (method args at throw site, via stacktale-agent):
   <Type.method(arg=value, …)>                        (one or more)]
+[seen: N× this session, first at <HH:mm:ss.SSS>]
 <blank line>
 [story (<label>, last N events, <span>ms):
+  [… N earlier event(s) older than the story window omitted]
   <HH:mm:ss.SSS> <LEVEL> <logger>  <message>[   ← this error]]
 <blank line>
 [stack (distilled, X of Y frames):
