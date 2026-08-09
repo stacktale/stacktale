@@ -80,12 +80,19 @@ jobs:
         env:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
 
-      - name: Update README versions
+      - name: Update README and plugin manifest versions
         run: |
           set -euo pipefail
           sed -i -E 's|(<artifactId>stacktale[a-z0-9-]*</artifactId>[[:space:]]*<version>)[0-9.]+(</version>)|\1${{ inputs.version }}\2|g' README.md
           sed -i -E 's|(io\.github\.gabrielbbaldez:stacktale[a-z0-9-]*:)[0-9.]+|\1${{ inputs.version }}|g' README.md
           bash scripts/check-readme-compat.sh
+          # The plugin manifests pin the released version too, and were the one set of
+          # files the bump did not reach (#142). The guard runs straight after, so a sed
+          # that matched nothing fails here rather than shipping a stale marketplace entry.
+          sed -i -E 's|(io\.github\.gabrielbbaldez:stacktale-mcp:)[0-9.]+|\1${{ inputs.version }}|' plugins/stacktale/.mcp.json
+          sed -i -E 's|("version"[[:space:]]*:[[:space:]]*")[0-9.]+(")|\1${{ inputs.version }}\2|' .claude-plugin/marketplace.json
+          sed -i -E 's|("version"[[:space:]]*:[[:space:]]*")[0-9.]+(")|\1${{ inputs.version }}\2|' plugins/stacktale/.claude-plugin/plugin.json
+          bash scripts/check-plugin-versions.sh
 
       - name: Commit the release, then the next snapshot
         run: |
