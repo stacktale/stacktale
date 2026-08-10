@@ -116,4 +116,38 @@ class ReportRendererTest {
         String h = new ReportRenderer(ZoneOffset.UTC).fileHeader();
         assertThat(h).contains("format st/1").contains("━━━ ERROR #").contains("END #");
     }
+
+    @Test
+    void reproSeedMatchesGolden() throws Exception {
+        IllegalStateException boom = new IllegalStateException("payment gateway refused");
+        boom.setStackTrace(new StackTraceElement[]{
+                new StackTraceElement("com.acme.shop.PaymentService", "charge", "PaymentService.java", 118),
+        });
+        DistilledStack stack = new StackDistiller(List.of("com.acme")).distill(boom);
+        Story story = new Story(List.of(
+                new StoryEntry(1_000_412L, "ERROR", "PaymentService", "charge failed for order 889")
+        ), "traceId=7c2e");
+        ReproSeed seed = new ReproSeed("com.acme.shop.PaymentService", "charge", List.of(
+                new ReproSeed.Param("long", "orderId", "889"),
+                new ReproSeed.Param("java.math.BigDecimal", "amount", "149.90")));
+
+        Report r = new Report("5eed0001", 1_000_412L, "http-nio-8080-exec-2", stack,
+                "charge failed for order {}", new Object[]{889}, "com.acme.shop.PaymentService",
+                Map.of("traceId", "7c2e"), Map.of(),
+                java.util.List.of("PaymentService.charge(orderId=889, amount=149.90)"),
+                story, "app=shop 2.1.0 | java 21 | linux", 1, 0L, seed);
+
+        assertThat(new ReportRenderer(ZoneOffset.UTC).render(r)).isEqualTo(golden("repro-report.txt"));
+    }
+
+    @Test
+    void withoutASeedTheReproSectionIsAbsentEntirely() throws Exception {
+        Report r = new Report("cafe", 2_000_000L, "main", null,
+                "boom", null, "com.acme.Svc", Map.of(), Map.of(), java.util.List.of(),
+                new Story(List.of(), "thread main"), "app=? | java 21 | linux", 1, 0L);
+
+        // the default. A section that is off must leave no trace — not an empty header, which
+        // a parser would have to learn to skip.
+        assertThat(new ReportRenderer(ZoneOffset.UTC).render(r)).doesNotContain("repro");
+    }
 }

@@ -19,19 +19,75 @@ import java.util.Set;
 final class AgentCaptures {
 
     private static final int MAX_LINES = 8;
-    private static final MethodHandle GET = resolve();
+    private static final MethodHandle GET = resolve("get");
+    private static final MethodHandle REPRO = resolve("repro");
 
     private AgentCaptures() {}
 
-    private static MethodHandle resolve() {
+    /**
+     * Each entry point is looked up by name, separately. An agent jar older than this core
+     * has no {@code repro} method, and resolving them together would cost the captures too —
+     * the two versions are released as one project but a user can pin them apart.
+     */
+    private static MethodHandle resolve(String name) {
         try {
             Class<?> registry = Class.forName(
                     "io.github.gabrielbbaldez.stacktale.agent.CaptureRegistry",
                     false, ClassLoader.getSystemClassLoader());
-            return MethodHandles.publicLookup().findStatic(registry, "get",
+            return MethodHandles.publicLookup().findStatic(registry, name,
                     MethodType.methodType(List.class, Throwable.class));
         } catch (Throwable absent) {
-            return null; // agent not attached — captures are simply empty
+            return null; // agent not attached, or too old for this entry point
+        }
+    }
+
+    /**
+     * The innermost captured frame as a reproduction seed, or {@code null} when the agent is
+     * absent, older, or captured nothing.
+     *
+     * <p>Parses the agent's wire format — {@code m <fqcn> <method>} then {@code p <type>
+     * <name> <value>} — stopping at the second {@code m}. Fields are space-separated with the
+     * value taking the remainder of the line, so a value containing spaces survives; types and
+     * names cannot contain any.
+     */
+    @SuppressWarnings("unchecked")
+    static ReproSeed seedFor(Throwable throwable) {
+        if (REPRO == null || throwable == null) return null;
+        try {
+            return parseSeed((List<String>) REPRO.invoke(throwable));
+        } catch (Throwable t) {
+            return null; // a seed is a bonus; never let it cost the report
+        }
+    }
+
+    /**
+     * Package-private and taking the lines directly, so the wire format can be tested without
+     * an agent attached — the parser is the half most likely to drift from the emitter, and
+     * the two live in different modules that a user can pin to different versions.
+     */
+    static ReproSeed parseSeed(List<String> lines) {
+        try {
+            if (lines == null || lines.isEmpty()) return null;
+            String className = null;
+            String methodName = null;
+            List<ReproSeed.Param> params = new ArrayList<>();
+            for (String line : lines) {
+                if (line.startsWith("m ")) {
+                    if (className != null) break; // second frame: the seed is the innermost
+                    String[] parts = line.split(" ", 3);
+                    if (parts.length < 3) return null;
+                    className = parts[1];
+                    methodName = parts[2];
+                } else if (line.startsWith("p ") && className != null) {
+                    String[] parts = line.split(" ", 4);
+                    // a parameter with an empty value still splits into 4 with a trailing ""
+                    if (parts.length < 4) continue;
+                    params.add(new ReproSeed.Param(parts[1], parts[2], parts[3]));
+                }
+            }
+            return className == null ? null : new ReproSeed(className, methodName, List.copyOf(params));
+        } catch (Throwable t) {
+            return null; // a seed is a bonus; never let it cost the report
         }
     }
 

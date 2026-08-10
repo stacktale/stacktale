@@ -39,6 +39,7 @@ public final class ReportPipeline {
             boolean truncateOnStart,
             boolean reportErrorsWithoutThrowable,
             boolean captureExceptionFields,
+            boolean repro,
             boolean redactionEnabled,
             List<Pattern> redactPatterns,
             boolean redactionCorrelation,
@@ -101,6 +102,12 @@ public final class ReportPipeline {
             private boolean truncateOnStart = false;
             private boolean reportErrorsWithoutThrowable = true;
             private boolean captureExceptionFields = true;
+        /**
+         * Off by default, and it should stay that way for most projects. The repro seed is the
+         * only section that renders argument values against a named signature, which is a
+         * bigger privacy surface than the rest of a report put together.
+         */
+        private boolean repro = false;
             private boolean redactionEnabled = true;
             private List<Pattern> redactPatterns = List.of();
             private boolean redactionCorrelation = false;
@@ -131,6 +138,7 @@ public final class ReportPipeline {
             public Builder truncateOnStart(boolean v) { this.truncateOnStart = v; return this; }
             public Builder reportErrorsWithoutThrowable(boolean v) { this.reportErrorsWithoutThrowable = v; return this; }
             public Builder captureExceptionFields(boolean v) { this.captureExceptionFields = v; return this; }
+        public Builder repro(boolean v) { this.repro = v; return this; }
             public Builder redactionEnabled(boolean v) { this.redactionEnabled = v; return this; }
             public Builder redactPatterns(List<Pattern> v) { this.redactPatterns = v; return this; }
             public Builder redactionCorrelation(boolean v) { this.redactionCorrelation = v; return this; }
@@ -145,7 +153,7 @@ public final class ReportPipeline {
             public Settings build() {
                 return new Settings(file, appName,appVersion,appPackages, storySize, storyWindowMillis, dedupWindowMillis,
                         maxFileBytes, maxBackups, truncateOnStart, reportErrorsWithoutThrowable,
-                        captureExceptionFields, redactionEnabled, redactPatterns, redactionCorrelation,
+                        captureExceptionFields, repro, redactionEnabled, redactPatterns, redactionCorrelation,
                         correlationMdcKeys, zone,
                         echoSuppressionMillis, containerLoggers, emitReportsToLogger, maxReportsPerMinute,
                         jsonFormat);
@@ -323,7 +331,11 @@ public final class ReportPipeline {
                                 stack, event.messagePattern(), event.args(), event.loggerName(),
                                 event.mdc(), fields, AgentCaptures.forChain(throwable),
                                 storyBuffer.storyFor(event), env.envLine(),
-                                decision.totalOccurrences(), decision.firstSeenMillis());
+                                decision.totalOccurrences(), decision.firstSeenMillis(),
+                                // resolved only when asked for: the seed costs a reflective
+                                // call and carries argument values, so an app that has not
+                                // opted in never materialises one
+                                settings.repro() ? AgentCaptures.seedFor(throwable) : null);
                         rendered = renderer.render(report);
                         writer.append(rendered);
                     } catch (Throwable t) {

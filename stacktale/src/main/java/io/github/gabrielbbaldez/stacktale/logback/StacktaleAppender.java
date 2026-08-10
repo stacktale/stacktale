@@ -44,6 +44,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
     private boolean installUncaughtHandler = true;
     private boolean reportErrorsWithoutThrowable = true;
     private boolean captureExceptionFields = true;
+    private boolean repro = false;
     private boolean redactionEnabled = true;
     private final List<String> redactPatterns = new java.util.ArrayList<>();
     private boolean redactionCorrelation = false;
@@ -101,6 +102,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
                 .truncateOnStart(truncateOnStart)
                 .reportErrorsWithoutThrowable(reportErrorsWithoutThrowable)
                 .captureExceptionFields(captureExceptionFields)
+                .repro(repro)
                 .redactionEnabled(redactionEnabled)
                 .redactPatterns(compiled)
                 .redactionCorrelation(redactionCorrelation)

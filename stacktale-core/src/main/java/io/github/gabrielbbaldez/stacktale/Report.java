@@ -18,5 +18,18 @@ public record Report(
         Story story,
         String envLine,
         int occurrences,
-        long firstSeenMillis
-) {}
+        long firstSeenMillis,
+        ReproSeed repro
+) {
+    /**
+     * Without a seed — the ordinary case. Only a throw site instrumented by
+     * {@code stacktale-agent}, with {@code repro} switched on, produces one.
+     */
+    public Report(String id, long epochMillis, String threadName, DistilledStack stack,
+                  String messagePattern, Object[] args, String loggerName,
+                  Map<String, String> mdc, Map<String, String> fields, List<String> captured,
+                  Story story, String envLine, int occurrences, long firstSeenMillis) {
+        this(id, epochMillis, threadName, stack, messagePattern, args, loggerName, mdc, fields,
+                captured, story, envLine, occurrences, firstSeenMillis, null);
+    }
+}

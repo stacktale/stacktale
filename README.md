@@ -292,6 +292,33 @@ io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler..level = ALL
 `SEVERE` records become reports; lower levels feed the story (which correlates by thread,
 since JUL has no MDC). No extra dependency — JUL is in the JDK.
 
+### A reproduction seed
+
+Agents write good reproduction tests for code they can see and poor ones for code they
+cannot. TDD-Bench-Java measured ~44% on public benchmarks against **4% on proprietary code
+with no hints — rising to 20% once given concrete class names and method signatures.**
+
+stacktale is standing at the throw site holding exactly that. With `stacktale-agent` attached
+and `repro=true`, the report carries it:
+
+```
+repro (throw site, via stacktale-agent):
+  com.acme.shop.PaymentService#charge(long orderId, java.math.BigDecimal amount)
+    orderId = 889
+    amount = 149.90
+  throws IllegalStateException: payment gateway refused
+```
+
+The fully-qualified class so a test can import it, the **declared** parameter types so the
+signature can be reconstructed, the values that produced the failure, and the expected
+throwable as the assertion.
+
+**Off by default, deliberately.** This is the only section that renders argument values
+against a named signature, which is a bigger privacy surface than the rest of a report
+together. Values are truncated by the agent and redacted by the core, and
+`renderToString=false` on the agent keeps non-value types to their type name — but the
+decision to emit them at all is yours to make.
+
 ### Failing tests
 
 A failing test never reaches an appender — the assertion error is caught by the JUnit
@@ -604,6 +631,7 @@ Everything is optional — as appender properties in `logback.xml`, or `stacktal
 | `installUncaughtHandler` | `true` | Report uncaught exceptions too |
 | `reportErrorsWithoutThrowable` | `true` | `log.error(...)` without exception still reports |
 | `captureExceptionFields` | `true` | Read exception getters into `fields:` |
+| `repro` | `false` | Add a `repro:` seed: the throw site's typed signature and argument values. Needs `stacktale-agent`. Off by default — it is the only section that renders values against a named signature |
 | `redactionEnabled` | `true` | Mask secrets/PII in report content |
 | `redactPattern` / `redactPatterns` | — | Extra redaction regexes (see note below) |
 | `redactionCorrelation` | `false` | Tag masked values with a stable keyed token (`███(a1b2)`) so an AI can see the same secret recurring |

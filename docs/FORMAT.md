@@ -58,6 +58,10 @@ log: "<message-pattern>" [args=[<v>, …]] logger=<abbreviated-logger>
 [fields: <k>=<v> …]
 [captured (method args at throw site, via stacktale-agent):
   <Type.method(arg=value, …)>                        (one or more)]
+[repro (throw site, via stacktale-agent):
+  <fqcn>#<method>(<declared-type> <name>, …)
+    <name> = <value>                                 (one per parameter)
+  throws <Type>[: <message>]]
 [seen: N× this session, first at <HH:mm:ss.SSS>]
 <blank line>
 [story (<label>, last N events, <span>ms):
@@ -156,6 +160,36 @@ A new application run began appending to an existing file. Separates sessions.
 ```
 A flood of **distinct** errors exceeded the report rate limit; `N` full reports were
 suppressed to protect the file. The errors still happened — this line is the acknowledgement.
+
+### `repro:` — the reproduction seed
+
+Off by default. Switched on with `repro=true` and only produced when `stacktale-agent` is
+attached, since the argument values come from the throw site.
+
+It answers "what call, with what inputs, produced this?" in a form a test can be written
+from. The declared parameter types are the point: `charge(orderId=889)` in `captured:` names
+neither the class the method lives on nor the type of 889, and a signature cannot be
+reconstructed from either.
+
+```
+repro (throw site, via stacktale-agent):
+  com.acme.shop.PaymentService#charge(long orderId, java.math.BigDecimal amount)
+    orderId = 889
+    amount = 149.90
+  throws IllegalStateException: payment gateway refused
+```
+
+- The class is **fully qualified**, because a test has to import it.
+- Types are the ones the method **declares**. When the method cannot be resolved
+  unambiguously — an overload of the same arity — the runtime class of the argument is used
+  instead; a wrong declared type is worse than an approximate one.
+- Only the **innermost** captured frame becomes a seed. Captures are appended as the
+  throwable unwinds, so the first is the closest to the throw. The frames above it remain in
+  `captured:`.
+- Values are truncated by the agent and **redacted** by the core, like every other rendered
+  value. This is the only section that renders values against a named signature, which is why
+  it is opt-in rather than default.
+- The `throws` line restates the root cause so the seed carries its own assertion.
 
 ## 6. Versioning & compatibility
 
