@@ -232,3 +232,24 @@ Rules:
   (a crash or a full disk mid-write) must never abort parsing the rest of the file.
 - Same version discipline as §6: additive members don't bump the major; a breaking change
   bumps to `st-json/2`.
+
+### Correspondence with `st/1`
+
+Both formats carry the same information. Where a member is named after its `st/1`
+counterpart the mapping needs no explanation — `mdc`, `fields`, `captured`, `env`, `id`,
+`thread`, `log.pattern`/`log.args`/`log.logger`, `story.label`, `story.events[].level`,
+`stack.suppressed`. Every member whose name does **not** match its `st/1` token is listed
+below, so the mapping never has to be inferred from the example above.
+
+| `st-json/1` | `st/1` (§3) |
+|---|---|
+| `ts` | the `<timestamp>` in the `━━━ ERROR #<id> ━━━` line |
+| `error.type` + `error.message` | the `<headline>` line |
+| `error.culprit.frame` | the `at <culprit-frame>` line |
+| `error.culprit.appCode` | whether that line ends with `← YOUR CODE` |
+| `error.wrappedBy[]` | one entry per `wrapped by:` line, same order |
+| `recurrence` | the `seen:` line — `count` is `N×`, `firstSeen` is `first at …`. Omitted when the error is a first occurrence, exactly as `seen:` is absent then |
+| `story.omittedByAge` | the `… N earlier event(s) older than the story window omitted` line |
+| `story.events[].thisError` | the `   ← this error` suffix on the error's own event |
+| `stack.shown` / `stack.total` | the `X of Y frames` in the `stack (distilled, …)` header |
+| `stack.frames[]` | the frame lines, including the `… N collapsed (…)` markers |
