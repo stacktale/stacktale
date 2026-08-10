@@ -1,0 +1,21 @@
+━━━ ERROR #5eed0001 ━━━ 1970-01-01 00:16:40.412 thread=http-nio-8080-exec-2 ━━━
+IllegalStateException: payment gateway refused
+at PaymentService.charge(PaymentService.java:118) ← YOUR CODE
+log: "charge failed for order {}" args=[889] logger=c.a.s.PaymentService
+mdc: traceId=7c2e
+captured (method args at throw site, via stacktale-agent):
+  PaymentService.charge(orderId=889, amount=149.90)
+repro (throw site, via stacktale-agent):
+  com.acme.shop.PaymentService#charge(long orderId, java.math.BigDecimal amount)
+    orderId = 889
+    amount = 149.90
+  throws IllegalStateException: payment gateway refused
+
+story (traceId=7c2e, last 1 event, 0ms):
+  00:16:40.412 ERROR PaymentService  charge failed for order 889   ← this error
+
+stack (distilled, 1 of 1 frames):
+  PaymentService.charge(PaymentService.java:118) ← culprit
+
+env: app=shop 2.1.0 | java 21 | linux
+━━━ END #5eed0001 ━━━

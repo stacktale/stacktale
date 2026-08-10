@@ -94,6 +94,8 @@ final class ReportRenderer implements Renderer {
             for (String line : r.captured()) sb.append("  ").append(clean(line)).append('\n');
         }
 
+        renderRepro(sb, r);
+
         // recurrence: only shown when the error is not brand new — "is this systemic or a
         // one-off?" changes the reader's urgency, and the answer was previously invisible
         // inside a fresh report (a window had expired since the last one)
@@ -131,6 +133,7 @@ final class ReportRenderer implements Renderer {
                 # Each report is delimited by "━━━ ERROR #<id> ━━━" ... "━━━ END #<id> ━━━".
                 # Sections: headline (root cause first), at (culprit frame), log, mdc,
                 # fields (state carried by the exception's own getters/fields),
+                # repro (opt-in: the throw site's typed signature and argument values),
                 # story (events leading up to and including the error, oldest first),
                 # stack (distilled; framework frames collapsed), env. "← YOUR CODE" marks app frames.
                 # Repeated errors append "━ #<id> repeated N× ━" lines instead of new reports.
@@ -148,6 +151,47 @@ final class ReportRenderer implements Renderer {
     @Override
     public String stormLine(int suppressed, int limit) {
         return "━ storm: " + suppressed + " report(s) suppressed (rate limit " + limit + "/min) ━\n";
+    }
+
+    /**
+     * The reproduction seed: the call that threw, typed, with the values it was given.
+     *
+     * <p>Off unless {@code repro} is switched on, because this is the only section that
+     * renders argument <em>values</em> against a named signature — a bigger privacy surface
+     * than anything else in a report, and the reason it is not a default. Values still go
+     * through redaction on the way out, like every other rendered value.
+     *
+     * <p>Rendered so an agent can write the test from it rather than run it unmodified. The
+     * declared types are what make the signature reconstructable; the values are the inputs;
+     * the {@code throws} line is the assertion.
+     */
+    private void renderRepro(StringBuilder sb, Report r) {
+        ReproSeed seed = r.repro();
+        if (seed == null) return;
+
+        sb.append("repro (throw site, via stacktale-agent):\n");
+        sb.append("  ").append(clean(seed.className())).append('#').append(clean(seed.methodName()))
+                .append('(');
+        for (int i = 0; i < seed.params().size(); i++) {
+            ReproSeed.Param p = seed.params().get(i);
+            if (i > 0) sb.append(", ");
+            sb.append(clean(p.type())).append(' ').append(clean(p.name()));
+        }
+        sb.append(")\n");
+        for (ReproSeed.Param p : seed.params()) {
+            // name and value cleaned as one string, for the same reason mdc: and fields: are:
+            // name-based redaction keys off "password=…", and a value cleaned in isolation has
+            // no name in front of it for the rule to match
+            sb.append("    ").append(clean(p.name() + " = " + p.value())).append('\n');
+        }
+        // the expected outcome, so the seed carries its own assertion rather than making the
+        // reader scroll back to the headline
+        if (r.stack() != null && r.stack().rootType() != null) {
+            sb.append("  throws ").append(clean(r.stack().rootType()));
+            String message = r.stack().rootMessage();
+            if (message != null && !message.isBlank()) sb.append(": ").append(clean(message));
+            sb.append('\n');
+        }
     }
 
     private void renderStory(StringBuilder sb, Report r) {
