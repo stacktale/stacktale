@@ -9,6 +9,15 @@ on:
     paths:
       - "examples/**"
       - ".github/workflows/examples.yml"
+  schedule:
+    # The drift this catches is caused by a *release*, not by a commit under
+    # examples/, so the path filters above would never fire for it. Weekly,
+    # Monday 07:00 UTC — after compat.yml (06:00) and codeql.yml (05:00).
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build-examples:
@@ -34,3 +43,58 @@ jobs:
       - name: Compile example
         working-directory: ${{ matrix.example }}
         run: mvn -B -q compile
+
+  version-drift:
+    name: Examples pin the current release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      - name: Compare pinned version against the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          latest=$(gh api repos/${{ github.repository }}/releases/latest --jq .tag_name)
+          latest=${latest#v}
+          echo "Latest release: $latest"
+
+          failed=0
+          for example in examples/plain-java-jul examples/spring-boot-mvc examples/spring-boot-webflux; do
+            # Ask Maven rather than grepping: the version reaches the dependency
+            # through a property, so the literal is in one place per project and a
+            # grep would have to know which.
+            pinned=$(mvn -q -f "$example/pom.xml" help:evaluate \
+              -Dexpression=stacktale.version -DforceStdout)
+
+            if [ "$pinned" = "$latest" ]; then
+              echo "ok       $example pins $pinned"
+              continue
+            fi
+
+            # Which side of the release it sits on decides whether this is a
+            # problem. `sort -V` puts the older version first.
+            older=$(printf '%s\n%s\n' "$pinned" "$latest" | sort -V | head -n1)
+
+            if [ "$older" = "$pinned" ]; then
+              echo "::error file=$example/pom.xml::$example pins stacktale $pinned but the latest release is $latest"
+              failed=1
+            else
+              # Between a version bump on main and the tag being pushed, the
+              # examples legitimately point at a version that is ahead of the
+              # newest release. Failing here would make the release process fight
+              # this check, so it warns and moves on.
+              echo "::warning file=$example/pom.xml::$example pins stacktale $pinned, ahead of the latest release $latest — expected between a version bump and its tag"
+            fi
+          done
+
+          exit $failed
