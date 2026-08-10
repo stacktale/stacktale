@@ -1,0 +1,53 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, so a newly published query finds existing code rather than waiting
+    # for someone to touch the file it applies to. Offset from compat.yml's 06:00.
+    - cron: "0 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze Java
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The upload at the end of `analyze` goes through the code-scanning API.
+      # Without this the scan itself succeeds and only the upload fails, which
+      # reads as a flaky job rather than a missing permission.
+      security-events: write
+      # Read-only, and only so CodeQL can look up the workflow run it belongs to.
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin
+          build-mode: manual
+
+      # `autobuild` would run the full reactor, tests included, duplicating what
+      # CI already does on every PR. The analysis only needs class files, so this
+      # compiles and stops. It must sit between init and analyze: manual mode
+      # traces this build, and an empty trace analyses nothing while still
+      # reporting success.
+      - name: Build classes for analysis
+        run: mvn -B -DskipTests compile
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:java-kotlin"
