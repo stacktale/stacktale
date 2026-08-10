@@ -30,6 +30,9 @@ jobs:
       - name: README compatibility table guard
         if: matrix.java == 21
         run: bash scripts/check-readme-compat.sh
+      - name: Plugin manifest version guard
+        if: matrix.java == 21
+        run: bash scripts/check-plugin-versions.sh
       - name: Coverage summary
         if: matrix.java == 21
         run: |

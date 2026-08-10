@@ -9,7 +9,7 @@
       "name": "stacktale",
       "source": "./plugins/stacktale",
       "description": "Read your Java app's AI-ready error reports, and run a fix-run-check loop until the app is clean.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": {
         "name": "Gabriel Baldez"
       }
