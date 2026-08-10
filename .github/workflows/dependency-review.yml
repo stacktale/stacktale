@@ -1,0 +1,27 @@
+name: Dependency review
+
+# Pull requests only: the action diffs the dependency graph of the base against
+# the head, so it has nothing to compare on a push to main.
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: Review dependency changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/dependency-review-action@v5
+        with:
+          # Block a bump that introduces a known vulnerability at this severity or
+          # above. Left at `moderate` rather than `low` so the many dependabot PRs
+          # this repo takes do not stall on advisories against code paths the
+          # library never reaches; anything below still appears in the PR summary.
+          fail-on-severity: moderate
+          # No `comment-summary-in-pr`: that needs `pull-requests: write`, and a PR
+          # from a fork gets a read-only token, so it would fail on exactly the
+          # contributions this repo most wants to check. The findings are in the
+          # job summary either way.
