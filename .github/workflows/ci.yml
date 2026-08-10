@@ -33,6 +33,9 @@ jobs:
       - name: Plugin manifest version guard
         if: matrix.java == 21
         run: bash scripts/check-plugin-versions.sh
+      - name: Docs example report guard
+        if: matrix.java == 21
+        run: bash scripts/check-readme-reports.sh
       - name: Coverage summary
         if: matrix.java == 21
         run: |
