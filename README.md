@@ -688,6 +688,7 @@ path as well as the classpath — a resolution smoke test in CI pins this:
 | `stacktale` (Logback) | `io.github.gabrielbbaldez.stacktale.logback` |
 | `stacktale-log4j2` | `io.github.gabrielbbaldez.stacktale.log4j2` |
 | `stacktale-jul` | `io.github.gabrielbbaldez.stacktale.jul` |
+| `stacktale-junit` | `io.github.gabrielbbaldez.stacktale.junit` |
 | `stacktale-spring-boot-starter` | `io.github.gabrielbbaldez.stacktale.spring` |
 | `stacktale-mcp` | `io.github.gabrielbbaldez.stacktale.mcp` |
 | `stacktale-agent` | `io.github.gabrielbbaldez.stacktale.agent` |
