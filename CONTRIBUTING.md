@@ -56,8 +56,14 @@ Add a pattern to `.lycheeignore` if a host is reachable in a browser but
 unreliable for a checker. To reproduce the PR gate locally:
 
 ```bash
-lychee --offline --include-verbatim README.md CONTRIBUTING.md 'docs/**/*.md'
+lychee --offline --no-progress --include-verbatim \
+  README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md CHANGELOG.md \
+  'docs/**/*.md' docs/site/index.html
 ```
+
+Keep that list in step with the `internal` job in `links.yml`. A shorter one here is
+worse than no command at all: it goes green over the files it was given and says nothing
+about the ones CI is about to fail on.
 
 ## Reproducible builds
 
