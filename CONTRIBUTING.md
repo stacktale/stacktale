@@ -59,6 +59,34 @@ unreliable for a checker. To reproduce the PR gate locally:
 lychee --offline --include-verbatim README.md CONTRIBUTING.md 'docs/**/*.md'
 ```
 
+## Reproducible builds
+
+The jars are reproducible: two clean builds of the same commit produce
+byte-identical archives, so anyone can rebuild a tag and check it against what
+is on Maven Central. That comes from a single parent-pom property:
+
+```xml
+<project.build.outputTimestamp>2026-08-11T00:00:00Z</project.build.outputTimestamp>
+```
+
+Maven feeds it to the jar, source, javadoc and shade plugins, which pin every
+archive entry's timestamp instead of stamping the current time. **Bump it to the
+release date when cutting a release** — any fixed ISO-8601 instant works, what
+matters is that it doesn't move between builds of one commit.
+
+CI enforces this in the `Reproducible build` job: it packages twice and diffs
+the jar checksums. To check locally:
+
+```bash
+mvn -DskipTests clean package
+find . -path '*/target/*.jar' | sort | xargs sha256sum > /tmp/first.txt
+mvn -DskipTests clean package
+find . -path '*/target/*.jar' | sort | xargs sha256sum | diff -u /tmp/first.txt -
+```
+
+If that ever diverges, the usual causes are a plugin writing a build time into
+`MANIFEST.MF` or a newly added plugin too old to honour the property.
+
 ## Mutation testing (`stacktale-core`)
 
 Line coverage says a line ran; a mutation score says the tests would actually

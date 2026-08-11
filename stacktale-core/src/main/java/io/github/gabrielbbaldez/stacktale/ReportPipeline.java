@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongSupplier;
 import java.util.regex.Pattern;
 
 /**
@@ -218,6 +219,11 @@ public final class ReportPipeline {
             };
 
     private ReportPipeline(Settings settings, Host host, ReportWriter writer, Renderer renderer) {
+        this(settings, host, writer, renderer, System::currentTimeMillis);
+    }
+
+    private ReportPipeline(Settings settings, Host host, ReportWriter writer, Renderer renderer,
+                           LongSupplier clock) {
         this.settings = settings;
         this.host = host;
         this.renderer = renderer;
@@ -225,9 +231,9 @@ public final class ReportPipeline {
         this.storyBuffer = new StoryBuffer(settings.storySize(), settings.storyWindowMillis(),
                 settings.correlationMdcKeys(), 200);
         this.distiller = new StackDistiller(settings.appPackages());
-        this.deduper = new Deduper(settings.dedupWindowMillis(), 60_000, System::currentTimeMillis);
+        this.deduper = new Deduper(settings.dedupWindowMillis(), 60_000, clock);
         this.stormLimiter = settings.maxReportsPerMinute() > 0
-                ? new StormLimiter(settings.maxReportsPerMinute(), 60_000, 10_000, System::currentTimeMillis)
+                ? new StormLimiter(settings.maxReportsPerMinute(), 60_000, 10_000, clock)
                 : StormLimiter.disabled();
         this.env = new EnvCollector(Thread.currentThread().getContextClassLoader(),
                 settings.appName(),
@@ -252,6 +258,24 @@ public final class ReportPipeline {
             writer = null;
         }
         return new ReportPipeline(settings, host, writer, renderer);
+    }
+
+    /**
+     * Test seam: a pipeline over a caller-supplied writer and renderer.
+     *
+     * <p>The rollback/confirm protocol's interesting branches are the ones where a write
+     * fails, and {@link #create} cannot produce a pipeline that is both active and unable to
+     * write — {@code ReportWriter}'s constructor probes the destination and a failed probe
+     * turns into {@code isActive() == false}. Injecting the collaborators is the only way to
+     * reach those branches from a unit test.
+     *
+     * <p>{@code clock} drives the {@link Deduper} and {@link StormLimiter} windows, which are
+     * minutes long — the same injection {@code DeduperTest} and {@code StormLimiterTest}
+     * already use, so a test can cross a window without sleeping through it.
+     */
+    static ReportPipeline forTesting(Settings settings, Host host, ReportWriter writer, Renderer renderer,
+                                     LongSupplier clock) {
+        return new ReportPipeline(settings, host, writer, renderer, clock);
     }
 
     /** False when configuration was broken at creation time and the pipeline is a no-op. */
@@ -317,9 +341,18 @@ public final class ReportPipeline {
                         return;
                     }
                     if (storm.action() == StormLimiter.Action.STORM_LINE) {
-                        writer.append(renderer.stormLine(storm.suppressed(), stormLimiter.maxPerWindow()));
-                        stormLimiter.confirmStormLine(storm.suppressed()); // #57: clear only once written
-                        deduper.rollback(fingerprint); // #51: this error's own report wasn't written
+                        try {
+                            writer.append(renderer.stormLine(storm.suppressed(), stormLimiter.maxPerWindow()));
+                            stormLimiter.confirmStormLine(storm.suppressed()); // #57: clear only once written
+                        } finally {
+                            // #51: this error's own report was never written — and that is true
+                            // whether or not the storm line itself made it. The rollback used to
+                            // sit after the append, so a failure here skipped it and left
+                            // reportPending=true; Deduper.decide then answers SILENT for this
+                            // fingerprint until the dedup window rolls over, i.e. the error stops
+                            // being reported for ~5 minutes. Unwind the decision either way.
+                            deduper.rollback(fingerprint);
+                        }
                         return;
                     }
                     String rendered;
