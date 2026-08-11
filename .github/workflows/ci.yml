@@ -41,3 +41,40 @@ jobs:
         run: |
           awk -F, 'FNR>1 {m+=$8; c+=$9} END {printf "**Line coverage: %.1f%%** (%d/%d lines)\n", c*100/(c+m), c, c+m}' \
             $(find . -path '*/site/jacoco/jacoco.csv') >> "$GITHUB_STEP_SUMMARY"
+
+  reproducible:
+    name: Reproducible build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      # Two clean builds of one commit must produce byte-identical jars, so a consumer can
+      # rebuild a tag and check it against Maven Central. `artifact:compare` is the other way
+      # to check this, but it needs a published reference release to compare against, which a
+      # SNAPSHOT on a PR branch does not have. Building twice needs nothing external.
+      #
+      # -DskipTests on purpose: this job checks the packaging step, and `build` already runs
+      # the suite on both JDKs.
+      - name: Build twice and compare jar checksums
+        run: |
+          sums() { find . -path '*/target/*.jar' | sort | xargs -r sha256sum; }
+          mvn -B -DskipTests clean package
+          sums > "$RUNNER_TEMP/first.txt"
+          # An empty list would make the diff below pass without checking anything.
+          if [ ! -s "$RUNNER_TEMP/first.txt" ]; then
+            echo "::error::no jars found after packaging - the check would be vacuous"
+            exit 1
+          fi
+          mvn -B -DskipTests clean package
+          sums > "$RUNNER_TEMP/second.txt"
+          if diff -u "$RUNNER_TEMP/first.txt" "$RUNNER_TEMP/second.txt"; then
+            echo "$(wc -l < "$RUNNER_TEMP/first.txt") jars are byte-identical across two clean builds." \
+              >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::build is not reproducible - jar checksums differ between two clean builds"
+            exit 1
+          fi
