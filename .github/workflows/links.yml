@@ -1,0 +1,64 @@
+name: Links
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, Monday 06:17 UTC. External links rot on their own timetable, so they get
+    # their own run rather than failing an unrelated PR when a third party has an outage.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Relative links only (--offline). This is the check that would have caught the README
+  # pointing at stacktale/src/main/java/.../StacktaleExecutors.java after the file moved to
+  # stacktale-core/ in the multi-module split: it is deterministic, needs no network, and
+  # fails only for something a commit in this repo actually broke. Safe to gate PRs on.
+  internal:
+    name: Relative links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check relative links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --offline
+            --no-progress
+            --include-verbatim
+            README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md CHANGELOG.md
+            'docs/**/*.md'
+            docs/site/index.html
+          fail: true
+          jobSummary: true
+
+  # Everything, including external hosts. Scheduled and manual only - a 5xx from
+  # javadoc.io is not a reason to block someone's pull request.
+  external:
+    name: External links
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check all links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --exclude-mail
+            --include-verbatim
+            --max-retries 3
+            --retry-wait-time 5
+            README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md CHANGELOG.md
+            'docs/**/*.md'
+            docs/site/index.html
+          fail: true
+          jobSummary: true
+        env:
+          # Lets the GitHub links resolve at the API rate limit rather than the anonymous one;
+          # the README alone carries ~40 of them.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

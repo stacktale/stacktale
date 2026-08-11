@@ -43,6 +43,22 @@ CI also runs `scripts/check-readme-compat.sh`, which fails when the README's
 the build actually tests — the pom properties and the `compat.yml` matrix. If
 that check fails after a dependency bump, update the table in `README.md`.
 
+Markdown links are checked too, by `.github/workflows/links.yml`:
+
+- **On every PR**, `lychee --offline` verifies the *relative* links in the
+  top-level docs and `docs/`. This is the one that blocks a merge — it is
+  deterministic and fails only when a commit here actually broke a path (e.g.
+  moving a file that the README points at).
+- **Weekly**, a separate job checks external links as well. Third-party outages
+  shouldn't fail an unrelated PR, so that run is scheduled rather than on-PR.
+
+Add a pattern to `.lycheeignore` if a host is reachable in a browser but
+unreliable for a checker. To reproduce the PR gate locally:
+
+```bash
+lychee --offline --include-verbatim README.md CONTRIBUTING.md 'docs/**/*.md'
+```
+
 ## Reproducible builds
 
 The jars are reproducible: two clean builds of the same commit produce

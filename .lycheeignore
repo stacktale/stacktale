@@ -1,0 +1,15 @@
+# Hosts that are reachable but answer link checkers unreliably. Only the scheduled
+# `external` job in .github/workflows/links.yml ever reaches these; the PR gate is
+# --offline and ignores this file entirely.
+
+# Rate-limits aggressively and serves 5xx while it builds a javadoc on first request.
+https://javadoc\.io/.*
+
+# Badge endpoints. They are images, not documents, and shields.io 502s under load.
+https://img\.shields\.io/.*
+
+# Redirects through a login wall for anonymous clients on some paths.
+https://central\.sonatype\.com/.*
+
+# GitHub renders these; a checker following them gets rate-limited for no signal.
+https://github\.com/.*/labels/.*
