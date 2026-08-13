@@ -30,9 +30,10 @@ jobs:
             --offline
             --no-progress
             --include-verbatim
-            README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md CHANGELOG.md
-            'docs/**/*.md'
+            '**/*.md'
             docs/site/index.html
+            --exclude-path target
+            --exclude-path node_modules
           fail: true
           jobSummary: true
 
@@ -53,9 +54,10 @@ jobs:
             --include-verbatim
             --max-retries 3
             --retry-wait-time 5
-            README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md CHANGELOG.md
-            'docs/**/*.md'
+            '**/*.md'
             docs/site/index.html
+            --exclude-path target
+            --exclude-path node_modules
           fail: true
           jobSummary: true
         env:
