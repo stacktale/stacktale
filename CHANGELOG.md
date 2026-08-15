@@ -5,6 +5,65 @@ All notable changes to stacktale are documented here. The format follows
 [SemVer](https://semver.org/). The report format (`st/1`) is versioned independently
 and pinned by golden-file tests.
 
+## [Unreleased]
+
+The headline is `repro:` — a report section that names the failing call with its declared
+signature and the argument values it was given, so the first thing a reader gets is the
+call to re-run rather than a stack to reconstruct one from. It is off by default and stays
+that way deliberately.
+
+### Added
+
+- **`repro:` — a reproduction seed in the report.** With `stacktale-agent` attached and
+  `repro=true`, a report gains the throw site as a call you can copy:
+
+  ```
+  repro (throw site, via stacktale-agent):
+    com.acme.shop.PaymentService#charge(long orderId, java.math.BigDecimal amount)
+      orderId = 889
+      amount = 149.90
+    throws IllegalStateException: payment gateway refused
+  ```
+
+  Parameter types are the declared ones whenever reflection can resolve the method, so the
+  signature is the real one rather than one inferred from the runtime classes of the
+  arguments — `long` stays `long` instead of becoming `java.lang.Long`. Where the method
+  can't be resolved unambiguously (overloads with the same arity), it falls back to the
+  runtime class, which still names something a call can be written against. Only the
+  innermost frame becomes the seed:
+  a seed naming the outer caller would describe a call that did not fail. **Off by
+  default**, and worth leaving off for most projects — it is the only section that renders
+  argument values against a named signature, which is a larger privacy surface than the
+  rest of a report combined. Values go through the same redaction as everything else, and
+  the name and value are cleaned as one string so a secret-named parameter masks its value.
+  An older agent paired with a newer core loses the seed and keeps `captured:`, rather than
+  failing. Additive under the FORMAT §6 rules, so `st/1` does not change version. (#135)
+- **Reproducible builds.** Two clean builds of the same commit now produce byte-identical
+  jars, so a tag can be rebuilt and checked against what is on Maven Central. CI packages
+  twice and diffs the checksums on every PR. (#178)
+
+### Fixed
+
+- **A failed storm-line write silently swallowed the next occurrence of that error.** The
+  dedup entry was recorded before the line reached disk, so when the write failed the error
+  counted as already-reported: the next occurrence was suppressed, and the one that would
+  have surfaced the problem never appeared. The decision is now rolled back when the write
+  fails, and the following occurrence reports normally. (#180)
+- **The report action produced an empty summary for `st-json/1` logs.** It parsed only the
+  text format, so a project writing NDJSON got a job summary that said nothing was wrong.
+  (#167)
+- **The release workflow could tag a commit that existed nowhere.** The tag was pushed
+  before the branch carrying the commit it pointed at, leaving a tag resolving to an object
+  the remote did not have. Branch and tag are now separate, ordered steps. (#153)
+
+### Documentation
+
+- `docs/FORMAT.md` gains the `seen:` and story-omitted lines that the grammar had always
+  been able to emit but never spelled out (#170), and a table pinning every `st-json/1`
+  member whose name differs from its `st/1` counterpart, so the mapping never has to be
+  inferred from an example (#172).
+- `stacktale-junit` joins the JPMS module table. (#171)
+
 ## [1.2.0] — 2026-08-03
 
 A bug-fix release, and the bugs are the kind that hide: every one of them left the library

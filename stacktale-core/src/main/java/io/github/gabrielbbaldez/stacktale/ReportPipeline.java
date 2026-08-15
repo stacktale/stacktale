@@ -103,12 +103,12 @@ public final class ReportPipeline {
             private boolean truncateOnStart = false;
             private boolean reportErrorsWithoutThrowable = true;
             private boolean captureExceptionFields = true;
-        /**
-         * Off by default, and it should stay that way for most projects. The repro seed is the
-         * only section that renders argument values against a named signature, which is a
-         * bigger privacy surface than the rest of a report put together.
-         */
-        private boolean repro = false;
+            /**
+             * Off by default, and it should stay that way for most projects. The repro seed is
+             * the only section that renders argument values against a named signature, which is
+             * a bigger privacy surface than the rest of a report put together.
+             */
+            private boolean repro = false;
             private boolean redactionEnabled = true;
             private List<Pattern> redactPatterns = List.of();
             private boolean redactionCorrelation = false;
@@ -139,7 +139,7 @@ public final class ReportPipeline {
             public Builder truncateOnStart(boolean v) { this.truncateOnStart = v; return this; }
             public Builder reportErrorsWithoutThrowable(boolean v) { this.reportErrorsWithoutThrowable = v; return this; }
             public Builder captureExceptionFields(boolean v) { this.captureExceptionFields = v; return this; }
-        public Builder repro(boolean v) { this.repro = v; return this; }
+            public Builder repro(boolean v) { this.repro = v; return this; }
             public Builder redactionEnabled(boolean v) { this.redactionEnabled = v; return this; }
             public Builder redactPatterns(List<Pattern> v) { this.redactPatterns = v; return this; }
             public Builder redactionCorrelation(boolean v) { this.redactionCorrelation = v; return this; }
