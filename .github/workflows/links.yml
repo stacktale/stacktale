@@ -50,7 +50,6 @@ jobs:
         with:
           args: >-
             --no-progress
-            --exclude-mail
             --include-verbatim
             --max-retries 3
             --retry-wait-time 5
