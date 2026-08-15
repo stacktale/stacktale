@@ -13,3 +13,7 @@ https://central\.sonatype\.com/.*
 
 # GitHub renders these; a checker following them gets rate-limited for no signal.
 https://github\.com/.*/labels/.*
+
+# The sample apps' own endpoints, written as curl targets in examples/*/README.md.
+# Nothing listens on them in CI and nothing should — they are instructions, not links.
+^http://localhost:\d+/
