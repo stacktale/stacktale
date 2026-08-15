@@ -18,7 +18,7 @@
 
   <properties>
     <stacktale.module.name>io.github.gabrielbbaldez.stacktale</stacktale.module.name>
-    <pitest.version>1.25.8</pitest.version>
+    <pitest.version>1.25.9</pitest.version>
     <pitest-junit5.version>1.2.3</pitest-junit5.version>
   </properties>
 
