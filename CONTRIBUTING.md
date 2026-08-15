@@ -45,8 +45,8 @@ that check fails after a dependency bump, update the table in `README.md`.
 
 Markdown links are checked too, by `.github/workflows/links.yml`:
 
-- **On every PR**, `lychee --offline` verifies the *relative* links in the
-  top-level docs and `docs/`. This is the one that blocks a merge — it is
+- **On every PR**, `lychee --offline` verifies the *relative* links in every
+  Markdown file in the repository. This is the one that blocks a merge — it is
   deterministic and fails only when a commit here actually broke a path (e.g.
   moving a file that the README points at).
 - **Weekly**, a separate job checks external links as well. Third-party outages
@@ -57,8 +57,8 @@ unreliable for a checker. To reproduce the PR gate locally:
 
 ```bash
 lychee --offline --no-progress --include-verbatim \
-  README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md CHANGELOG.md \
-  'docs/**/*.md' docs/site/index.html
+  '**/*.md' docs/site/index.html \
+  --exclude-path target --exclude-path node_modules
 ```
 
 Keep that list in step with the `internal` job in `links.yml`. A shorter one here is
