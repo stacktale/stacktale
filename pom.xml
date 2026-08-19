@@ -43,6 +43,7 @@
     <module>stacktale-jul</module>
     <module>stacktale-junit</module>
     <module>stacktale-spring-boot-starter</module>
+    <module>stacktale-quarkus</module>
     <module>stacktale-mcp</module>
     <module>stacktale-agent</module>
   </modules>

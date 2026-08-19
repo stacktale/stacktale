@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.gabrielbbaldez</groupId>
+    <artifactId>stacktale-quarkus-parent</artifactId>
+    <version>1.3.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>stacktale-quarkus-deployment</artifactId>
+  <name>stacktale-quarkus - Deployment</name>
+  <description>Deployment (build-time) module of the stacktale Quarkus extension.</description>
+
+  <properties>
+    <stacktale.module.name>io.github.gabrielbbaldez.stacktale.quarkus.deployment</stacktale.module.name>
+  </properties>
+
+  <dependencies>
+    <!-- Build-time half of Quarkus core: @BuildStep, the *BuildItem types. -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-core-deployment</artifactId>
+    </dependency>
+    <!-- ArC (CDI) deployment: AdditionalBeanBuildItem, to register the request filter as a bean. -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-arc-deployment</artifactId>
+    </dependency>
+    <!-- The deployment module always depends on its own runtime module. -->
+    <dependency>
+      <groupId>io.github.gabrielbbaldez</groupId>
+      <artifactId>stacktale-quarkus</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <!-- QuarkusUnitTest: boots the extension in-process without a separate example app. -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-junit5-internal</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- QuarkusUnitTest requires the JBoss LogManager to be the active JUL LogManager. -->
+    <dependency>
+      <groupId>org.jboss.logmanager</groupId>
+      <artifactId>jboss-logmanager</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- Point the JVM at the JBoss LogManager before any logging is touched, so QuarkusUnitTest
+           can boot; without this its static initializer fails with a LogManager ClassCastException. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <argLine>@{argLine} -Dfile.encoding=UTF-8 -Djava.util.logging.manager=org.jboss.logmanager.LogManager</argLine>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>io.quarkus</groupId>
+              <artifactId>quarkus-extension-processor</artifactId>
+              <version>${quarkus.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

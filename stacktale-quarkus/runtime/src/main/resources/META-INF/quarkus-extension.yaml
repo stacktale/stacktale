@@ -1,0 +1,13 @@
+name: "stacktale"
+description: "Zero-config AI-ready error reports for Quarkus: every logged error becomes a complete, token-efficient st/1 report in errors-ai.log."
+metadata:
+  keywords:
+    - "stacktale"
+    - "logging"
+    - "errors"
+    - "observability"
+    - "ai"
+  categories:
+    - "observability"
+  status: "preview"
+  guide: "https://github.com/stacktale/stacktale"
