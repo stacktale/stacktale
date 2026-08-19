@@ -30,14 +30,21 @@ that way deliberately.
   arguments — `long` stays `long` instead of becoming `java.lang.Long`. Where the method
   can't be resolved unambiguously (overloads with the same arity), it falls back to the
   runtime class, which still names something a call can be written against. Only the
-  innermost frame becomes the seed:
-  a seed naming the outer caller would describe a call that did not fail. **Off by
-  default**, and worth leaving off for most projects — it is the only section that renders
+  innermost frame becomes the seed: a seed naming the outer caller would describe a call
+  that did not fail. **Off by default**, and worth leaving off for most projects — it is the only section that renders
   argument values against a named signature, which is a larger privacy surface than the
   rest of a report combined. Values go through the same redaction as everything else, and
   the name and value are cleaned as one string so a secret-named parameter masks its value.
   An older agent paired with a newer core loses the seed and keeps `captured:`, rather than
   failing. Additive under the FORMAT §6 rules, so `st/1` does not change version. (#135)
+- **`stacktale-quarkus`** — a Quarkus extension, so a Quarkus app gets reports by adding the
+  dependency, with no `logging.properties` to edit. Quarkus logs through the JBoss LogManager,
+  which is a `java.util.logging` implementation, so the extension reuses the `stacktale-jul`
+  handler and adds only the Quarkus wiring: a runtime/deployment split that decides the
+  configuration at build time and stays native-image friendly, `stacktale.*` keys through
+  `@ConfigMapping`, and a `@ServerRequestFilter` that opens each request's story with its HTTP
+  line — the counterpart of the Spring starter's servlet and WebFlux filters. Thanks
+  @DenizAltunkapan. (#82)
 - **Reproducible builds.** Two clean builds of the same commit now produce byte-identical
   jars, so a tag can be rebuilt and checked against what is on Maven Central. CI packages
   twice and diffs the checksums on every PR. (#178)
