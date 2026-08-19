@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.gabrielbbaldez</groupId>
+    <artifactId>stacktale-parent</artifactId>
+    <version>1.3.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>stacktale-quarkus-parent</artifactId>
+  <packaging>pom</packaging>
+  <name>stacktale-quarkus-parent</name>
+  <description>Quarkus extension for stacktale: zero-config AI-ready error reports for Quarkus apps.</description>
+
+  <modules>
+    <module>runtime</module>
+    <module>deployment</module>
+  </modules>
+
+  <properties>
+    <!-- The Quarkus platform version this extension is built and tested against. -->
+    <quarkus.version>3.15.1</quarkus.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- Quarkus BOM aligns all io.quarkus:* versions with the platform above. -->
+      <dependency>
+        <groupId>io.quarkus</groupId>
+        <artifactId>quarkus-bom</artifactId>
+        <version>${quarkus.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>

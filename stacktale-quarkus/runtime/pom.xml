@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.gabrielbbaldez</groupId>
+    <artifactId>stacktale-quarkus-parent</artifactId>
+    <version>1.3.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>stacktale-quarkus</artifactId>
+  <name>stacktale-quarkus - Runtime</name>
+  <description>Runtime module of the stacktale Quarkus extension: attaches the stacktale JUL handler at startup.</description>
+
+  <properties>
+    <stacktale.module.name>io.github.gabrielbbaldez.stacktale.quarkus.runtime</stacktale.module.name>
+  </properties>
+
+  <dependencies>
+    <!-- Quarkus core runtime: @Recorder, config, the extension SPI. -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-core</artifactId>
+    </dependency>
+    <!-- ArC (CDI) runtime: pairs with quarkus-arc-deployment used in the deployment module.
+         Quarkus requires the runtime half of any extension dependency to be present here. -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-arc</artifactId>
+    </dependency>
+    <!-- Reuse stacktale's java.util.logging face; Quarkus logs through JBoss LogManager (a JUL impl). -->
+    <dependency>
+      <groupId>io.github.gabrielbbaldez</groupId>
+      <artifactId>stacktale-jul</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <!-- RESTEasy Reactive gives us @ServerRequestFilter for the request line into the story.
+         Optional: only used when the app actually has a REST layer. -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-rest</artifactId>
+      <optional>true</optional>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- Generates the extension descriptor. Standard for every Quarkus extension runtime module. -->
+      <plugin>
+        <groupId>io.quarkus</groupId>
+        <artifactId>quarkus-extension-maven-plugin</artifactId>
+        <version>${quarkus.version}</version>
+        <executions>
+          <execution>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>extension-descriptor</goal>
+            </goals>
+            <configuration>
+              <deployment>${project.groupId}:stacktale-quarkus-deployment:${project.version}</deployment>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>io.quarkus</groupId>
+              <artifactId>quarkus-extension-processor</artifactId>
+              <version>${quarkus.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

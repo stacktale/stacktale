@@ -433,6 +433,7 @@ One `stacktale-core`, every entry point — add only the ones your stack uses:
 | **Log4j2** | `stacktale-log4j2` |
 | **java.util.logging / `System.Logger`** | `stacktale-jul` |
 | **Spring Boot** | `stacktale-spring-boot-starter` — zero-config, auto-registered |
+| **Quarkus** | `stacktale-quarkus` — zero-config extension, build-time wiring ([module README](stacktale-quarkus/README.md)) |
 | **Failing tests** | `stacktale-junit` — a test-scoped JUnit listener; a red test becomes a report ([below](#failing-tests)) |
 
 | Where the report is consumed | |
@@ -445,7 +446,7 @@ One `stacktale-core`, every entry point — add only the ones your stack uses:
 
 Every library module is Java 17+, [JPMS](#java-modules-jpms)-ready and [GraalVM-native](docs/native.md)-ready.
 API docs are on [javadoc.io](https://javadoc.io/doc/io.github.gabrielbbaldez/stacktale-core).
-On the roadmap: idiomatic starters for **Micronaut** (#81) and **Quarkus** (#82) — both already usable today through the Logback / JUL adapters — plus a **`stacktale` CLI** (#71).
+On the roadmap: an idiomatic starter for **Micronaut** (#81) — already usable today through the Logback / JUL adapters — plus a **`stacktale` CLI** (#71).
 
 ## What gets captured
 
@@ -720,6 +721,8 @@ path as well as the classpath — a resolution smoke test in CI pins this:
 | `stacktale-spring-boot-starter` | `io.github.gabrielbbaldez.stacktale.spring` |
 | `stacktale-mcp` | `io.github.gabrielbbaldez.stacktale.mcp` |
 | `stacktale-agent` | `io.github.gabrielbbaldez.stacktale.agent` |
+| `stacktale-quarkus` (runtime) | `io.github.gabrielbbaldez.stacktale.quarkus.runtime` |
+| `stacktale-quarkus` (deployment) | `io.github.gabrielbbaldez.stacktale.quarkus.deployment` |
 
 > **Migrating to 0.5.0:** the Logback appender moved from
 > `io.github.gabrielbbaldez.stacktale.StacktaleAppender` to
@@ -803,9 +806,8 @@ Reports also record repeated errors and application restarts.
 
 What's open next:
 
-- **Framework starters** — idiomatic [Micronaut](https://github.com/stacktale/stacktale/issues/81)
-  and [Quarkus](https://github.com/stacktale/stacktale/issues/82) modules (both stacks already
-  work today through the Logback / JUL adapters).
+- **A Micronaut starter** — an idiomatic [Micronaut](https://github.com/stacktale/stacktale/issues/81)
+  module (the stack already works today through the Logback / JUL adapters).
 - **[A `stacktale` CLI](https://github.com/stacktale/stacktale/issues/71)** — read and tail
   `errors-ai.log` from the terminal.
 - **The editor plugins** — [JetBrains](https://github.com/stacktale/stacktale-intellij) and
