@@ -5,7 +5,7 @@ All notable changes to stacktale are documented here. The format follows
 [SemVer](https://semver.org/). The report format (`st/1`) is versioned independently
 and pinned by golden-file tests.
 
-## [Unreleased]
+## [1.3.0] — 2026-08-20
 
 Two headline additions. `repro:` turns the top of a report into the call that failed — the
 fully-qualified signature and the argument values it was given — so a reader starts with
@@ -80,6 +80,8 @@ examples-pinning and plugin-manifest guards), **[@DenizAltunkapan](https://githu
 the link check to every Markdown file #184), **[@Sarthak-Vatsa](https://github.com/Sarthak-Vatsa)**
 (the JUnit Platform 1.10 floor #164) and **[@syf2211](https://github.com/syf2211)**
 (`st-json/1` summaries in the report action #167). Thank you.
+
+[1.3.0]: https://github.com/stacktale/stacktale/releases/tag/v1.3.0
 
 ## [1.2.0] — 2026-08-03
 
