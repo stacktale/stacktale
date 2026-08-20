@@ -118,13 +118,13 @@ All artifacts are on Maven Central.
 **Gradle (Groovy)**
 
 ```groovy
-implementation 'io.github.gabrielbbaldez:stacktale-spring-boot-starter:1.2.0'
+implementation 'io.github.gabrielbbaldez:stacktale-spring-boot-starter:1.3.0'
 ```
 
 **Gradle (Kotlin DSL)**
 
 ```kotlin
-implementation("io.github.gabrielbbaldez:stacktale-spring-boot-starter:1.2.0")
+implementation("io.github.gabrielbbaldez:stacktale-spring-boot-starter:1.3.0")
 ```
 
 That's it — no logback.xml editing. The starter registers the appender on the root
@@ -170,13 +170,13 @@ written in Kotlin or Java.
 **Gradle (Groovy)**
 
 ```groovy
-implementation 'io.github.gabrielbbaldez:stacktale:1.2.0'
+implementation 'io.github.gabrielbbaldez:stacktale:1.3.0'
 ```
 
 **Gradle (Kotlin DSL)**
 
 ```kotlin
-implementation("io.github.gabrielbbaldez:stacktale:1.2.0")
+implementation("io.github.gabrielbbaldez:stacktale:1.3.0")
 ```
 
 ```xml
@@ -212,13 +212,13 @@ itself on startup, and the file header explains the format to any AI that opens 
 **Gradle (Groovy)**
 
 ```groovy
-implementation 'io.github.gabrielbbaldez:stacktale-log4j2:1.2.0'
+implementation 'io.github.gabrielbbaldez:stacktale-log4j2:1.3.0'
 ```
 
 **Gradle (Kotlin DSL)**
 
 ```kotlin
-implementation("io.github.gabrielbbaldez:stacktale-log4j2:1.2.0")
+implementation("io.github.gabrielbbaldez:stacktale-log4j2:1.3.0")
 ```
 
 ```xml
@@ -251,13 +251,13 @@ by default — with no SLF4J bridge:
 **Gradle (Groovy)**
 
 ```groovy
-implementation 'io.github.gabrielbbaldez:stacktale-jul:1.2.0'
+implementation 'io.github.gabrielbbaldez:stacktale-jul:1.3.0'
 ```
 
 **Gradle (Kotlin DSL)**
 
 ```kotlin
-implementation("io.github.gabrielbbaldez:stacktale-jul:1.2.0")
+implementation("io.github.gabrielbbaldez:stacktale-jul:1.3.0")
 ```
 
 ```properties
@@ -338,7 +338,7 @@ an agent: told to "fix it, re-run the tests, then check what changed", it would 
 ```
 
 ```groovy
-testImplementation 'io.github.gabrielbbaldez:stacktale-junit:1.2.0'
+testImplementation 'io.github.gabrielbbaldez:stacktale-junit:1.3.0'
 ```
 
 **If your tests set a correlation key**, add `StacktaleExtension`. The listener is notified
