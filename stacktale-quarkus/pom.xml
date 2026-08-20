@@ -22,7 +22,7 @@
 
   <properties>
     <!-- The Quarkus platform version this extension is built and tested against. -->
-    <quarkus.version>3.38.2</quarkus.version>
+    <quarkus.version>3.15.1</quarkus.version>
   </properties>
 
   <dependencyManagement>
