@@ -76,9 +76,10 @@ is on Maven Central. That comes from a single parent-pom property:
 ```
 
 Maven feeds it to the jar, source, javadoc and shade plugins, which pin every
-archive entry's timestamp instead of stamping the current time. **Bump it to the
-release date when cutting a release** — any fixed ISO-8601 instant works, what
-matters is that it doesn't move between builds of one commit.
+archive entry's timestamp instead of stamping the current time. Any fixed ISO-8601
+instant works; what matters is that it doesn't move between builds of one commit.
+`prepare-release` moves it to the release date as part of the release commit, so
+there is nothing to remember here — leave it alone between releases.
 
 CI enforces this in the `Reproducible build` job: it packages twice and diffs
 the jar checksums. To check locally:

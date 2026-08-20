@@ -7,10 +7,12 @@ and pinned by golden-file tests.
 
 ## [Unreleased]
 
-The headline is `repro:` — a report section that names the failing call with its declared
-signature and the argument values it was given, so the first thing a reader gets is the
-call to re-run rather than a stack to reconstruct one from. It is off by default and stays
-that way deliberately.
+Two headline additions. `repro:` turns the top of a report into the call that failed — the
+fully-qualified signature and the argument values it was given — so a reader starts with
+something to re-run instead of a stack to reconstruct one from; it is off by default and
+stays that way deliberately, being the one section that renders values against a named
+signature. And `stacktale-quarkus` makes Quarkus the fourth stack that reports with nothing
+to configure.
 
 ### Added
 
@@ -31,9 +33,9 @@ that way deliberately.
   can't be resolved unambiguously (overloads with the same arity), it falls back to the
   runtime class, which still names something a call can be written against. Only the
   innermost frame becomes the seed: a seed naming the outer caller would describe a call
-  that did not fail. **Off by default**, and worth leaving off for most projects — it is the only section that renders
-  argument values against a named signature, which is a larger privacy surface than the
-  rest of a report combined. Values go through the same redaction as everything else, and
+  that did not fail. **Off by default**, and worth leaving off for most projects — it is the
+  only section that renders argument values against a named signature, which is a larger
+  privacy surface than the rest of a report combined. Values go through the same redaction as everything else, and
   the name and value are cleaned as one string so a secret-named parameter masks its value.
   An older agent paired with a newer core loses the seed and keeps `captured:`, rather than
   failing. Additive under the FORMAT §6 rules, so `st/1` does not change version. (#135)
@@ -70,6 +72,14 @@ that way deliberately.
   member whose name differs from its `st/1` counterpart, so the mapping never has to be
   inferred from an example (#172).
 - `stacktale-junit` joins the JPMS module table. (#171)
+
+Contributions this cycle from **[@dchaudhari7177](https://github.com/dchaudhari7177)** (the
+link checker #179, reproducible builds #178, the dedup rollback #180, and the CodeQL,
+examples-pinning and plugin-manifest guards), **[@DenizAltunkapan](https://github.com/DenizAltunkapan)**
+(the Quarkus extension #187), **[@dongyikuan919](https://github.com/dongyikuan919)** (widening
+the link check to every Markdown file #184), **[@Sarthak-Vatsa](https://github.com/Sarthak-Vatsa)**
+(the JUnit Platform 1.10 floor #164) and **[@syf2211](https://github.com/syf2211)**
+(`st-json/1` summaries in the report action #167). Thank you.
 
 ## [1.2.0] — 2026-08-03
 
@@ -147,6 +157,8 @@ ended up wrong rather than absent.
   in a real configuration — but a hand-written config relying on the default will now fail
   to start rather than start wrong. (#122)
 - `containerLoggers` is configurable on JUL, which the README previously said it was not.
+
+[1.2.0]: https://github.com/stacktale/stacktale/releases/tag/v1.2.0
 
 ## [1.1.0] — 2026-07-29
 
