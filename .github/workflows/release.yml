@@ -18,6 +18,15 @@ on:
         description: The tag or commit to publish
         required: true
         type: string
+  # A tag pushed with GITHUB_TOKEN starts no workflow, so when `prepare-release` tags but
+  # does not reach `publish`, nothing here fires and the only recovery was deleting the tag
+  # and pushing it again by hand. This is that recovery, without touching the tag.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: The tag or commit to publish
+        required: true
+        type: string
 
 jobs:
   publish:

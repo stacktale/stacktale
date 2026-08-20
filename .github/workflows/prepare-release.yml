@@ -145,7 +145,12 @@ jobs:
           git tag -a "v${{ inputs.version }}" -m "stacktale ${{ inputs.version }}" "$RELEASE_SHA"
           git push origin "refs/tags/v${{ inputs.version }}"
 
+      # Not fatal, and that ordering was learned the hard way: this is the last step of
+      # `prepare`, `publish` is `needs: prepare`, so 1.3.0 tagged and then published nothing
+      # because opening a PR failed. The tag and the branch are already pushed by here — the
+      # release exists whether or not this succeeds, and a missing PR is a two-click fix.
       - name: Open the pull request
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
