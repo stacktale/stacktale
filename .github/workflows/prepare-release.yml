@@ -49,13 +49,23 @@ jobs:
           gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
-      - name: The CHANGELOG must already describe this version
+      - name: The CHANGELOG must have something to release
         run: |
           set -euo pipefail
           # Checked before anything is built or pushed. Finding out afterwards means either
           # an empty release or deleting a published tag, and 1.2.0 did both.
-          if ! grep -q "^## \[${{ inputs.version }}\]" CHANGELOG.md; then
-            echo "::error::CHANGELOG.md has no '## [${{ inputs.version }}]' section — write it first"
+          #
+          # The gate is on `[Unreleased]`, not on a `[<version>]` heading, and that is not a
+          # detail. check-plugin-versions.sh keys the plugin manifests to the newest version
+          # heading, so writing that heading before the release commit makes `main` red: the
+          # guard starts demanding manifests that pin a version Central cannot resolve yet.
+          # The heading is stamped below, in the release commit, where the manifests move too.
+          if ! grep -q '^## \[Unreleased\]$' CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [Unreleased]' section"
+            exit 1
+          fi
+          if ! awk '/^## \[Unreleased\]$/{u=1;next} /^## \[/{u=0} u&&/^- /{found=1} END{exit !found}' CHANGELOG.md; then
+            echo "::error::'## [Unreleased]' has no entries — write the release notes first"
             exit 1
           fi
 
@@ -79,6 +89,25 @@ jobs:
         run: mvn -B -Prelease verify
         env:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+
+      - name: Stamp the changelog and the build timestamp
+        run: |
+          set -euo pipefail
+          V='${{ inputs.version }}'
+          DATE=$(date -u +%Y-%m-%d)
+          # `[Unreleased]` becomes this version, and the link reference goes where the older
+          # ones sit: at the end of its own section, just above the previous heading.
+          sed -i "0,/^## \[Unreleased\]$/s||## [$V] — $DATE|" CHANGELOG.md
+          awk -v ref="[$V]: https://github.com/stacktale/stacktale/releases/tag/v$V" '
+            /^## \[/ { n++; if (n==2) { print ref; print "" } }
+            { print }
+          ' CHANGELOG.md > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
+          # Reproducible builds pin every archive entry to this instant. It has to move with
+          # the release or the jars carry the previous one — still reproducible, just wrong.
+          # CONTRIBUTING asked a human to remember; nobody was going to.
+          sed -i -E "s|(<project.build.outputTimestamp>)[^<]+|\1${DATE}T00:00:00Z|" pom.xml
+          grep -q "^## \[$V\] — $DATE" CHANGELOG.md
+          grep -q "<project.build.outputTimestamp>${DATE}T00:00:00Z" pom.xml
 
       - name: Update README and plugin manifest versions
         run: |
