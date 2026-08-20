@@ -8,6 +8,13 @@ updates:
       # collapse routine minor/patch bumps into ONE PR; majors stay
       # individual so a risky bump gets its own scrutiny.
       maven-minor-patch:
+        # Quarkus rides alone. Its minors are not routine: 3.15 -> 3.38 arrived inside this
+        # group and broke the extension outright, because Quarkus began refusing a runtime
+        # @ConfigMapping as a @BuildStep parameter somewhere in between. Grouped, that turns
+        # six harmless bumps red and they wait on unrelated work; on its own, the failure is
+        # legible and blocks only itself.
+        exclude-patterns:
+          - "io.quarkus:*"
         update-types:
           - minor
           - patch
