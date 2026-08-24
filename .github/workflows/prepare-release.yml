@@ -115,6 +115,10 @@ jobs:
           sed -i -E 's|(<artifactId>stacktale[a-z0-9-]*</artifactId>[[:space:]]*<version>)[0-9.]+(</version>)|\1${{ inputs.version }}\2|g' README.md
           sed -i -E 's|(io\.github\.gabrielbbaldez:stacktale[a-z0-9-]*:)[0-9.]+|\1${{ inputs.version }}|g' README.md
           bash scripts/check-readme-compat.sh
+          # The examples pin the released version and examples.yml fails when they drift.
+          # Nothing bumped them, so 1.3.0 left `main` red until they were fixed by hand:
+          # the same shape as the timestamp above, found one release later.
+          sed -i -E 's|(<stacktale.version>)[0-9.]+(</stacktale.version>)|\1${{ inputs.version }}\2|' examples/*/pom.xml
           # The plugin manifests pin the released version too, and were the one set of
           # files the bump did not reach (#142). The guard runs straight after, so a sed
           # that matched nothing fails here rather than shipping a stale marketplace entry.
