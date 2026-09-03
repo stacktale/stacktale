@@ -22,6 +22,12 @@ updates:
       # Spring Boot 4 is a deliberate major migration, not a routine bump — don't nag.
       - dependency-name: "org.springframework.boot:*"
         update-types: ["version-update:semver-major"]
+      # Paused until #193. Quarkus stopped accepting a runtime @ConfigMapping as a @BuildStep
+      # parameter somewhere after 3.15, so StacktaleProcessor no longer loads and every bump
+      # since has arrived red — #194, #197 and #201, closed unmerged. The version has to move
+      # in the PR that fixes the recorder, next to the matrix leg from #188. Remove this entry
+      # then; leaving it in place after that would silently freeze Quarkus instead.
+      - dependency-name: "io.quarkus:*"
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
