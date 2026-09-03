@@ -3,6 +3,7 @@ package io.github.gabrielbbaldez.stacktale.quarkus.runtime;
 import io.github.gabrielbbaldez.stacktale.Csv;
 import io.github.gabrielbbaldez.stacktale.ReportPipeline;
 import io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler;
+import io.quarkus.runtime.RuntimeValue;
 import io.quarkus.runtime.annotations.Recorder;
 
 import java.time.DateTimeException;
@@ -27,7 +28,19 @@ import java.util.logging.Logger;
 @Recorder
 public class StacktaleRecorder {
 
-    public void install(StacktaleConfig config, List<String> deducedAppPackages) {
+    private final RuntimeValue<StacktaleConfig> config;
+
+    /**
+     * Quarkus builds the recorder with the runtime configuration and hands it in here. It used to
+     * arrive as a {@code @BuildStep} parameter instead, which newer Quarkus rejects outright —
+     * build steps run at augmentation time, when a run-time value does not exist yet.
+     */
+    public StacktaleRecorder(RuntimeValue<StacktaleConfig> config) {
+        this.config = config;
+    }
+
+    public void install(List<String> deducedAppPackages) {
+        StacktaleConfig config = this.config.getValue();
         if (!config.enabled()) {
             return;
         }
