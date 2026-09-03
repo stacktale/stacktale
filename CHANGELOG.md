@@ -5,7 +5,7 @@ All notable changes to stacktale are documented here. The format follows
 [SemVer](https://semver.org/). The report format (`st/1`) is versioned independently
 and pinned by golden-file tests.
 
-## [Unreleased]
+## [1.3.1] — 2026-09-03
 
 ### Fixed
 
@@ -29,6 +29,8 @@ and pinned by golden-file tests.
   compatibility table a Quarkus row — checked by `check-readme-compat.sh`, which had no way
   to read a property the root pom does not define and now takes a module. Without it the
   row would have been a claim nobody verified. (#188)
+
+[1.3.1]: https://github.com/stacktale/stacktale/releases/tag/v1.3.1
 
 ## [1.3.0] — 2026-08-20
 
