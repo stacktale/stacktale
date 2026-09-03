@@ -14,8 +14,17 @@ cd "$(dirname "$0")/.."
 
 fail=0
 
+# The second argument names a module, for properties the root pom does not define:
+# quarkus.version lives in stacktale-quarkus/pom.xml, so evaluating it at the root
+# answers "null object or invalid expression" and every comparison below would pass
+# against an empty string.
 pom_property() {
-  mvn -q help:evaluate -DforceStdout -Dexpression="$1" 2>/dev/null
+  local expression="$1" module="${2:-}"
+  if [[ -n "$module" ]]; then
+    mvn -q -pl "$module" help:evaluate -DforceStdout -Dexpression="$expression" 2>/dev/null
+  else
+    mvn -q help:evaluate -DforceStdout -Dexpression="$expression" 2>/dev/null
+  fi
 }
 
 # Highest -D<property>=X override exercised by the compat matrix (may be empty).
@@ -37,9 +46,9 @@ major_minor() {
 }
 
 check_row() {
-  local display="$1" pattern="$2" property="$3"
+  local display="$1" pattern="$2" property="$3" module="${4:-}"
   local pom matrix highest table
-  pom="$(pom_property "$property")"
+  pom="$(pom_property "$property" "$module")"
   matrix="$(matrix_max "$property")"
   highest="$(printf '%s\n%s\n' "$pom" "$matrix" | grep -v '^$' | sort -V | tail -n1)"
   table="$(readme_tested_up_to "$pattern")"
@@ -55,6 +64,7 @@ check_row() {
 check_row "Logback" 'Logback \|' "logback.version"
 check_row "Log4j2" 'Log4j2 \|' "log4j2.version"
 check_row "Spring Boot" 'Spring Boot ' "spring-boot.version"
+check_row "Quarkus" 'Quarkus ' "quarkus.version" "stacktale-quarkus"
 check_row "JUnit Platform" 'JUnit Platform ' "junit.platform.version"
 
 # Java: the floor ("17+") tracks the pom's compiler release; "Tested up to"

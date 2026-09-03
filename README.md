@@ -701,6 +701,7 @@ each backed by a passing build:
 | Logback | 1.4+ | 1.6.x |
 | Log4j2 | 2.20+ | 2.26.x |
 | Spring Boot *(starter)* | 3.2+ | 3.5.x |
+| Quarkus *(extension)* | 3.15+ | 3.39.x |
 | JUnit Platform *(stacktale-junit)* | 1.10+ | 6.1.x |
 
 The Spring Boot starter follows Boot's own Logback version (1.5 on Boot 3.4+); the

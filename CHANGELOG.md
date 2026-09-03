@@ -5,6 +5,25 @@ All notable changes to stacktale are documented here. The format follows
 [SemVer](https://semver.org/). The report format (`st/1`) is versioned independently
 and pinned by golden-file tests.
 
+## [Unreleased]
+
+### Fixed
+
+- **`stacktale-quarkus` did not work on any Quarkus newer than the 3.15 it shipped against.**
+  The build step took the runtime `@ConfigMapping` as a parameter, and Quarkus now refuses
+  that outright — a build step runs at augmentation time, when a run-time value does not
+  exist yet — so `StacktaleProcessor` failed to load and the application did not start. The
+  recorder receives the configuration as a `RuntimeValue` through its constructor instead,
+  which is what the framework's own error message asks for. Verified against 3.15.1, 3.20.0
+  and 3.39.1: the new shape works on all three, so the floor does not move. (#193)
+
+### Changed
+
+- The compatibility matrix gains a **Quarkus 3.15 (floor)** leg, and the README's
+  compatibility table a Quarkus row — checked by `check-readme-compat.sh`, which had no way
+  to read a property the root pom does not define and now takes a module. Without it the
+  row would have been a claim nobody verified. (#188)
+
 ## [1.3.0] — 2026-08-20
 
 Two headline additions. `repro:` turns the top of a report into the call that failed — the

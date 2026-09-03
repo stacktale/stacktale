@@ -31,6 +31,11 @@ jobs:
             args: "-Dspring-boot.version=3.3.13"
           - name: "Spring Boot 3.5"
             args: "-Dspring-boot.version=3.5.6"
+          # 3.15 is the previous LTS, and the version the extension shipped against in 1.3.0.
+          # Worth a leg of its own: the runtime/deployment contract is a build-time API, and
+          # #193 was exactly that contract changing under us between two supported versions.
+          - name: "Quarkus 3.15 (floor)"
+            args: "-Dquarkus.version=3.15.1"
           - name: "JUnit Platform 1.10 (floor)"
             args: "-pl stacktale-core,stacktale-junit -am -Djunit.platform.version=1.10.0 -Djunit.jupiter.version=5.10.0"
     name: ${{ matrix.name }}

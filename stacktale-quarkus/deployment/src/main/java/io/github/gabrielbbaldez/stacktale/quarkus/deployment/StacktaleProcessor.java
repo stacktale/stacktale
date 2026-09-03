@@ -1,6 +1,5 @@
 package io.github.gabrielbbaldez.stacktale.quarkus.deployment;
 
-import io.github.gabrielbbaldez.stacktale.quarkus.runtime.StacktaleConfig;
 import io.github.gabrielbbaldez.stacktale.quarkus.runtime.StacktaleRecorder;
 import io.quarkus.arc.deployment.AdditionalBeanBuildItem;
 import io.quarkus.deployment.Capabilities;
@@ -46,8 +45,8 @@ public class StacktaleProcessor {
      */
     @BuildStep
     @Record(ExecutionTime.RUNTIME_INIT)
-    void install(StacktaleRecorder recorder, StacktaleConfig config, ApplicationArchivesBuildItem archives) {
-        recorder.install(config, deduceAppPackages(archives));
+    void install(StacktaleRecorder recorder, ApplicationArchivesBuildItem archives) {
+        recorder.install(deduceAppPackages(archives));
     }
 
     /**
