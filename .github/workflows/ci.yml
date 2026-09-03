@@ -36,6 +36,11 @@ jobs:
       - name: Docs example report guard
         if: matrix.java == 21
         run: bash scripts/check-readme-reports.sh
+      # After the build, because it reads the jars' manifests rather than the poms alone —
+      # the point is what actually ships, not what the pom meant to say.
+      - name: JPMS module name guard
+        if: matrix.java == 21
+        run: bash scripts/check-module-names.sh
       - name: Coverage summary
         if: matrix.java == 21
         run: |

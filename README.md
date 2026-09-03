@@ -710,7 +710,9 @@ The Spring Boot starter follows Boot's own Logback version (1.5 on Boot 3.4+); t
 ### Java modules (JPMS)
 
 Every jar declares a stable `Automatic-Module-Name`, so stacktale works on the module
-path as well as the classpath — a resolution smoke test in CI pins this:
+path as well as the classpath. CI checks every name in this table against the manifest of
+the jar that ships, and resolves the core and Logback jars together on a real module path
+to prove the packages stay disjoint:
 
 | Artifact | Module name |
 |---|---|

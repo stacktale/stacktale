@@ -19,6 +19,12 @@ and pinned by golden-file tests.
 
 ### Changed
 
+- **Every published JPMS module name is checked against the jar that ships it.** The README
+  documented ten and CI verified two — the other eight, including both halves of
+  `stacktale-quarkus` published in 1.3.0, rested on a hand-written pom property. A name is a
+  `requires` directive in someone else's build, so a typo is not fixable after release.
+  `check-module-names.sh` compares the pom property, the manifest of the built jar and the
+  README row, and the README no longer claims more coverage than it has. (#203)
 - The compatibility matrix gains a **Quarkus 3.15 (floor)** leg, and the README's
   compatibility table a Quarkus row — checked by `check-readme-compat.sh`, which had no way
   to read a property the root pom does not define and now takes a module. Without it the
