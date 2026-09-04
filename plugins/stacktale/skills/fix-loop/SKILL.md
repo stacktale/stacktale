@@ -43,6 +43,12 @@ changed.
 - `match_report` — the user pasted a bare stack trace: this finds the captured report for
   it, with the story and values the paste is missing. Reach for it whenever a trace arrives
   without context.
+- `culprit_source` — the code at the culprit line, read from the working tree rather than the
+  log. Reach for it before proposing a fix: the report tells you which line failed, this tells
+  you what is on it, and it is current where the log may be days old.
+- `tests_covering` — which test files name the culprit's class and method. It is a name match,
+  not coverage, and the reply says so. The answer to act on is `none`: that means the failing
+  path has no test, so write one instead of looking for the one that does not exist.
 - `repro_for` — before writing a reproduction test, ask for one. It returns a JUnit skeleton
   built from the throw site itself: the class, the method, the declared parameter types and
   the arguments the failing call was given. Those are what you would otherwise infer from the

@@ -78,12 +78,14 @@ class StacktaleMcpServerTest {
         assertThat(r[0].at("/result/serverInfo/name").asText()).isEqualTo("stacktale");
         assertThat(r[0].at("/result/capabilities/resources/subscribe").asBoolean()).isTrue();
         assertThat(r[0].at("/result/capabilities/prompts").isObject()).isTrue();
-        assertThat(r[1].at("/result/tools")).hasSize(7);
+        assertThat(r[1].at("/result/tools")).hasSize(9);
         assertThat(r[1].at("/result/tools/0/name").asText()).isEqualTo("list_errors");
         assertThat(r[1].at("/result/tools/3/name").asText()).isEqualTo("find_similar_errors");
         assertThat(r[1].at("/result/tools/4/name").asText()).isEqualTo("errors_since_last_check");
         assertThat(r[1].at("/result/tools/5/name").asText()).isEqualTo("repro_for");
-        assertThat(r[1].at("/result/tools/6/name").asText()).isEqualTo("match_report");
+        assertThat(r[1].at("/result/tools/6/name").asText()).isEqualTo("culprit_source");
+        assertThat(r[1].at("/result/tools/7/name").asText()).isEqualTo("tests_covering");
+        assertThat(r[1].at("/result/tools/8/name").asText()).isEqualTo("match_report");
     }
 
     @Test
@@ -185,6 +187,133 @@ class StacktaleMcpServerTest {
         JsonNode[] r = roundTrip("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\","
                 + "\"params\":{\"name\":\"repro_for\",\"arguments\":{\"id\":\"" + id + "\"}}}");
         return r[0].at("/result/content/0/text").asText();
+    }
+
+    // --- workspace tools (#138) ---
+
+    /** A tree shaped like the one the client has open, holding the class #aaaa1111 blames. */
+    private Path workspaceWithSvc(Path dir, int lines) throws Exception {
+        Path src = dir.resolve("src/main/java/com/acme");
+        Files.createDirectories(src);
+        StringBuilder body = new StringBuilder("package com.acme;\n\nclass Svc {\n");
+        for (int i = 4; i <= lines; i++) {
+            body.append("    // line ").append(i).append('\n');
+        }
+        Files.writeString(src.resolve("Svc.java"), body.toString(), StandardCharsets.UTF_8);
+        return dir;
+    }
+
+    @Test
+    void culpritSourceReadsTheLineFromTheWorkingTree(@TempDir Path dir) throws Exception {
+        Path workspace = workspaceWithSvc(dir, 40);
+
+        String text = workspaceTool(workspace, "culprit_source", "aaaa1111", ",\"radius\":3");
+
+        assertThat(text)
+                .contains("Svc.java")
+                .contains("Svc.run, line 1")
+                .contains("1 > package com.acme;")  // the culprit line is marked, the rest are not
+                .contains("2 | ")
+                .doesNotContain("5 | ");            // radius honoured
+    }
+
+    /**
+     * A stack frame can name a file this tree does not have — a dependency, generated code, or
+     * another service sharing the log. That has to be an answer: a failed tool call leaves the
+     * agent with nothing to do next.
+     */
+    @Test
+    void culpritSourceSaysSoWhenTheFileIsNotInTheTree(@TempDir Path dir) throws Exception {
+        Files.createDirectories(dir.resolve("src/main/java"));
+
+        assertThat(workspaceTool(dir, "culprit_source", "aaaa1111", ""))
+                .contains("No file named Svc.java")
+                .contains("dependency");
+    }
+
+    /** The log can be days older than the tree; pointing past the end of the file must say why. */
+    @Test
+    void culpritSourceFlagsAReportOlderThanTheFile(@TempDir Path dir) throws Exception {
+        Path src = dir.resolve("src/main/java/com/acme");
+        Files.createDirectories(src);
+        Files.writeString(src.resolve("Pay.java"), "package com.acme;\n", StandardCharsets.UTF_8);
+
+        // #bbbb2222 blames Pay.charge(Pay.java:9); the file here has one line
+        assertThat(workspaceTool(dir, "culprit_source", "bbbb2222", ""))
+                .contains("points at line 9")
+                .contains("changed since the error was captured");
+    }
+
+    @Test
+    void culpritSourceHasNoFrameForAnErrorLoggedWithoutAThrowable(@TempDir Path dir) throws Exception {
+        file = dir.resolve("errors-ai.log");
+        Files.writeString(file, """
+                ━━━ ERROR #eeee5555 ━━━ 2026-07-10 10:00:00.000 thread=main ━━━
+                ERROR (no exception): payment queue is backing up
+                ━━━ END #eeee5555 ━━━
+                """, StandardCharsets.UTF_8);
+
+        assertThat(workspaceTool(dir, "culprit_source", "eeee5555", ""))
+                .contains("no culprit frame")
+                .contains("logged without a throwable");
+    }
+
+    /**
+     * The negative answer is the one worth having: ORACLE-SWE ranks a reproduction test above
+     * every other signal an agent can be given, so "nothing names this method" tells it to write
+     * one rather than spend turns hunting for a test that does not exist.
+     */
+    @Test
+    void testsCoveringSaysNoneWhenNothingNamesTheMethod(@TempDir Path dir) throws Exception {
+        Path workspace = workspaceWithSvc(dir, 10);
+        Path tests = workspace.resolve("src/test/java/com/acme");
+        Files.createDirectories(tests);
+        Files.writeString(tests.resolve("OtherTest.java"),
+                "package com.acme;\nclass OtherTest { void checkout() {} }\n", StandardCharsets.UTF_8);
+
+        assertThat(workspaceTool(workspace, "tests_covering", "aaaa1111", ""))
+                .startsWith("none: no test source names Svc.run")
+                .contains("repro_for");             // points at the tool that helps write one
+    }
+
+    @Test
+    void testsCoveringListsTheFilesThatNameTheCulprit(@TempDir Path dir) throws Exception {
+        Path workspace = workspaceWithSvc(dir, 10);
+        Path tests = workspace.resolve("src/test/java/com/acme");
+        Files.createDirectories(tests);
+        Files.writeString(tests.resolve("SvcTest.java"),
+                "package com.acme;\nclass SvcTest {\n    void runReturnsTheCustomer() { new Svc().run(); }\n}\n",
+                StandardCharsets.UTF_8);
+
+        assertThat(workspaceTool(workspace, "tests_covering", "aaaa1111", ""))
+                .contains("1 test file(s) name Svc.run")
+                .contains("SvcTest.java")
+                .contains("3: void runReturnsTheCustomer")  // the line, so the agent can open it
+                .contains("not coverage");                  // the caveat travels with the answer
+    }
+
+    /** Build output holds copies of the sources; answering from target/ describes the wrong tree. */
+    @Test
+    void theWalkIgnoresBuildOutput(@TempDir Path dir) throws Exception {
+        Path stale = dir.resolve("target/classes/com/acme");
+        Files.createDirectories(stale);
+        Files.writeString(stale.resolve("Svc.java"), "package com.acme;\n// STALE COPY\n",
+                StandardCharsets.UTF_8);
+
+        assertThat(workspaceTool(dir, "culprit_source", "aaaa1111", ""))
+                .contains("No file named Svc.java")
+                .doesNotContain("STALE COPY");
+    }
+
+    private String workspaceTool(Path workspaceRoot, String tool, String id, String extraArgs)
+            throws Exception {
+        String req = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\""
+                + tool + "\",\"arguments\":{\"id\":\"" + id + "\"" + extraArgs + "}}}\n";
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        new StacktaleMcpServer(file, workspaceRoot).serve(
+                new ByteArrayInputStream(req.getBytes(StandardCharsets.UTF_8)), out);
+        return JSON.readTree(out.toString(StandardCharsets.UTF_8).trim())
+                .at("/result/content/0/text").asText();
     }
 
     private static final String NEW_BLOCK = """

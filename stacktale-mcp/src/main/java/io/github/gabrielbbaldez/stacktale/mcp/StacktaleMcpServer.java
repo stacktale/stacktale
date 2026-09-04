@@ -45,10 +45,19 @@ public final class StacktaleMcpServer {
 
     private final StReportFile reports;
     private final Path file;
+    private final Workspace workspace;
 
     StacktaleMcpServer(Path file) {
+        // The working directory, not the log file's parent: the log can be configured anywhere
+        // (/var/log, a container mount), while the tree the client has open is where it launched
+        // the server — the same directory the default `errors-ai.log` resolves against.
+        this(file, Path.of("").toAbsolutePath());
+    }
+
+    StacktaleMcpServer(Path file, Path workspaceRoot) {
         this.file = file;
         this.reports = new StReportFile(file);
+        this.workspace = new Workspace(workspaceRoot);
     }
 
     public static void main(String[] args) throws Exception {
@@ -56,10 +65,18 @@ public final class StacktaleMcpServer {
         Path file = Path.of("errors-ai.log");
         String env = System.getenv("STACKTALE_FILE");
         if (env != null && !env.isBlank()) file = Path.of(env);
+        // The tree culprit_source and tests_covering read. Defaults to the working directory,
+        // which is the project root whenever the client launches the server from it — the same
+        // assumption the default report path already makes. A client that launches from
+        // somewhere else needs to say where the sources are, hence the override.
+        Path workspace = Path.of("").toAbsolutePath();
+        String workspaceEnv = System.getenv("STACKTALE_WORKSPACE");
+        if (workspaceEnv != null && !workspaceEnv.isBlank()) workspace = Path.of(workspaceEnv);
         for (int i = 0; i < args.length - 1; i++) {
             if ("--file".equals(args[i])) file = Path.of(args[i + 1]);
+            if ("--workspace".equals(args[i])) workspace = Path.of(args[i + 1]);
         }
-        new StacktaleMcpServer(file).serve(System.in, System.out);
+        new StacktaleMcpServer(file, workspace.toAbsolutePath()).serve(System.in, System.out);
     }
 
     /** The single resource this server exposes: the live error report file. */
@@ -321,6 +338,20 @@ public final class StacktaleMcpServer {
                 + "than from guessing. Needs repro=true and stacktale-agent; says so when the report has no seed.",
                 "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"report id, e.g. c73cf755\"}},\"required\":[\"id\"]}",
                 null));
+        tools.add(tool("culprit_source", "Source at the culprit", true,
+                "Read the source around a report's culprit frame, from the working tree rather than the log: "
+                + "the code is current where the log may be days old. Use it before proposing a fix — the "
+                + "report says which line failed, this says what is on it.",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"report id, e.g. c73cf755\"},"
+                + "\"radius\":{\"type\":\"integer\",\"description\":\"lines of context each side, default 12\"}},\"required\":[\"id\"]}",
+                null));
+        tools.add(tool("tests_covering", "Tests naming the culprit", true,
+                "Which test sources name the culprit's class and method — or, decisively, that none do. "
+                + "A name match rather than coverage; the useful answer is the negative one, because "
+                + "nothing naming the failing method means writing a reproduction test instead of hunting "
+                + "for one that does not exist.",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"report id, e.g. c73cf755\"}},\"required\":[\"id\"]}",
+                null));
         tools.add(tool("match_report", "Match a pasted trace", true,
                 "Paste a raw exception + stack trace and get the full stacktale report captured for it (story, fields, distilled stack, env) — matched by root-cause type and message. The bridge from a pasted trace to the agent having the whole context.",
                 "{\"type\":\"object\",\"properties\":{\"trace\":{\"type\":\"string\",\"description\":\"a pasted exception and its stack trace\"}},\"required\":[\"trace\"]}",
@@ -391,6 +422,9 @@ public final class StacktaleMcpServer {
             case "find_similar_errors" -> findSimilar(args.path("query").asText());
             case "errors_since_last_check" -> errorsSinceLastCheck(args.path("reset").asBoolean(false));
             case "repro_for" -> ToolResult.text(reproFor(args.path("id").asText()));
+            case "culprit_source" -> ToolResult.text(
+                    culpritSource(args.path("id").asText(), args.path("radius").asInt(12)));
+            case "tests_covering" -> ToolResult.text(testsCovering(args.path("id").asText()));
             case "match_report" -> ToolResult.text(matchReport(args.path("trace").asText()));
             default -> throw new IllegalArgumentException("unknown tool: " + name);
         };
@@ -442,6 +476,40 @@ public final class StacktaleMcpServer {
                 .findFirst()
                 .map(r -> ReproSkeleton.render(r.id(), r.block()))
                 .orElse("No report with id '" + id + "'. Use list_errors to see available ids.");
+    }
+
+    /**
+     * The code at the culprit line, read now rather than when the error was logged.
+     *
+     * <p>Sentry's frame model carries {@code pre_context}/{@code context_line}/{@code post_context}
+     * for the same reason: an agent reasons far better with the lines in hand than with a
+     * {@code file:line} it has to go and fetch.
+     */
+    private String culpritSource(String id, int radius) throws IOException {
+        return forCulprit(id, frame -> workspace.sourceAround(frame, Math.max(1, Math.min(radius, 200))));
+    }
+
+    private String testsCovering(String id) throws IOException {
+        return forCulprit(id, workspace::testsCovering);
+    }
+
+    /**
+     * Shared lookup for the two workspace tools. Both dead ends — no such report, no frame in it —
+     * are answers rather than failures: an error logged without a throwable genuinely has no
+     * culprit frame, and a tool call that errors leaves the agent with nothing to do next.
+     */
+    private String forCulprit(String id, java.util.function.Function<Workspace.Frame, String> f)
+            throws IOException {
+        StReport report = reports.read().stream().filter(r -> r.id().equals(id)).findFirst().orElse(null);
+        if (report == null) {
+            return "No report with id '" + id + "'. Use list_errors to see available ids.";
+        }
+        Workspace.Frame frame = Workspace.culpritOf(report.block());
+        if (frame == null) {
+            return "Report #" + id + " has no culprit frame — it was logged without a throwable,"
+                    + " so there is no stack to point at. get_report has its message and story.";
+        }
+        return f.apply(frame);
     }
 
     private ToolResult errorsSince(String since) throws IOException {

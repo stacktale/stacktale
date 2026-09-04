@@ -4,7 +4,9 @@
 list them (`list_errors`), pull a full report (`get_report`), filter by time
 (`errors_since`), find similar past ones (`find_similar_errors`), **attach a pasted trace to
 its captured report** (`match_report`), **turn one into a reproduction test**
-(`repro_for`), and **loop on new errors until they're gone** (`errors_since_last_check`). With a subscription it's also **notified the moment a new error
+(`repro_for`), **read the source at the culprit line** (`culprit_source`), **ask whether any
+test names it** (`tests_covering`), and **loop on new errors until they're gone**
+(`errors_since_last_check`). With a subscription it's also **notified the moment a new error
 lands** instead of polling. It's a tiny read-only server that speaks
 [MCP](https://modelcontextprotocol.io) over stdio. No network, no writes.
 
@@ -67,6 +69,14 @@ The server reads one report file. Point it there with either:
 - the `STACKTALE_FILE` environment variable (cleaner in some client configs).
 
 If neither is set it defaults to `errors-ai.log` in the working directory.
+
+`culprit_source` and `tests_covering` read your **sources**, which is a different location:
+they search the working directory the client launched the server from. That is normally the
+project root, and normally the same place the default report path resolves against — but a
+client that starts elsewhere, or a log kept outside the project (`/var/log`, a container
+mount), makes the two diverge. Point them with `--workspace /path/to/project` or
+`STACKTALE_WORKSPACE`. Build output (`target`, `build`, `node_modules`, `.git`) is never
+searched: a copy of a source file there answers for the wrong tree.
 
 ## Client setup
 
@@ -135,6 +145,19 @@ Once wired up, ask your assistant:
 > *Have we seen this NPE before?* — it calls `find_similar_errors`.
 > *[paste a stack trace] — what does stacktale have on this?* — it calls `match_report`.
 > *Write me a test that reproduces #c73cf755* — it calls `repro_for`.
+> *Show me the code that failed* — it calls `culprit_source`.
+> *Is this path tested at all?* — it calls `tests_covering`.
+
+`culprit_source` and `tests_covering` read the **working tree**, not the log. Source code is
+deliberately not in `errors-ai.log`: that file is gitignored, redacted, uploaded to CI
+artifacts, pasted into PR comments and sized for tokens. It is also stale — during a fix loop
+the current source is the only correct answer, and the log may be days old. Both degrade with
+an explanation when the frame names a file this tree does not have (a dependency, generated
+code, another service sharing the log).
+
+`tests_covering` is a name match rather than coverage, and says so in its own answer. The
+valuable reply is the negative one: nothing naming the failing method means writing a
+reproduction test rather than hunting for one that does not exist.
 
 `repro_for` answers with a JUnit skeleton built from the report's `repro:` seed: the throw
 site's class, its method, the declared parameter types and the values the call was given. It
