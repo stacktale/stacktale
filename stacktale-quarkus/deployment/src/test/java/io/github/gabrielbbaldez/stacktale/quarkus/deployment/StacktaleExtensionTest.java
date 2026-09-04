@@ -26,7 +26,9 @@ class StacktaleExtensionTest {
             .overrideConfigKey("stacktale.file", REPORT.toString())
             .overrideConfigKey("stacktale.truncate-on-start", "true")
             .overrideConfigKey("stacktale.app-packages", "io.github.gabrielbbaldez.stacktale.quarkus")
-            .overrideConfigKey("stacktale.repro", "true");
+            .overrideConfigKey("stacktale.repro", "true")
+            .overrideConfigKey("quarkus.application.name", "checkout-api")
+            .overrideConfigKey("quarkus.application.version", "9.9.9");
 
     @jakarta.inject.Inject
     StacktaleConfig config;
@@ -41,6 +43,22 @@ class StacktaleExtensionTest {
         assertContains(report, "IllegalStateException");
         assertContains(report, "customer cache returned null");
         assertContains(report, "← YOUR CODE");
+    }
+
+    /**
+     * Which service is on fire is the first thing on the {@code env:} line, and it read
+     * {@code app=?} for every Quarkus application: the extension never asked, and the two
+     * fallbacks EnvCollector has are a Spring Boot artifact (build-info.properties) and a
+     * system property nobody sets. Quarkus fixes {@code quarkus.application.*} at build time,
+     * so the values come from {@code ApplicationInfoBuildItem} rather than a config read at
+     * startup — same as the deduced app packages beside them.
+     */
+    @Test
+    void theEnvLineNamesTheQuarkusApplication() throws Exception {
+        Logger.getLogger(StacktaleExtensionTest.class.getName())
+                .log(Level.SEVERE, "Failed to price order 1001", new IllegalStateException("no rate"));
+
+        assertContains(awaitReport(), "app=checkout-api 9.9.9");
     }
 
     /**

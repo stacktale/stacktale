@@ -39,7 +39,7 @@ public class StacktaleRecorder {
         this.config = config;
     }
 
-    public void install(List<String> deducedAppPackages) {
+    public void install(List<String> deducedAppPackages, String appName, String appVersion) {
         StacktaleConfig config = this.config.getValue();
         if (!config.enabled()) {
             return;
@@ -52,6 +52,12 @@ public class StacktaleRecorder {
 
         ReportPipeline.Settings settings = ReportPipeline.Settings.builder()
                 .appPackages(appPackages)
+                // Resolved at build time from quarkus.application.*, which Quarkus fixes at
+                // build time anyway. Without them every report read `env: app=?`, because the
+                // fallbacks EnvCollector has are a Spring Boot artifact (build-info.properties)
+                // and a system property nobody sets.
+                .appName(appName)
+                .appVersion(appVersion)
                 .file(config.file())
                 .storySize(config.storySize())
                 .storyWindowMillis(config.storyWindowSeconds() * 1000L)
