@@ -9,6 +9,16 @@ and pinned by golden-file tests.
 
 ### Added
 
+- **stacktale's own counters, and Micrometer meters for them.** An error reporter is the one
+  component whose failure is invisible by construction: the way it would tell you something
+  broke is the thing that broke. `ReportPipeline.stats()` — reachable as `stats()` on the
+  Logback, Log4j2 and JUL adapters — reports what was written, what dedup and the rate limit
+  held back, how many throwables the never-throw guarantee swallowed, how often the file
+  rotated, and two states. **`parked` is the one to alert on**: after repeated write failures
+  the pipeline stops producing for the rest of the run, and until now the only trace was a
+  single warning at the moment it happened. The Spring starter publishes all of it as
+  `stacktale.*` meters when Micrometer is on the classpath, and costs nothing when it is not.
+  Every increment is on the error path, so the cheap happy path is untouched. (#96)
 - **MCP: `audit_redaction` checks the file before you share it.** Redaction masks what it can
   recognise by context — `password=…`, a JSON `"token"` member, `Authorization: Bearer …`, a
   long hex run — so a credential sitting in an ordinary log sentence has nothing around it to

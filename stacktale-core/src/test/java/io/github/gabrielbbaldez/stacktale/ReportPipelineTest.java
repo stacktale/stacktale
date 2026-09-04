@@ -272,6 +272,58 @@ class ReportPipelineTest {
         assertThat(f.summaryCount()).isGreaterThan(summariesBeforeClose);
     }
 
+    /**
+     * The counters have to agree with the file, or they are a second story about the same run.
+     * Asserted side by side with the block counts for exactly that reason.
+     */
+    @Test
+    void statsCountWhatReachedTheFileAndWhatDidNot(@TempDir Path dir) {
+        Fixture f = fixture(dir, 1); // one full report per window
+
+        f.pipeline().process(error("alpha", f.clock().get()));  // ALLOW -> written
+        f.pipeline().process(error("alpha", f.clock().get()));  // repeat -> summary
+        f.pipeline().process(error("beta", f.clock().get()));   // over limit -> STORM_LINE
+        f.pipeline().process(error("gamma", f.clock().get()));  // over limit -> SUPPRESS
+
+        ReportPipeline.Stats stats = f.pipeline().stats();
+
+        assertThat(stats.active()).isTrue();
+        assertThat(stats.parked()).isFalse();
+        assertThat(stats.reportsWritten()).isEqualTo(f.reportCount());
+        assertThat(stats.summariesWritten()).isEqualTo(f.summaryCount());
+        // two errors happened and produced no report of their own — the number a report file
+        // cannot tell you, and the reason these counters exist
+        assertThat(stats.stormSuppressed()).isEqualTo(2);
+        assertThat(stats.failures()).isZero();
+    }
+
+    /**
+     * The state worth alarming on. A parked pipeline has stopped reporting for the rest of the
+     * run, and the only other trace is one warning at the moment it happened.
+     */
+    @Test
+    void statsReportParkedOnceThePipelineHasGivenUp(@TempDir Path dir) {
+        Fixture f = fixture(dir, 0);
+
+        f.pipeline().process(error("alpha", f.clock().get()));
+        assertThat(f.pipeline().stats().parked()).isFalse();
+
+        try {
+            Files.delete(f.file());
+            Files.createDirectory(f.file()); // every append from here fails
+        } catch (java.io.IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        for (int i = 0; i < 6; i++) {
+            f.pipeline().process(error("failure" + i, f.clock().get()));
+        }
+
+        ReportPipeline.Stats stats = f.pipeline().stats();
+        assertThat(stats.parked()).isTrue();
+        assertThat(stats.failures()).isGreaterThanOrEqualTo(5);
+        assertThat(stats.reportsWritten()).isEqualTo(1); // only the one from before the breakage
+    }
+
     @Test
     void processNeverThrowsAndParksAfterRepeatedWriteFailures(@TempDir Path dir) {
         Fixture f = fixture(dir, 0);

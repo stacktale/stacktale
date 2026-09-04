@@ -205,6 +205,25 @@ public final class ReportPipeline {
             new java.util.concurrent.atomic.AtomicInteger();
     private volatile boolean parked;
     private final AtomicBoolean announced = new AtomicBoolean();
+
+    /**
+     * stacktale's own counters (#96). Ops has no other way to answer "is it running, and is it
+     * still writing?" — a pipeline that never throws is also a pipeline that fails quietly.
+     *
+     * <p>Every increment is on the error path. A non-error event returns before the first of
+     * them, so the cheap happy path stays exactly as cheap; an atomic add against a report that
+     * already cost a distill, a render and a write is not measurable.
+     */
+    private final java.util.concurrent.atomic.AtomicLong reportsWritten =
+            new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong summariesWritten =
+            new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong dedupSuppressed =
+            new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong stormSuppressed =
+            new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong failures =
+            new java.util.concurrent.atomic.AtomicLong();
     /**
      * When a logical thread last produced a full report — used to suppress container echoes.
      * Keyed by the event's thread NAME (not the physical thread) so it stays correct under
@@ -284,6 +303,39 @@ public final class ReportPipeline {
     }
 
     /**
+     * A snapshot of what this pipeline has done, for health checks and metrics (#96).
+     *
+     * <p>{@code parked} is the one to alarm on. After repeated write failures the pipeline stops
+     * producing for the rest of the run — deliberately, so a dead destination cannot burn the
+     * application's CPU forever — and until now the only trace was one warning at the moment it
+     * happened. An error-reporting tool that has silently stopped reporting is the failure this
+     * is here to make visible.
+     *
+     * <p>{@code dedupSuppressed} counts occurrences held back by the dedup window, {@code
+     * stormSuppressed} those the rate limit dropped: both are errors that happened and were not
+     * written, and a report file is misread without them.
+     *
+     * @param active false when configuration was broken at startup and this is a no-op
+     */
+    public record Stats(
+            boolean active,
+            boolean parked,
+            long reportsWritten,
+            long summariesWritten,
+            long dedupSuppressed,
+            long stormSuppressed,
+            long failures,
+            long rotations
+    ) {}
+
+    /** Counters as of now; cheap enough to call from a metrics scrape. */
+    public Stats stats() {
+        return new Stats(isActive(), parked, reportsWritten.get(), summariesWritten.get(),
+                dedupSuppressed.get(), stormSuppressed.get(), failures.get(),
+                writer == null ? 0L : writer.rotations());
+    }
+
+    /**
      * The report file as an absolute path, for every line a human reads.
      *
      * <p>The configured value is normally relative ({@code errors-ai.log}), and it resolves
@@ -338,6 +390,7 @@ public final class ReportPipeline {
                     StormLimiter.Outcome storm = stormLimiter.onReport();
                     if (storm.action() == StormLimiter.Action.SUPPRESS) {
                         deduper.rollback(fingerprint); // #51: report not written — re-arm a fresh one
+                        stormSuppressed.incrementAndGet();
                         return;
                     }
                     if (storm.action() == StormLimiter.Action.STORM_LINE) {
@@ -345,6 +398,7 @@ public final class ReportPipeline {
                             writer.append(renderer.stormLine(storm.suppressed(), stormLimiter.maxPerWindow()));
                             stormLimiter.confirmStormLine(storm.suppressed()); // #57: clear only once written
                         } finally {
+                            stormSuppressed.incrementAndGet(); // this error's report was dropped too
                             // #51: this error's own report was never written — and that is true
                             // whether or not the storm line itself made it. The rollback used to
                             // sit after the append, so a failure here skipped it and left
@@ -379,6 +433,7 @@ public final class ReportPipeline {
                     }
                     // past this point the report is on disk: a failing shipper must not
                     // undo dedup state (that would duplicate the next occurrence's report)
+                    reportsWritten.incrementAndGet();
                     deduper.confirmReport(fingerprint); // #51: clears the retry flag now it's written
                     String reportedOn = ThreadKey.of(event);
                     if (reportedOn != null) {
@@ -394,11 +449,13 @@ public final class ReportPipeline {
                     // only now is the count durably on file; a failed append above throws
                     // to the outer catch and leaves it pending for close()'s drainPending()
                     deduper.confirmWritten(fingerprint, decision.count());
+                    summariesWritten.incrementAndGet();
                 }
-                case SILENT -> { /* counted; nothing to write */ }
+                case SILENT -> dedupSuppressed.incrementAndGet(); // counted; nothing to write
             }
             consecutiveFailures.set(0); // the write path is healthy again
         } catch (Throwable t) {
+            this.failures.incrementAndGet();
             int failures = consecutiveFailures.incrementAndGet();
             if (warnedOnce.compareAndSet(false, true)) {
                 host.warn("stacktale failed to process an event", t);

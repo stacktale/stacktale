@@ -294,6 +294,18 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
         return Csv.parse(s);
     }
 
+    /**
+     * stacktale's own counters, or {@code null} before the appender has started (#96).
+     *
+     * <p>The one to watch is {@code parked}: after repeated write failures the pipeline stops
+     * producing for the rest of the run, and an error reporter that has quietly stopped
+     * reporting is exactly the failure worth an alarm.
+     */
+    public ReportPipeline.Stats stats() {
+        ReportPipeline p = this.pipeline;
+        return p == null ? null : p.stats();
+    }
+
     // --- Logback config setters ---
 
     public void setFile(String file) { this.file = file; }

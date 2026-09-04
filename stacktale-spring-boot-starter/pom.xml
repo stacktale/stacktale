@@ -47,6 +47,16 @@
       <artifactId>spring-boot-configuration-processor</artifactId>
       <optional>true</optional>
     </dependency>
+    <!--
+      Optional on purpose: the metrics binder is @ConditionalOnClass(MeterRegistry), so an
+      application without Micrometer never sees it and never pays for it. Version comes from
+      the Spring Boot BOM, so it moves with the user's Boot version rather than with ours.
+    -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+      <optional>true</optional>
+    </dependency>
     <dependency>
       <groupId>jakarta.servlet</groupId>
       <artifactId>jakarta.servlet-api</artifactId>

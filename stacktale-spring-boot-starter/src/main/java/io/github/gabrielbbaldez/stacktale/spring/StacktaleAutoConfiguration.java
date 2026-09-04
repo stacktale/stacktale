@@ -151,6 +151,27 @@ public class StacktaleAutoConfiguration {
      * {@code startsOnAReactiveAppWithNoServletApi}) — this is removing the hazard, not
      * chasing a reproduction.
      */
+    /**
+     * stacktale's own counters as Micrometer meters (#96), when Micrometer is present.
+     *
+     * <p>Nested behind a class-level condition, like the filter below. Unlike that one this is a
+     * precaution rather than a fix for an observed failure: a method-level
+     * {@code @ConditionalOnClass} on a bean returning {@code MeterBinder} also starts cleanly
+     * without Micrometer on the classpath — I flattened it and the tests stayed green. Spring
+     * reads bean metadata with ASM and never loads the return type, so nothing forces the class.
+     * The nesting keeps the two optional integrations shaped the same way and does not depend on
+     * that remaining true.
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(io.micrometer.core.instrument.MeterRegistry.class)
+    static class MetricsConfiguration {
+
+        @Bean
+        public io.micrometer.core.instrument.binder.MeterBinder stacktaleMetrics(StacktaleAppender appender) {
+            return new StacktaleMetrics(appender);
+        }
+    }
+
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(jakarta.servlet.Filter.class)
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)

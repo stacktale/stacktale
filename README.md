@@ -564,6 +564,14 @@ a subscription that pushes a notification the moment a new error lands. No netwo
 writes. Per-client setup (Claude Code, Claude Desktop, Cursor) and the loop recipe in
 [docs/mcp-setup.md](docs/mcp-setup.md).
 
+**Is it working?** `stacktale.*` Micrometer meters answer that when Micrometer is on the
+classpath (nothing to configure, nothing to pay without it): reports and summaries written,
+occurrences held back by dedup and by the rate limit, throwables swallowed on the report path,
+file rotations, and two states. Alert on **`stacktale.parked`** — after repeated write failures
+the pipeline stops producing for the rest of the run, and an error reporter that has quietly
+stopped reporting is the failure that hides itself. Outside Spring, the same numbers come from
+`appender.stats()`.
+
 Shipping to aggregators instead? Set `emitReportsToLogger=true` and each report block is
 also emitted as ONE log event through logger `stacktale.reports` — attach your existing
 Loki/ELK/CloudWatch shipper to that logger and production reports reach your incident
