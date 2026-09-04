@@ -60,6 +60,14 @@ public interface StacktaleConfig {
     @WithDefault("true")
     boolean captureExceptionFields();
 
+    /**
+     * Add a {@code repro:} seed — the throw site's typed signature and argument values. Needs
+     * {@code stacktale-agent} on the command line; without it the seed resolves to nothing and
+     * the section is simply absent.
+     */
+    @WithDefault("false")
+    boolean repro();
+
     /** Redact secrets (tokens, passwords, emails, …) from reports. */
     @WithDefault("true")
     boolean redactionEnabled();

@@ -48,6 +48,7 @@ class StacktaleAutoConfigurationTest {
                 "stacktale.file=target/props-test.log",
                 "stacktale.max-reports-per-minute=42",
                 "stacktale.story-size=7",
+                "stacktale.repro=true",
                 "stacktale.emit-reports-to-logger=true").run(context -> {
             io.github.gabrielbbaldez.stacktale.spring.StacktaleProperties props =
                     context.getBean(io.github.gabrielbbaldez.stacktale.spring.StacktaleProperties.class);
@@ -55,7 +56,28 @@ class StacktaleAutoConfigurationTest {
             assertThat(props.getStorySize()).isEqualTo(7);
             assertThat(props.isEmitReportsToLogger()).isTrue();
             assertThat(context).hasSingleBean(StacktaleAppender.class);
+
+            // The name promises the appender but the assertions above stop at the properties
+            // bean, so a property that binds and is then never passed on reads as covered.
+            // That is precisely how `repro` stayed a no-op for starter users: declared in the
+            // table, absent from this class AND from the wiring below it.
+            assertThat(appenderFlag(context.getBean(StacktaleAppender.class), "repro"))
+                    .withFailMessage("stacktale.repro bound but never reached the appender — "
+                            + "the setter call is missing from StacktaleAutoConfiguration")
+                    .isTrue();
         });
+    }
+
+    /**
+     * The appender is a Logback config object: setters only, no getters, and in another
+     * package. Reading the field is the only way to assert a knob arrived, and it is worth the
+     * reflection — the alternative is asserting on behaviour, which for an opt-in extra like
+     * {@code repro} means attaching stacktale-agent to the test JVM.
+     */
+    private static boolean appenderFlag(StacktaleAppender appender, String field) throws Exception {
+        java.lang.reflect.Field f = StacktaleAppender.class.getDeclaredField(field);
+        f.setAccessible(true);
+        return f.getBoolean(appender);
     }
 
     @Test

@@ -5,6 +5,27 @@ All notable changes to stacktale are documented here. The format follows
 [SemVer](https://semver.org/). The report format (`st/1`) is versioned independently
 and pinned by golden-file tests.
 
+## [Unreleased]
+
+### Fixed
+
+- **`repro` could not be turned on from Logback, the Spring Boot starter or Quarkus.** The
+  configuration table offers it "as appender properties in `logback.xml`, or `stacktale.*` in
+  `application.yml`", and only Log4j2 and JUL ever read it: the Logback appender held the
+  field and passed it to the builder but had no setter, the starter drives that appender and
+  had no property, and the Quarkus mapping had no method. All three fail silently — Joran logs
+  `Ignoring unknown property [repro]`, `@ConfigurationProperties` drops unknown fields, Quarkus
+  warns and starts — so the knob looked set and the `repro:` section simply never appeared.
+  (#210)
+
+### Changed
+
+- The tests that guard those three surfaces now fail when a knob stops arriving, rather than
+  when it stops binding. `everyPropertyReachesTheAppender` asserted on the properties bean, so
+  a value that bound and was then never passed to the appender read as covered — which is the
+  exact shape of the bug above. `LogbackXmlConfigTest` also picks up `appName` and `appVersion`,
+  settable since #150 and named in no test in the module. (#210)
+
 ## [1.3.1] — 2026-09-03
 
 ### Fixed

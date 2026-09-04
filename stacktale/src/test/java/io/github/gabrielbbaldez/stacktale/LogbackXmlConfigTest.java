@@ -37,6 +37,8 @@ class LogbackXmlConfigTest {
                 <configuration>
                   <appender name="STACKTALE" class="io.github.gabrielbbaldez.stacktale.logback.StacktaleAppender">
                     <file>%s</file>
+                    <appName>checkout-api</appName>
+                    <appVersion>9.9.9</appVersion>
                     <appPackages>com.acme</appPackages>
                     <storySize>10</storySize>
                     <storyWindowSeconds>30</storyWindowSeconds>
@@ -47,6 +49,7 @@ class LogbackXmlConfigTest {
                     <installUncaughtHandler>false</installUncaughtHandler>
                     <reportErrorsWithoutThrowable>true</reportErrorsWithoutThrowable>
                     <captureExceptionFields>true</captureExceptionFields>
+                    <repro>true</repro>
                     <redactionEnabled>true</redactionEnabled>
                     <redactPattern>BR\\d{2}-\\d{4}</redactPattern>
                     <redactionCorrelation>true</redactionCorrelation>
@@ -82,6 +85,13 @@ class LogbackXmlConfigTest {
         assertThat(content).contains("IllegalStateException: gateway timeout");
         assertThat(content).contains("charging card for order 42");   // story flowed through XML config too
         assertThat(content).contains("← YOUR CODE");                  // appPackages applied
+        assertThat(content).contains("app=checkout-api 9.9.9");        // appName + appVersion reached EnvCollector
+
+        // `repro` is in the block above for the binding check, and there is nothing further to
+        // assert here: the seed comes from stacktale-agent, and with no agent attached it
+        // resolves to null and the section is correctly absent. What must not happen is a
+        // *report* — the knob is opt-in extra content, not a switch that can suppress one.
+        assertThat(content).contains("ERROR #");
     }
 
     /**
