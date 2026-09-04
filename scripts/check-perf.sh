@@ -86,7 +86,16 @@ build "." "head"
 build "$base_tree" "base"
 
 # One classpath of third-party jars, from the head build, shared by both arms.
-mvn -q -B -pl stacktale dependency:build-classpath -Dmdep.outputFile="$work/cp.txt" -DincludeScope=runtime
+#
+# Resolved inside the same reactor run as the build (`-am`) rather than as a standalone
+# invocation: on a clean machine stacktale-core:<version>-SNAPSHOT is not in the local
+# repository, and a standalone goal has no reactor to find it in. That passes on a developer
+# machine, where an earlier `install` left it there, and fails on a fresh runner — which is
+# where it did fail.
+#
+# Our own artifacts are excluded, so `deps` is third-party only and cannot shadow the arm
+# being measured.
+mvn -q -B -pl stacktale -am -DskipTests package     dependency:build-classpath     -Dmdep.outputFile="$work/cp.txt"     -DincludeScope=runtime     -DexcludeGroupIds=io.github.gabrielbbaldez
 deps="$(cat "$work/cp.txt")"
 
 # The probe is compiled once, from the head checkout, and run against both. It uses only
