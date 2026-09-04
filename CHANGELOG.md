@@ -9,6 +9,16 @@ and pinned by golden-file tests.
 
 ### Added
 
+- **MCP: `audit_redaction` checks the file before you share it.** Redaction masks what it can
+  recognise by context — `password=…`, a JSON `"token"` member, `Authorization: Bearer …`, a
+  long hex run — so a credential sitting in an ordinary log sentence has nothing around it to
+  recognise and travels intact. Measured against the current redactor, six of eight prefixed
+  vendor credentials pass through when no keyword is beside them. This scans every report for
+  those shapes (AWS, GitHub, Stripe, Slack, Google, JWTs, private-key blocks, Authorization
+  headers) and reports the id and the line — **never the value**, since the answer goes into an
+  assistant's context and a transcript, and quoting the secret would move it somewhere new. A
+  file with nothing masked anywhere is called out too: that reads the same whether nothing
+  sensitive was logged or redaction is switched off. (#95)
 - **MCP: `culprit_source(id, radius)` and `tests_covering(id)` read the working tree.** The
   report says which line failed; the first says what is on it, with the lines around it and the
   culprit marked. Source code is deliberately not in `errors-ai.log` — that file is gitignored,

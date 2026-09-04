@@ -43,6 +43,10 @@ changed.
 - `match_report` — the user pasted a bare stack trace: this finds the captured report for
   it, with the story and values the paste is missing. Reach for it whenever a trace arrives
   without context.
+- `audit_redaction` — before you paste a report anywhere, or attach `errors-ai.log` to a
+  ticket or a PR, run this. It scans for credential shapes redaction did not mask and answers
+  with the report and line, never the value. Treat a hit as a leak that already happened: the
+  value has been on disk, so the fix is to rotate it, not only to add a pattern.
 - `culprit_source` — the code at the culprit line, read from the working tree rather than the
   log. Reach for it before proposing a fix: the report tells you which line failed, this tells
   you what is on it, and it is current where the log may be days old.
