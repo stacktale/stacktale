@@ -9,6 +9,17 @@ and pinned by golden-file tests.
 
 ### Added
 
+- **`first seen: NEW in this build (7e3c1f)` — deploy provenance.** The first question of any
+  triage is whether the change just shipped caused the failure, and a report could not answer
+  it: `seen:` is session-scoped and resets on restart, and the `env:` line names the build the
+  error happened *on*, never the build it started on. With `provenance=true`, stacktale keeps a
+  bounded `<report file>.seen` sidecar recording which build each error id was first seen on,
+  and leads with `NEW in this build` or `build 9a2b1c, 2 builds ago`. Strictly local — no
+  network, no account — and it works at all only because the report id already survives edits to
+  the source. Off by default, since it writes a second file. Missing, corrupt or unwritable, the
+  sidecar costs that one line and nothing else; the count of builds is omitted rather than
+  invented when the first build has been evicted. In `st-json/1` as `firstSeen`, with
+  `newInThisBuild` as a boolean so a dashboard never matches on English. (#137)
 - **stacktale's own counters, and Micrometer meters for them.** An error reporter is the one
   component whose failure is invisible by construction: the way it would tell you something
   broke is the thing that broke. `ReportPipeline.stats()` — reachable as `stats()` on the

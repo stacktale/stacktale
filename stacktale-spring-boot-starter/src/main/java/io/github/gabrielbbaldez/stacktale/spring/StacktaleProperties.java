@@ -49,6 +49,9 @@ public class StacktaleProperties {
     /** Add a repro: seed — the throw site's typed signature and argument values. Needs stacktale-agent. */
     private boolean repro = false;
 
+    /** Remember across restarts which build each error was first seen on, for a first seen: line. */
+    private boolean provenance = false;
+
     /** Mask secrets/PII (JWTs, bearer tokens, key=value secrets, emails, cards). */
     private boolean redactionEnabled = true;
 
@@ -111,6 +114,8 @@ public class StacktaleProperties {
     public void setCaptureExceptionFields(boolean captureExceptionFields) { this.captureExceptionFields = captureExceptionFields; }
     public boolean isRepro() { return repro; }
     public void setRepro(boolean repro) { this.repro = repro; }
+    public boolean isProvenance() { return provenance; }
+    public void setProvenance(boolean provenance) { this.provenance = provenance; }
     public boolean isRedactionEnabled() { return redactionEnabled; }
     public void setRedactionEnabled(boolean redactionEnabled) { this.redactionEnabled = redactionEnabled; }
     public List<String> getRedactPatterns() { return redactPatterns; }

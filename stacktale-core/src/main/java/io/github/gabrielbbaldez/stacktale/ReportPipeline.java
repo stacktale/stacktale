@@ -41,6 +41,7 @@ public final class ReportPipeline {
             boolean reportErrorsWithoutThrowable,
             boolean captureExceptionFields,
             boolean repro,
+            boolean provenance,
             boolean redactionEnabled,
             List<Pattern> redactPatterns,
             boolean redactionCorrelation,
@@ -109,6 +110,14 @@ public final class ReportPipeline {
              * a bigger privacy surface than the rest of a report put together.
              */
             private boolean repro = false;
+            /**
+             * Remember, across restarts, which build each error id was first seen on (#137).
+             *
+             * <p>Off by default because it writes a second file — {@code <report file>.seen}
+             * beside the log — and a deployment that has decided exactly what its process may
+             * write should opt in rather than discover it.
+             */
+            private boolean provenance = false;
             private boolean redactionEnabled = true;
             private List<Pattern> redactPatterns = List.of();
             private boolean redactionCorrelation = false;
@@ -140,6 +149,8 @@ public final class ReportPipeline {
             public Builder reportErrorsWithoutThrowable(boolean v) { this.reportErrorsWithoutThrowable = v; return this; }
             public Builder captureExceptionFields(boolean v) { this.captureExceptionFields = v; return this; }
             public Builder repro(boolean v) { this.repro = v; return this; }
+
+            public Builder provenance(boolean v) { this.provenance = v; return this; }
             public Builder redactionEnabled(boolean v) { this.redactionEnabled = v; return this; }
             public Builder redactPatterns(List<Pattern> v) { this.redactPatterns = v; return this; }
             public Builder redactionCorrelation(boolean v) { this.redactionCorrelation = v; return this; }
@@ -154,7 +165,7 @@ public final class ReportPipeline {
             public Settings build() {
                 return new Settings(file, appName,appVersion,appPackages, storySize, storyWindowMillis, dedupWindowMillis,
                         maxFileBytes, maxBackups, truncateOnStart, reportErrorsWithoutThrowable,
-                        captureExceptionFields, repro, redactionEnabled, redactPatterns, redactionCorrelation,
+                        captureExceptionFields, repro, provenance, redactionEnabled, redactPatterns, redactionCorrelation,
                         correlationMdcKeys, zone,
                         echoSuppressionMillis, containerLoggers, emitReportsToLogger, maxReportsPerMinute,
                         jsonFormat);
@@ -187,6 +198,8 @@ public final class ReportPipeline {
     private final EnvCollector env;
     private final Renderer renderer;
     private final ReportWriter writer; // null = broken config, pipeline is a no-op
+    /** Cross-restart memory of which build each id started on; null when provenance is off (#137). */
+    private final SeenStore seen;
     private final AtomicBoolean warnedOnce = new AtomicBoolean();
     private volatile String absolutePath;
 
@@ -257,6 +270,20 @@ public final class ReportPipeline {
         this.env = new EnvCollector(Thread.currentThread().getContextClassLoader(),
                 settings.appName(),
                 settings.appVersion());
+        // Opened once, at construction: the sidecar is read from disk, and doing that on the
+        // first error would put file I/O inside the first failing request.
+        SeenStore store = null;
+        if (settings.provenance() && writer != null) {
+            try {
+                store = SeenStore.open(Path.of(settings.file()), env.buildId(), host::warn);
+                if (store != null) {
+                    store.noteBuild(clock.getAsLong());
+                }
+            } catch (Throwable t) {
+                store = null; // enrichment: a broken sidecar costs the provenance line, nothing else
+            }
+        }
+        this.seen = store;
     }
 
     /** Never throws: a broken configuration produces a warned, no-op pipeline. */
@@ -422,7 +449,8 @@ public final class ReportPipeline {
                                 // resolved only when asked for: the seed costs a reflective
                                 // call and carries argument values, so an app that has not
                                 // opted in never materialises one
-                                settings.repro() ? AgentCaptures.seedFor(throwable) : null);
+                                settings.repro() ? AgentCaptures.seedFor(throwable) : null,
+                                seen == null ? null : seen.record(fingerprint, event.epochMillis()));
                         rendered = renderer.render(report);
                         writer.append(rendered);
                     } catch (Throwable t) {

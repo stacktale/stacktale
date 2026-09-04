@@ -68,6 +68,7 @@ public class StacktaleRecorder {
                 .reportErrorsWithoutThrowable(config.reportErrorsWithoutThrowable())
                 .captureExceptionFields(config.captureExceptionFields())
                 .repro(config.repro())
+                .provenance(config.provenance())
                 .redactionEnabled(config.redactionEnabled())
                 .redactPatterns(compilePatterns(config.redactPatterns().orElse(List.of())))
                 .redactionCorrelation(config.redactionCorrelation())

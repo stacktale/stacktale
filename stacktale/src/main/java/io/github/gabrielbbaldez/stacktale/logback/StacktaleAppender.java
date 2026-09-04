@@ -45,6 +45,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
     private boolean reportErrorsWithoutThrowable = true;
     private boolean captureExceptionFields = true;
     private boolean repro = false;
+    private boolean provenance = false;
     private boolean redactionEnabled = true;
     private final List<String> redactPatterns = new java.util.ArrayList<>();
     private boolean redactionCorrelation = false;
@@ -103,6 +104,7 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
                 .reportErrorsWithoutThrowable(reportErrorsWithoutThrowable)
                 .captureExceptionFields(captureExceptionFields)
                 .repro(repro)
+                .provenance(provenance)
                 .redactionEnabled(redactionEnabled)
                 .redactPatterns(compiled)
                 .redactionCorrelation(redactionCorrelation)
@@ -343,6 +345,13 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
      * to nothing and the section is simply absent.
      */
     public void setRepro(boolean repro) { this.repro = repro; }
+
+    /**
+     * Opt-in: remember across restarts which build each error was first seen on, so a report
+     * can say whether the error is new in the build now running. Writes a sibling file next
+     * to the log; nothing leaves the machine.
+     */
+    public void setProvenance(boolean provenance) { this.provenance = provenance; }
 
     public void setRedactionEnabled(boolean redactionEnabled) { this.redactionEnabled = redactionEnabled; }
 
