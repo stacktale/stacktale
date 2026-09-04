@@ -19,6 +19,69 @@ class RedactorTest {
                 .isEqualTo("apiKey: ███");
     }
 
+    /**
+     * Every other rule needs context — a keyword before the value, a scheme word, a quoted JSON
+     * member. These six are the ones that used to travel intact when a log line simply mentioned
+     * them, which is how a credential reached a file that gets attached to tickets and CI
+     * artifacts (#221). Written as whole sentences on purpose: the failing case was never
+     * `key=<secret>`, it was the secret inside prose.
+     */
+    @Test
+    void masksVendorCredentialsWithNoKeywordBesideThem() {
+        assertThat(redactor.redact("upload failed for bucket orders, key AKIAIOSFODNN7EXAMPLE rejected"))
+                .isEqualTo("upload failed for bucket orders, key ███ rejected");
+        assertThat(redactor.redact("clone failed: ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789 is expired"))
+                .isEqualTo("clone failed: ███ is expired");
+        assertThat(redactor.redact("openai call failed with sk-proj-abcdefghijklmnopqrstuvwxyz012345"))
+                .isEqualTo("openai call failed with ███");
+        assertThat(redactor.redact("charge failed key sk_live_abcdefghijklmnop1234"))
+                .isEqualTo("charge failed key ███");
+        assertThat(redactor.redact("slack post failed xoxb-1234567890-abcdefghijkl"))
+                .isEqualTo("slack post failed ███");
+        // a Google key is AIza + 35; the pattern takes a longer run too, so no tail is left
+        // sitting next to a ███ looking masked
+        assertThat(redactor.redact("maps lookup failed AIzaSyD-abcdefghijklmnopqrstuvwxyz01234567"))
+                .isEqualTo("maps lookup failed ███");
+    }
+
+    /**
+     * A redactor that eats class names is worse than one that misses a token: reports are mostly
+     * stack frames and identifiers, and a mask over one of those destroys the diagnosis while
+     * protecting nothing.
+     */
+    @Test
+    void leavesOrdinaryReportTextAlone() {
+        String[] ordinary = {
+                "at com.acme.shop.PaymentService.charge(PaymentService.java:118)",
+                "at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1072)",
+                "IllegalStateException: SKIPPED_VALIDATION for order 889",
+                "built from commit 7e3c1f2a9b (branch release/1.4.0)",
+                "checksum mismatch: expected AAAABBBBCCCCDDDD got EEEEFFFFGGGGHHHH",
+                "GET /api/v2/orders?status=SHIPPED&page=3 returned 502",
+        };
+        for (String line : ordinary) {
+            assertThat(redactor.redact(line))
+                    .withFailMessage("redacted ordinary report text: %s -> %s", line, redactor.redact(line))
+                    .isEqualTo(line);
+        }
+    }
+
+    /**
+     * The header is harmless; the bytes after it are the key. Masking the header alone would
+     * leave the key in the report under a line that looks handled.
+     */
+    @Test
+    void masksAPrivateKeyBlockToTheEndOfTheValue() {
+        String pem = "config load failed: -----BEGIN RSA PRIVATE KEY-----\n"
+                + "MIIEowIBAAKCAQEAxLd1qUvXm8pQ\nnB2fake+key+material+here\n"
+                + "-----END RSA PRIVATE KEY-----";
+
+        String redacted = redactor.redact(pem);
+
+        assertThat(redacted).isEqualTo("config load failed: ███");
+        assertThat(redacted).doesNotContain("MIIEow");
+    }
+
     @Test
     void masksBearerAndJwt() {
         assertThat(redactor.redact("header Authorization: Bearer abcdef1234567890TOKENVALUE"))

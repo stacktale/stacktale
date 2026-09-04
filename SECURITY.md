@@ -20,8 +20,11 @@ is **read-only** and speaks JSON-RPC over **stdio** — there is no network list
 **Redaction is on by default** — know its edges:
 
 - **Masks:** values of secret-named keys (including compound keys like `db.password`,
-  `x-api-key`), secret-*shaped* values (high-entropy tokens, `Bearer …`, private-key
-  blocks), and message arguments at positions your patterns mark.
+  `x-api-key`), secret-*shaped* values (`Bearer …`, JWTs, long hex runs, PEM private-key
+  blocks, and vendor-prefixed API keys — AWS, GitHub, OpenAI, Stripe, Slack, Google), and
+  message arguments at positions your patterns mark. The vendor prefixes matter because
+  everything else on this line needs a keyword or a scheme word beside the value; a key
+  named by nothing is caught by its own shape.
 - **Can't know:** a secret in an unusual shape under a benign name. Redaction is a strong
   default, not a guarantee.
 - **Harden it:** add your own `redactPattern`s; set `captureExceptionFields=false` to stop
@@ -29,7 +32,9 @@ is **read-only** and speaks JSON-RPC over **stdio** — there is no network list
   sensitive state); weigh `redactionCorrelation` (a keyed hash of masked values — see
   [docs/FORMAT.md](docs/FORMAT.md)) against your threat model.
 - **Verify before you trust it:** in **dev**, read `errors-ai.log` and confirm nothing
-  sensitive leaks before wiring it near prod. (A redaction self-audit tool is planned.)
+  sensitive leaks before wiring it near prod. The `audit_redaction` tool in `stacktale-mcp`
+  does the mechanical half — it scans the file for credential shapes and reports where,
+  never the value. Run it before attaching a report file to a ticket, a PR or a CI artifact.
 
 **What ends up in the file** (by design): the distilled exception chain, the log message and
 args, MDC, exception field values (unless disabled), the recent story of the same

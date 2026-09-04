@@ -195,7 +195,8 @@ itself on startup, and the file header explains the format to any AI that opens 
 
 > **Add `errors-ai.log*` to your `.gitignore`.** Reports carry MDC values, log arguments
 > and exception field values — everything stacktale captured at the moment of the error.
-> stacktale redacts common secrets by default (JWTs, bearer tokens, passwords — see
+> stacktale redacts common secrets by default (JWTs, bearer tokens, passwords, vendor API
+> keys — see
 > [SECURITY.md](SECURITY.md)), but the file is still request-scoped data and does not
 > belong in version control.
 
@@ -465,8 +466,9 @@ On the roadmap: an idiomatic starter for **Micronaut** (#81) — already usable 
 | restarts | `─── app start … ───` markers separate application runs |
 
 Everything user-controlled is **redacted by default** (JWTs, bearer tokens,
-`password=...` pairs, long hex secrets, emails, Luhn-valid card numbers) and flattened to
-one line per section. Uncaught exceptions (threads dying without any `log.error`) flow
+`password=...` pairs, long hex secrets, emails, Luhn-valid card numbers, and
+vendor-prefixed API keys — AWS, GitHub, OpenAI, Stripe, Slack, Google — plus PEM private
+key blocks) and flattened to one line per section. Uncaught exceptions (threads dying without any `log.error`) flow
 through the same pipeline.
 
 ## Performance (measured, JMH)

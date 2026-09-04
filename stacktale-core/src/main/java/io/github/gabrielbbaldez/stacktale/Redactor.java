@@ -68,6 +68,64 @@ final class Redactor {
             "(?i)\\b(bearer|basic)\\s+([A-Za-z0-9._~+/=-]{16,})");
     private static final Pattern JWT = Pattern.compile(
             "\\beyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{4,}\\b");
+    /**
+     * Credentials recognisable on their own, by the prefix the vendor put on them.
+     *
+     * <p>Every other rule here needs <em>context</em> — a keyword before the value, a scheme
+     * word, a quoted JSON member. A credential in an ordinary sentence has none:
+     * {@code "upload failed for key AKIAIOSFODNN7EXAMPLE"} is not {@code key=…}, not hex, not a
+     * JWT, and used to travel intact into a file that gets attached to tickets and CI artifacts
+     * (#221; `audit_redaction` in stacktale-mcp is what found it).
+     *
+     * <p>These are safe to mask on shape alone because the prefix is the evidence: {@code AKIA}
+     * followed by sixteen upper-alphanumerics is an AWS access key id and essentially nothing
+     * else. There is deliberately no entropy heuristic — on a file of stack traces that fires on
+     * class names, base64 payloads and hashes, and a redactor that eats class names is worse
+     * than one that misses a token.
+     *
+     * <p>One alternation rather than six patterns: one pass over the value, and {@code Pattern}
+     * can still pre-scan for the literal prefixes, so a value containing none of them is
+     * rejected without entering the machine.
+     */
+    private static final Pattern VENDOR_TOKEN = Pattern.compile(
+            "\\b(?:(?:AKIA|ASIA)[0-9A-Z]{16}"              // AWS access key id
+            + "|gh[pousr]_[A-Za-z0-9]{36,}"                 // GitHub token
+            + "|sk-(?:proj-)?[A-Za-z0-9_-]{20,}"            // OpenAI-style key
+            + "|(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}"   // Stripe secret key
+            + "|xox[baprs]-[A-Za-z0-9-]{10,}"               // Slack token
+            // {35,} rather than {35}: a Google key is 39 characters, but an exact count leaves
+            // the tail of anything longer sitting in the report next to a ███, which reads as
+            // masked and is not
+            + "|AIza[0-9A-Za-z_-]{35,})");                  // Google API key
+
+    /**
+     * A PEM private key, masked from its header to the end of the value.
+     *
+     * <p>Not just the header line: the header is harmless and the bytes after it are the key.
+     * Whatever else shares the value with a private key is not worth preserving, so this takes
+     * the remainder — including across newlines, since redaction runs before values are
+     * flattened to one line.
+     */
+    private static final Pattern PRIVATE_KEY_BLOCK = Pattern.compile(
+            "(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*");
+
+    /**
+     * Cheap gate in front of {@link #VENDOR_TOKEN}.
+     *
+     * <p>An alternation of six branches has no single required literal, so the engine tries
+     * every branch at every position of every value — and nearly every value in a report
+     * contains none of them. {@code indexOf} on a short literal is intrinsified and settles
+     * that in a fraction of the time. Each marker is chosen to be rare in ordinary text:
+     * {@code gh} would fire on "through" and "light", {@code ghp_} does not.
+     */
+    private static boolean mayCarryVendorToken(String s) {
+        return s.indexOf("AKIA") >= 0 || s.indexOf("ASIA") >= 0
+                || s.indexOf("ghp_") >= 0 || s.indexOf("gho_") >= 0 || s.indexOf("ghu_") >= 0
+                || s.indexOf("ghs_") >= 0 || s.indexOf("ghr_") >= 0
+                || s.indexOf("sk-") >= 0 || s.indexOf("sk_") >= 0 || s.indexOf("rk_") >= 0
+                || s.indexOf("xox") >= 0 || s.indexOf("AIza") >= 0;
+    }
+
     private static final Pattern LONG_HEX = Pattern.compile("\\b[0-9a-fA-F]{32,}\\b");
     private static final Pattern EMAIL = Pattern.compile(
             "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b");
@@ -127,7 +185,11 @@ final class Redactor {
         try {
             // specific before generic: KEY_VALUE would otherwise match "Authorization: Bearer"
             // and mask the word "Bearer" while leaving the token itself exposed
+            s = PRIVATE_KEY_BLOCK.matcher(s).replaceAll(m -> mask(m.group()));
             s = JWT.matcher(s).replaceAll(m -> mask(m.group()));
+            // before the context rules: those would mask `key=AKIA…` anyway, this one also
+            // catches the same token with nothing beside it
+            if (mayCarryVendorToken(s)) s = VENDOR_TOKEN.matcher(s).replaceAll(m -> mask(m.group()));
             s = BEARER_BASIC.matcher(s).replaceAll(m -> m.group(1) + " " + mask(m.group(2)));
             s = JSON_KEY_VALUE.matcher(s).replaceAll(
                     m -> '"' + m.group(1) + '"' + m.group(2) + '"' + mask(m.group(3)) + '"');
