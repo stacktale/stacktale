@@ -78,6 +78,17 @@ public final class StacktaleAppender extends AbstractAppender {
         return super.stop(timeout, timeUnit);
     }
 
+    /**
+     * stacktale's own counters (#96).
+     *
+     * <p>The one to watch is {@code parked}: after repeated write failures the pipeline stops
+     * producing for the rest of the run, and an error reporter that has quietly stopped
+     * reporting is exactly the failure worth an alarm.
+     */
+    public ReportPipeline.Stats stats() {
+        return pipeline.stats();
+    }
+
     @Override
     public void append(LogEvent event) {
         try {

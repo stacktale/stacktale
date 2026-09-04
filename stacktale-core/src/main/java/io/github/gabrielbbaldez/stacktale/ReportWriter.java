@@ -42,6 +42,12 @@ final class ReportWriter {
     private final BiConsumer<String, Throwable> warn;
     private boolean sessionHandled;
     private boolean rotationBlockedWarned;
+    /**
+     * Completed rotations, for {@code ReportPipeline.Stats} (#96). Guarded by the same monitor
+     * as {@code append}, so a plain long is enough; it is read from another thread, where a
+     * stale value costs a metrics scrape nothing.
+     */
+    private long rotations;
 
     ReportWriter(Path file, long maxBytes, String header,
                  String sessionMarker, boolean truncateOnStart, int maxBackups) {
@@ -96,6 +102,7 @@ final class ReportWriter {
             long size = Files.exists(file) ? Files.size(file) : 0;
             byte[] bytes = block.getBytes(StandardCharsets.UTF_8);
             if (size > 0 && size + bytes.length > maxBytes && tryRotate()) {
+                rotations++;
                 size = 0;
             }
             if (size == 0) {
@@ -123,6 +130,11 @@ final class ReportWriter {
 
     private void appendBytes(byte[] bytes) throws IOException {
         Files.write(file, bytes, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+    }
+
+    /** Completed rotations this run. A blocked rotation is not one — the file kept growing. */
+    long rotations() {
+        return rotations;
     }
 
     /**
