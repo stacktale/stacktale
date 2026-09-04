@@ -129,6 +129,69 @@ class JsonReportRendererTest {
         assertThat(j.at("/fields/note").asText()).isEqualTo("line1\nline2"); // newline preserved, escaped
     }
 
+    /**
+     * The seed is the section written for a machine, and st-json/1 is the format a machine
+     * reads — it carried everything else and dropped this one (#216). Asserted member by
+     * member rather than against a rendered string, because the point of this format is that
+     * a consumer addresses `/repro/params/0/type` instead of parsing prose.
+     */
+    @Test
+    void theReproSeedIsAddressableJson() throws Exception {
+        Report r = seeded(new ReproSeed("com.acme.shop.PaymentService", "charge", List.of(
+                new ReproSeed.Param("long", "orderId", "889"),
+                new ReproSeed.Param("java.math.BigDecimal", "amount", "149.90"))));
+
+        JsonNode j = parse(renderer.render(r));
+
+        assertThat(j.at("/repro/className").asText()).isEqualTo("com.acme.shop.PaymentService");
+        assertThat(j.at("/repro/methodName").asText()).isEqualTo("charge");
+        assertThat(j.at("/repro/params")).hasSize(2);
+        assertThat(j.at("/repro/params/0/type").asText()).isEqualTo("long");
+        assertThat(j.at("/repro/params/0/name").asText()).isEqualTo("orderId");
+        assertThat(j.at("/repro/params/0/value").asText()).isEqualTo("889");
+        assertThat(j.at("/repro/params/1/type").asText()).isEqualTo("java.math.BigDecimal");
+        assertThat(j.at("/repro/params/1/value").asText()).isEqualTo("149.90");
+
+        // the text format's `throws` line has no counterpart: it restates the root cause, which
+        // this format already carries — a consumer reads it from here
+        assertThat(j.at("/error/type").asText()).isEqualTo("IllegalStateException");
+        assertThat(j.at("/error/message").asText()).isEqualTo("payment gateway refused");
+    }
+
+    @Test
+    void withoutASeedTheReproMemberIsAbsentEntirely() throws Exception {
+        assertThat(parse(renderer.render(seeded(null))).has("repro")).isFalse();
+    }
+
+    /**
+     * Values are redacted with the parameter name in front of them and the name taken back off,
+     * because the rules that matter here are name-based: `password` alone is a keyword, `hunter2`
+     * on its own is an ordinary string. Splitting them first would mask nothing.
+     */
+    @Test
+    void aSecretlyNamedParameterHasItsValueMaskedAndItsNameKept() throws Exception {
+        Report r = seeded(new ReproSeed("com.acme.auth.LoginService", "authenticate", List.of(
+                new ReproSeed.Param("java.lang.String", "user", "bob"),
+                new ReproSeed.Param("java.lang.String", "password", "hunter2"))));
+
+        JsonNode j = parse(renderer.render(r));
+
+        assertThat(j.at("/repro/params/1/name").asText()).isEqualTo("password");
+        assertThat(j.at("/repro/params/1/value").asText()).isEqualTo("███");
+        assertThat(j.at("/repro/params/0/value").asText()).isEqualTo("bob"); // ordinary values survive
+    }
+
+    /** One report shaped for the repro assertions above; the seed is the only thing that varies. */
+    private static Report seeded(ReproSeed seed) {
+        DistilledStack stack = new DistilledStack("IllegalStateException", "payment gateway refused",
+                "PaymentService.charge(PaymentService.java:118)", true, List.of(),
+                List.of("PaymentService.charge(PaymentService.java:118) ← culprit"), 1, 1, List.of());
+        return new Report("5eed0001", 1_000_412L, "http-nio-8080-exec-2", stack,
+                "charge failed for order {}", new Object[]{889}, "com.acme.shop.PaymentService",
+                Map.of(), Map.of(), List.of(), new Story(List.of(), "traceId=7c2e"),
+                "app=shop 2.1.0 | java 21 | linux", 1, 0L, seed);
+    }
+
     @Test
     void nonReportEntriesAreTypedJson() throws Exception {
         assertThat(parse(renderer.fileHeader()).get("format").asText()).isEqualTo("st-json/1");

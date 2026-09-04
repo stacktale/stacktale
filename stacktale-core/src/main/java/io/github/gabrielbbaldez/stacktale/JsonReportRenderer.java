@@ -51,6 +51,7 @@ final class JsonReportRenderer implements Renderer {
         appendIfPresent(b, "mdc", mapObj(r.mdc()));
         appendIfPresent(b, "fields", mapObj(r.fields()));
         appendIfPresent(b, "captured", cleanArr(r.captured()));
+        appendIfPresent(b, "repro", reproObj(r.repro()));
         if (r.occurrences() > 1) {
             b.append(",\"recurrence\":{\"count\":").append(r.occurrences())
                     .append(",\"firstSeen\":").append(quote(iso(r.firstSeenMillis()))).append('}');
@@ -103,6 +104,42 @@ final class JsonReportRenderer implements Renderer {
             b.append(",\"wrappedBy\":").append(cleanArr(s.wrappedBy()));
         }
         return b.append('}').toString();
+    }
+
+    /**
+     * The reproduction seed, mirroring {@link ReproSeed} member for member so the mapping to
+     * {@code st/1}'s {@code repro:} block needs no explanation.
+     *
+     * <p>No counterpart to the text format's {@code throws} line: that restates the root cause,
+     * which this format already carries as {@code error.type} and {@code error.message}.
+     */
+    private String reproObj(ReproSeed seed) {
+        if (seed == null) return null;
+        StringBuilder b = new StringBuilder("{\"className\":").append(quote(nz(seed.className())))
+                .append(",\"methodName\":").append(quote(nz(seed.methodName())))
+                .append(",\"params\":[");
+        for (int i = 0; i < seed.params().size(); i++) {
+            ReproSeed.Param p = seed.params().get(i);
+            if (i > 0) b.append(',');
+            b.append("{\"type\":").append(quote(nz(p.type())))
+                    .append(",\"name\":").append(quote(nz(p.name())))
+                    .append(",\"value\":").append(quote(redactedValue(p))).append('}');
+        }
+        return b.append("]}").toString();
+    }
+
+    /**
+     * Redacts the value with its name in front of it, then takes the name back off.
+     *
+     * <p>The same reason {@code mdc:} and {@code fields:} clean {@code name = value} as one
+     * string: name-based redaction keys off {@code password = …}, and a value cleaned on its own
+     * has no name before it for the rule to match. The text renderer keeps the pair joined and
+     * prints it; this format has to separate them again.
+     */
+    private String redactedValue(ReproSeed.Param p) {
+        String prefix = nz(p.name()) + " = ";
+        String redacted = redactor.redact(prefix + nz(p.value()));
+        return redacted.startsWith(prefix) ? redacted.substring(prefix.length()) : redacted;
     }
 
     private String logObj(Report r) {

@@ -100,9 +100,40 @@ Fields:
 | `mdc:` / `fields:` | space-separated `key=value` pairs, keys sorted. Omitted when empty. `mdc:` also carries SLF4J 2.0 event key-values (`log.atError().addKeyValue("orderId", 889)`), merged into the same line — MDC wins on a key clash. |
 | `seen:` | recurrence — `N× this session, first at <HH:mm:ss.SSS>`. Present **only** when the error has occurred before this session (its absence means the error is new). Session-scoped: resets on restart. |
 | `captured:` | present only when the agent is attached; method frames with argument values. |
+| `repro:` | present only when `repro` is on **and** the agent is attached: the throw site's typed signature and argument values. Detailed below. |
 | `story` | events leading up to and including the error, oldest first. `<label>` is `traceId=…` (correlated) or `thread <name>` (fallback). The error's own line ends with `   ← this error`. A `… N earlier event(s) older than the story window omitted` line appears when events were dropped by age (vs never logged). Omitted when empty. |
 | `stack` | the distilled stack: shown frames plus `… N collapsed (<framework groups>)` markers; the culprit frame ends with `← culprit`. Omitted for reports with no throwable. |
 | `env:` | `app=<name> <version> (git <sha>) \| java <ver> \| profile=<p> \| <os>`; unknown parts degrade (`app=?`, no `(git …)`, no `profile=`). |
+
+### `repro:` — the reproduction seed
+
+Off by default. Switched on with `repro=true` and only produced when `stacktale-agent` is
+attached, since the argument values come from the throw site.
+
+It answers "what call, with what inputs, produced this?" in a form a test can be written
+from. The declared parameter types are the point: `charge(orderId=889)` in `captured:` names
+neither the class the method lives on nor the type of 889, and a signature cannot be
+reconstructed from either.
+
+```
+repro (throw site, via stacktale-agent):
+  com.acme.shop.PaymentService#charge(long orderId, java.math.BigDecimal amount)
+    orderId = 889
+    amount = 149.90
+  throws IllegalStateException: payment gateway refused
+```
+
+- The class is **fully qualified**, because a test has to import it.
+- Types are the ones the method **declares**. When the method cannot be resolved
+  unambiguously — an overload of the same arity — the runtime class of the argument is used
+  instead; a wrong declared type is worse than an approximate one.
+- Only the **innermost** captured frame becomes a seed. Captures are appended as the
+  throwable unwinds, so the first is the closest to the throw. The frames above it remain in
+  `captured:`.
+- Values are truncated by the agent and **redacted** by the core, like every other rendered
+  value. This is the only section that renders values against a named signature, which is why
+  it is opt-in rather than default.
+- The `throws` line restates the root cause so the seed carries its own assertion.
 
 ## 4. Escaping
 
@@ -161,36 +192,6 @@ A new application run began appending to an existing file. Separates sessions.
 A flood of **distinct** errors exceeded the report rate limit; `N` full reports were
 suppressed to protect the file. The errors still happened — this line is the acknowledgement.
 
-### `repro:` — the reproduction seed
-
-Off by default. Switched on with `repro=true` and only produced when `stacktale-agent` is
-attached, since the argument values come from the throw site.
-
-It answers "what call, with what inputs, produced this?" in a form a test can be written
-from. The declared parameter types are the point: `charge(orderId=889)` in `captured:` names
-neither the class the method lives on nor the type of 889, and a signature cannot be
-reconstructed from either.
-
-```
-repro (throw site, via stacktale-agent):
-  com.acme.shop.PaymentService#charge(long orderId, java.math.BigDecimal amount)
-    orderId = 889
-    amount = 149.90
-  throws IllegalStateException: payment gateway refused
-```
-
-- The class is **fully qualified**, because a test has to import it.
-- Types are the ones the method **declares**. When the method cannot be resolved
-  unambiguously — an overload of the same arity — the runtime class of the argument is used
-  instead; a wrong declared type is worse than an approximate one.
-- Only the **innermost** captured frame becomes a seed. Captures are appended as the
-  throwable unwinds, so the first is the closest to the throw. The frames above it remain in
-  `captured:`.
-- Values are truncated by the agent and **redacted** by the core, like every other rendered
-  value. This is the only section that renders values against a named signature, which is why
-  it is opt-in rather than default.
-- The `throws` line restates the root cause so the seed carries its own assertion.
-
 ## 6. Versioning & compatibility
 
 - The format version is `st/1`, declared in the file header.
@@ -237,6 +238,14 @@ A `report` object (pretty-printed here; on disk it is one line):
   "mdc": { "traceId": "7c2e" },
   "fields": { "orderId": "889", "retryable": "false" },
   "captured": ["PaymentService.charge(orderId=889, amount=149.90)"],
+  "repro": {
+    "className": "com.acme.shop.PaymentService",
+    "methodName": "charge",
+    "params": [
+      { "type": "long", "name": "orderId", "value": "889" },
+      { "type": "java.math.BigDecimal", "name": "amount", "value": "149.90" }
+    ]
+  },
   "recurrence": { "count": 3, "firstSeen": "2026-07-10T20:16:40.000Z" },
   "story": {
     "label": "traceId=7c2e",
@@ -254,7 +263,7 @@ A `report` object (pretty-printed here; on disk it is one line):
 Rules:
 
 - Timestamps are ISO-8601 with fixed millisecond precision (`.SSS`) and an offset (`Z` for UTC).
-- Optional members (`mdc`, `fields`, `captured`, `recurrence`, `error.wrappedBy`,
+- Optional members (`mdc`, `fields`, `captured`, `repro`, `recurrence`, `error.wrappedBy`,
   `error.culprit`, `stack`, `env`) are **omitted** when empty — absence is the signal.
 - A no-throwable report has `"error": { "noException": true, "message": "…" }` and no `stack`.
 - Redaction is identical to the text format: a secret-named key masks its value, a
@@ -287,3 +296,4 @@ below, so the mapping never has to be inferred from the example above.
 | `story.events[].thisError` | the `   ← this error` suffix on the error's own event |
 | `stack.shown` / `stack.total` | the `X of Y frames` in the `stack (distilled, …)` header |
 | `stack.frames[]` | the frame lines, including the `… N collapsed (…)` markers |
+| `repro.className` + `repro.methodName` + `repro.params[]` | the `repro:` block (§3). The block's `throws` line has no member of its own: it restates the root cause, which is already `error.type` and `error.message` |
