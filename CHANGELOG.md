@@ -70,6 +70,16 @@ and pinned by golden-file tests.
 
 ### Changed
 
+- **`docs/native.md` covers Quarkus, with a native binary behind it.** The page explained
+  GraalVM native-image for the core and the Spring starter and said nothing about the module
+  built for it. Measured rather than reasoned: the same application and the same error, JVM and
+  native side by side. It works with **no configuration** — a report is written, and `env:`
+  keeps the git sha, because Quarkus honours the `META-INF/native-image` resource metadata
+  `stacktale-core` already bundles. So no `NativeImageResourceBuildItem` is needed in the
+  extension, which is what the issue expected to be the fix. `fields:` is empty until the
+  exception type carries `@RegisterForReflection`, verified both ways on the same binary.
+  Tested against Quarkus 3.15.1 with GraalVM 21.0.5 — the floor, and the page says so, since
+  Quarkus 3.39 will not build native below GraalVM 25. (#204)
 - `docs/FORMAT.md` files the `repro:` section under **§3 Report block** and gives it a row in
   that section's field table. It was a subsection of §5 *Non-report entries*, next to
   `repeated`, `app start` and `storm:` — the three things that are not reports. (#216)
