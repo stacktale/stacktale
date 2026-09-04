@@ -43,6 +43,16 @@ CI also runs `scripts/check-readme-compat.sh`, which fails when the README's
 the build actually tests — the pom properties and the `compat.yml` matrix. If
 that check fails after a dependency bump, update the table in `README.md`.
 
+`scripts/check-config-parity.sh` guards the other README table. One knob is one
+row and five unrelated pieces of syntax — a Logback setter, a Log4j2
+`@PluginBuilderAttribute`, a JUL LogManager property, a read in the Spring
+auto-configuration, a method on the Quarkus mapping — and none of the five
+complains when a knob is missing from it, so a new property tends to reach one
+adapter and stop. If you add a row to the table, expect this to name the
+adapters you have not reached yet. When an absence is deliberate, say why in the
+script's `allowed()` list rather than dropping the row; an undocumented gap and
+a bug look identical from the outside.
+
 Markdown links are checked too, by `.github/workflows/links.yml`:
 
 - **On every PR**, `lychee --offline` verifies the *relative* links in every
