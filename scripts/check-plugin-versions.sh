@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 # Guard the Claude plugin / marketplace manifests against drifting from the release.
 #
-# Three files hard-pin a version and are not touched by the version bump:
+# Four files hard-pin a version and are not touched by the version bump:
 #   plugins/stacktale/.mcp.json                  -> the stacktale-mcp coordinate jbang runs
 #   .claude-plugin/marketplace.json              -> the version the marketplace advertises
 #   plugins/stacktale/.claude-plugin/plugin.json -> the version the installed plugin reports
+#   docs/mcp-setup.md                            -> the coordinate a human copy-pastes
+#
+# The fourth was added after it drifted the furthest of any of them: mcp-setup.md sat on
+# 1.1.0 through three releases while the page above the command promised tools that version
+# did not have. It is the one a person actually runs, and nothing checked it.
 #
 # THE RULE: they pin the most recent *released* version, which is the newest version
 # heading in CHANGELOG.md.
@@ -59,6 +64,21 @@ do
   fi
 done
 
+# Prose, so every occurrence is checked rather than the first: a page can update one command
+# and leave the three below it behind, which reads worse than a single stale number.
+setup_pins=$(grep -oE 'io\.github\.gabrielbbaldez:stacktale-mcp:[0-9]+\.[0-9]+\.[0-9]+' \
+  docs/mcp-setup.md | sed 's/.*://' | sort -u || true)
+if [ -z "$setup_pins" ]; then
+  echo "docs/mcp-setup.md names no stacktale-mcp coordinate; the install instructions lost it" >&2
+  fail=1
+fi
+for actual in $setup_pins; do
+  if [ "$actual" != "$expected" ]; then
+    echo "docs/mcp-setup.md pins $actual, expected $expected (the latest release, per CHANGELOG.md)" >&2
+    fail=1
+  fi
+done
+
 # A release commit sets the parent to the version it is releasing. If the parent is not a
 # SNAPSHOT and disagrees with the changelog, one of the two was not updated -- and the
 # check above would have compared against the wrong number without noticing.
@@ -74,7 +94,7 @@ case "$pom" in
 esac
 
 if [ "$fail" -eq 0 ]; then
-  echo "plugin manifests pin $expected"
+  echo "plugin manifests and setup docs pin $expected"
 fi
 
 exit "$fail"

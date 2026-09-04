@@ -125,6 +125,11 @@ jobs:
           sed -i -E 's|(io\.github\.gabrielbbaldez:stacktale-mcp:)[0-9.]+|\1${{ inputs.version }}|' plugins/stacktale/.mcp.json
           sed -i -E 's|("version"[[:space:]]*:[[:space:]]*")[0-9.]+(")|\1${{ inputs.version }}\2|' .claude-plugin/marketplace.json
           sed -i -E 's|("version"[[:space:]]*:[[:space:]]*")[0-9.]+(")|\1${{ inputs.version }}\2|' plugins/stacktale/.claude-plugin/plugin.json
+          # The setup page is prose, not a manifest, which is how it went unnoticed the
+          # longest: it pinned 1.1.0 through three releases while the paragraph above the
+          # command listed tools that version did not have. It is also the copy a person
+          # actually pastes into their client.
+          sed -i -E 's|(io\.github\.gabrielbbaldez:stacktale-mcp:)[0-9.]+|\1${{ inputs.version }}|g' docs/mcp-setup.md
           bash scripts/check-plugin-versions.sh
 
       - name: Commit the release, then the next snapshot
