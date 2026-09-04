@@ -5,7 +5,8 @@ list them (`list_errors`), pull a full report (`get_report`), filter by time
 (`errors_since`), find similar past ones (`find_similar_errors`), **attach a pasted trace to
 its captured report** (`match_report`), **turn one into a reproduction test**
 (`repro_for`), **read the source at the culprit line** (`culprit_source`), **ask whether any
-test names it** (`tests_covering`), and **loop on new errors until they're gone**
+test names it** (`tests_covering`), **check the file for leaked credentials**
+(`audit_redaction`), and **loop on new errors until they're gone**
 (`errors_since_last_check`). With a subscription it's also **notified the moment a new error
 lands** instead of polling. It's a tiny read-only server that speaks
 [MCP](https://modelcontextprotocol.io) over stdio. No network, no writes.
@@ -147,6 +148,7 @@ Once wired up, ask your assistant:
 > *Write me a test that reproduces #c73cf755* — it calls `repro_for`.
 > *Show me the code that failed* — it calls `culprit_source`.
 > *Is this path tested at all?* — it calls `tests_covering`.
+> *Is this log safe to attach to the ticket?* — it calls `audit_redaction`.
 
 `culprit_source` and `tests_covering` read the **working tree**, not the log. Source code is
 deliberately not in `errors-ai.log`: that file is gitignored, redacted, uploaded to CI
@@ -158,6 +160,15 @@ code, another service sharing the log).
 `tests_covering` is a name match rather than coverage, and says so in its own answer. The
 valuable reply is the negative one: nothing naming the failing method means writing a
 reproduction test rather than hunting for one that does not exist.
+
+`audit_redaction` scans every report for values shaped like credentials the redactor did not
+mask — AWS, GitHub, Stripe, Slack and Google keys, JWTs, private-key blocks, Authorization
+headers. Redaction masks what it can recognise by context (`password=…`, a JSON `"token"`
+member, a long hex run), so a credential sitting in an ordinary sentence has nothing around it
+to recognise. The answer names the report and the line and **never the value**: it is going
+into an assistant's context and a transcript, and quoting the secret would move it somewhere
+new. A clean result is evidence, not proof — a secret with no recognisable shape cannot be
+found this way.
 
 `repro_for` answers with a JUnit skeleton built from the report's `repro:` seed: the throw
 site's class, its method, the declared parameter types and the values the call was given. It

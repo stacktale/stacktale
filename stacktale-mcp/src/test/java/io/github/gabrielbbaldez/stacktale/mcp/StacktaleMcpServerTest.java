@@ -78,14 +78,15 @@ class StacktaleMcpServerTest {
         assertThat(r[0].at("/result/serverInfo/name").asText()).isEqualTo("stacktale");
         assertThat(r[0].at("/result/capabilities/resources/subscribe").asBoolean()).isTrue();
         assertThat(r[0].at("/result/capabilities/prompts").isObject()).isTrue();
-        assertThat(r[1].at("/result/tools")).hasSize(9);
+        assertThat(r[1].at("/result/tools")).hasSize(10);
         assertThat(r[1].at("/result/tools/0/name").asText()).isEqualTo("list_errors");
         assertThat(r[1].at("/result/tools/3/name").asText()).isEqualTo("find_similar_errors");
         assertThat(r[1].at("/result/tools/4/name").asText()).isEqualTo("errors_since_last_check");
         assertThat(r[1].at("/result/tools/5/name").asText()).isEqualTo("repro_for");
         assertThat(r[1].at("/result/tools/6/name").asText()).isEqualTo("culprit_source");
         assertThat(r[1].at("/result/tools/7/name").asText()).isEqualTo("tests_covering");
-        assertThat(r[1].at("/result/tools/8/name").asText()).isEqualTo("match_report");
+        assertThat(r[1].at("/result/tools/8/name").asText()).isEqualTo("audit_redaction");
+        assertThat(r[1].at("/result/tools/9/name").asText()).isEqualTo("match_report");
     }
 
     @Test
@@ -186,6 +187,97 @@ class StacktaleMcpServerTest {
     private String reproFor(String id) throws Exception {
         JsonNode[] r = roundTrip("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\","
                 + "\"params\":{\"name\":\"repro_for\",\"arguments\":{\"id\":\"" + id + "\"}}}");
+        return r[0].at("/result/content/0/text").asText();
+    }
+
+    // --- redaction audit (#95) ---
+
+    /**
+     * The gap this covers, measured against the core redactor: a prefixed credential sitting in
+     * a message with no keyword beside it is not `password=…`, not a JSON member, not hex and
+     * not a JWT, so the redactor has nothing to recognise and the value travels intact.
+     */
+    @Test
+    void auditFlagsACredentialTheRedactorHadNoContextToCatch(@TempDir Path dir) throws Exception {
+        file = dir.resolve("errors-ai.log");
+        Files.writeString(file, """
+                ━━━ ERROR #leak0001 ━━━ 2026-07-10 10:00:00.000 thread=main ━━━
+                IllegalStateException: upload rejected
+                log: "upload failed for key AKIAIOSFODNN7EXAMPLE" logger=c.a.S3
+                ━━━ END #leak0001 ━━━
+                """, StandardCharsets.UTF_8);
+
+        String text = audit();
+
+        assertThat(text)
+                .contains("1 possible un-redacted credential")
+                .contains("#leak0001")
+                .contains("an AWS access key id")
+                .contains("aws-access-key-id")
+                .contains("line 3");
+    }
+
+    /**
+     * The answer goes into an assistant's context and a transcript, so quoting the secret would
+     * move it somewhere new — which is the thing being warned about.
+     */
+    @Test
+    void auditNeverPrintsTheValueItFound(@TempDir Path dir) throws Exception {
+        file = dir.resolve("errors-ai.log");
+        Files.writeString(file, """
+                ━━━ ERROR #leak0002 ━━━ 2026-07-10 10:00:00.000 thread=main ━━━
+                IllegalStateException: clone failed
+                log: "ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789 expired" logger=c.a.Git
+                ━━━ END #leak0002 ━━━
+                """, StandardCharsets.UTF_8);
+
+        String text = audit();
+
+        assertThat(text).contains("a GitHub token").contains("starts ghp_…");
+        assertThat(text).doesNotContain("aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789");
+    }
+
+    @Test
+    void auditPassesAFileWhoseSecretsWereMasked(@TempDir Path dir) throws Exception {
+        file = dir.resolve("errors-ai.log");
+        Files.writeString(file, """
+                ━━━ ERROR #safe0001 ━━━ 2026-07-10 10:00:00.000 thread=main ━━━
+                IllegalStateException: login failed
+                log: "login failed password=███" logger=c.a.Auth
+                ━━━ END #safe0001 ━━━
+                """, StandardCharsets.UTF_8);
+
+        assertThat(audit())
+                .startsWith("✓ No un-redacted credential shapes")
+                .contains("redaction is running")   // the mask is evidence the redactor ran
+                .contains("evidence rather than proof");
+    }
+
+    /**
+     * A file with nothing masked anywhere looks identical whether nothing sensitive was logged
+     * or redaction was switched off — the reading someone most needs prompting about.
+     */
+    @Test
+    void auditSaysWhenNothingInTheFileIsMaskedAtAll(@TempDir Path dir) throws Exception {
+        file = dir.resolve("errors-ai.log");
+        Files.writeString(file, """
+                ━━━ ERROR #safe0002 ━━━ 2026-07-10 10:00:00.000 thread=main ━━━
+                IllegalStateException: nothing sensitive here
+                ━━━ END #safe0002 ━━━
+                """, StandardCharsets.UTF_8);
+
+        assertThat(audit()).contains("redactionEnabled=false");
+    }
+
+    /** The ordinary fixture is stack traces and log lines; an audit that fires on those is noise. */
+    @Test
+    void auditDoesNotFireOnOrdinaryReports() throws Exception {
+        assertThat(audit()).startsWith("✓ No un-redacted credential shapes");
+    }
+
+    private String audit() throws Exception {
+        JsonNode[] r = roundTrip("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\","
+                + "\"params\":{\"name\":\"audit_redaction\",\"arguments\":{}}}");
         return r[0].at("/result/content/0/text").asText();
     }
 

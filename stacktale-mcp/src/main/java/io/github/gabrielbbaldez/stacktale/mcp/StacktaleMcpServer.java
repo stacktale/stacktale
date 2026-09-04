@@ -352,6 +352,13 @@ public final class StacktaleMcpServer {
                 + "for one that does not exist.",
                 "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"report id, e.g. c73cf755\"}},\"required\":[\"id\"]}",
                 null));
+        tools.add(tool("audit_redaction", "Audit the file for leaks", true,
+                "Scan every report for values that look like credentials the redactor did not mask — "
+                + "AWS/GitHub/Stripe/Slack/Google keys, JWTs, private-key blocks, Authorization headers. "
+                + "Run it before attaching errors-ai.log to a ticket, a PR or a CI artifact. Reports the "
+                + "id and line of each hit and never the value itself.",
+                "{\"type\":\"object\",\"properties\":{}}",
+                null));
         tools.add(tool("match_report", "Match a pasted trace", true,
                 "Paste a raw exception + stack trace and get the full stacktale report captured for it (story, fields, distilled stack, env) — matched by root-cause type and message. The bridge from a pasted trace to the agent having the whole context.",
                 "{\"type\":\"object\",\"properties\":{\"trace\":{\"type\":\"string\",\"description\":\"a pasted exception and its stack trace\"}},\"required\":[\"trace\"]}",
@@ -425,6 +432,7 @@ public final class StacktaleMcpServer {
             case "culprit_source" -> ToolResult.text(
                     culpritSource(args.path("id").asText(), args.path("radius").asInt(12)));
             case "tests_covering" -> ToolResult.text(testsCovering(args.path("id").asText()));
+            case "audit_redaction" -> ToolResult.text(RedactionAudit.run(reports.read()));
             case "match_report" -> ToolResult.text(matchReport(args.path("trace").asText()));
             default -> throw new IllegalArgumentException("unknown tool: " + name);
         };

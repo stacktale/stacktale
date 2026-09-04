@@ -544,7 +544,7 @@ anything else that speaks MCP.
 } } }
 ```
 
-**Nine tools**, all read-only (annotated so clients can auto-approve them):
+**Ten tools**, all read-only (annotated so clients can auto-approve them):
 
 - **`errors_since_last_check`** — the loop primitive: what's 🆕 new or 🔁 still occurring
   since the last check, or *✓ no new errors* when it's clean.
@@ -553,6 +553,8 @@ anything else that speaks MCP.
   the failing call was given (needs `repro=true` and `stacktale-agent`).
 - **`culprit_source`** / **`tests_covering`** — the source at the culprit line, read from the
   working tree rather than the log, and whether any test names that method.
+- **`audit_redaction`** — scan the file for credential shapes redaction missed, before you
+  attach it to a ticket or a CI artifact. Reports where, never the value.
 - `list_errors`, `get_report`, `errors_since`, `find_similar_errors` — browse and search.
 
 Plus **prompts** (`fix_loop`, `explain_latest_error`) clients surface as slash-commands, and

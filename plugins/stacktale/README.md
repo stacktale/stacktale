@@ -29,6 +29,7 @@ Maven Central on first run.
 | `repro_for` | a JUnit skeleton for one report, from the throw site's typed signature and arguments |
 | `culprit_source` | the source around the culprit line, read from the working tree |
 | `tests_covering` | which tests name the culprit's method — or that none do |
+| `audit_redaction` | credential shapes redaction missed — where, never the value |
 
 **A skill** that teaches Claude how to work the loop: baseline, read the marked culprit
 frame, fix, re-run, ask what changed, repeat until clean.
