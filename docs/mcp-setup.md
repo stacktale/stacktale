@@ -19,7 +19,7 @@ If you have [JBang](https://www.jbang.dev), there's nothing to download. From yo
 **Claude Code** — one command:
 
 ```bash
-claude mcp add stacktale -- jbang run io.github.gabrielbbaldez:stacktale-mcp:1.1.0 --file "$PWD/errors-ai.log"
+claude mcp add stacktale -- jbang run io.github.gabrielbbaldez:stacktale-mcp:1.3.1 --file "$PWD/errors-ai.log"
 ```
 
 **Cursor** — drop this into `.cursor/mcp.json` (swap in your absolute path):
@@ -27,7 +27,7 @@ claude mcp add stacktale -- jbang run io.github.gabrielbbaldez:stacktale-mcp:1.1
 ```json
 { "mcpServers": { "stacktale": {
     "command": "jbang",
-    "args": ["run", "io.github.gabrielbbaldez:stacktale-mcp:1.1.0", "--file", "/abs/path/errors-ai.log"]
+    "args": ["run", "io.github.gabrielbbaldez:stacktale-mcp:1.3.1", "--file", "/abs/path/errors-ai.log"]
 } } }
 ```
 
@@ -44,7 +44,7 @@ It's on Maven Central. Three ways, easiest first:
 **JBang** (zero install, if you have JBang):
 
 ```bash
-jbang run io.github.gabrielbbaldez:stacktale-mcp:1.1.0 --file /path/to/errors-ai.log
+jbang run io.github.gabrielbbaldez:stacktale-mcp:1.3.1 --file /path/to/errors-ai.log
 ```
 
 **Download the jar directly** (curl):
@@ -58,7 +58,7 @@ curl -L -o stacktale-mcp.jar \
 
 ```bash
 mvn dependency:copy \
-  -Dartifact=io.github.gabrielbbaldez:stacktale-mcp:1.1.0 \
+  -Dartifact=io.github.gabrielbbaldez:stacktale-mcp:1.3.1 \
   -DoutputDirectory=.
 ```
 

@@ -139,6 +139,7 @@ final class ReportRenderer implements Renderer {
                 # Sections: headline (root cause first), at (culprit frame), log, mdc,
                 # fields (state carried by the exception's own getters/fields),
                 # repro (opt-in: the throw site's typed signature and argument values),
+                # first seen (opt-in: which build this error id was first seen on),
                 # story (events leading up to and including the error, oldest first),
                 # stack (distilled; framework frames collapsed), env. "← YOUR CODE" marks app frames.
                 # Repeated errors append "━ #<id> repeated N× ━" lines instead of new reports.

@@ -73,9 +73,25 @@ and pinned by golden-file tests.
 - `docs/FORMAT.md` files the `repro:` section under **§3 Report block** and gives it a row in
   that section's field table. It was a subsection of §5 *Non-report entries*, next to
   `repeated`, `app start` and `storm:` — the three things that are not reports. (#216)
+- The tests that guard the adapters' configuration surfaces now fail when a knob stops
+  arriving, rather than when it stops binding. `everyPropertyReachesTheAppender` asserted on the
+  properties bean, so a value that bound and was then never passed to the appender read as
+  covered — the exact shape of the `repro` bug below. `LogbackXmlConfigTest` also picks up
+  `appName` and `appVersion`, settable since #150 and named in no test in the module. (#210)
 
 ### Fixed
 
+- **The MCP setup page told people to install version 1.1.0.** `docs/mcp-setup.md` hard-pins the
+  `stacktale-mcp` coordinate in four commands, and nothing bumped it — so for three releases the
+  page listed tools while handing out a version that did not have them. The three plugin
+  manifests were already covered by `check-plugin-versions.sh` after the same thing happened to
+  them in #142; the setup page is prose rather than a manifest, which is how it drifted the
+  furthest and was noticed last. Now stamped by `prepare-release` and checked by that guard —
+  every occurrence, not the first, since a page can update one command and leave the three below
+  it behind.
+- **The report file's own header did not mention `first seen:`.** That block exists so an AI
+  opening the file with no prior knowledge learns the format from it, and it listed every
+  section but the one added above.
 - **Vendor API keys and PEM private keys reached the report file.** Every redaction rule but
   one needs *context* — a keyword before the value, a scheme word, a quoted JSON member — so a
   credential sitting in an ordinary log sentence had nothing around it to recognise. Measured
@@ -113,14 +129,6 @@ and pinned by golden-file tests.
   `Ignoring unknown property [repro]`, `@ConfigurationProperties` drops unknown fields, Quarkus
   warns and starts — so the knob looked set and the `repro:` section simply never appeared.
   (#210)
-
-### Changed
-
-- The tests that guard those three surfaces now fail when a knob stops arriving, rather than
-  when it stops binding. `everyPropertyReachesTheAppender` asserted on the properties bean, so
-  a value that bound and was then never passed to the appender read as covered — which is the
-  exact shape of the bug above. `LogbackXmlConfigTest` also picks up `appName` and `appVersion`,
-  settable since #150 and named in no test in the module. (#210)
 
 ## [1.3.1] — 2026-09-03
 
