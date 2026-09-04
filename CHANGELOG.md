@@ -55,6 +55,19 @@ and pinned by golden-file tests.
 
 ### Fixed
 
+- **Vendor API keys and PEM private keys reached the report file.** Every redaction rule but
+  one needs *context* — a keyword before the value, a scheme word, a quoted JSON member — so a
+  credential sitting in an ordinary log sentence had nothing around it to recognise. Measured
+  against the previous redactor, six of eight prefixed vendor credentials passed through
+  intact, and a `-----BEGIN RSA PRIVATE KEY-----` block went into the file verbatim although
+  SECURITY.md listed private-key blocks under *Masks*. Now caught by shape: AWS, GitHub,
+  OpenAI, Stripe, Slack and Google prefixes, and a PEM block masked from its header to the end
+  of the value — the header is harmless, the bytes after it are the key. There is deliberately
+  no entropy heuristic: on a file of stack traces that fires on class names and hashes, and a
+  redactor that eats class names is worse than one that misses a token. **Free on the hot
+  path**: the six-branch alternation alone cost +23% per redacted value (5092 → 6296 ns over
+  eight representative report lines, three interleaved rounds), and an `indexOf` gate in front
+  of it brings that back to 5027 ns — below the run-to-run spread of the old code. (#221)
 - **`st-json/1` dropped the `repro:` seed the text format carries.** FORMAT.md §7 opens its
   correspondence table with "Both formats carry the same information"; `JsonReportRenderer` is
   242 lines and the string `repro` appeared in none of them. An application on `format=json`

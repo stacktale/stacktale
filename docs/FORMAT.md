@@ -267,7 +267,8 @@ Rules:
   `error.culprit`, `stack`, `env`) are **omitted** when empty — absence is the signal.
 - A no-throwable report has `"error": { "noException": true, "message": "…" }` and no `stack`.
 - Redaction is identical to the text format: a secret-named key masks its value, a
-  secret-position arg becomes `███`, secret-shaped values are redacted. Multi-line values
+  secret-position arg becomes `███`, secret-shaped values are redacted — including
+  vendor-prefixed API keys, which carry no keyword beside them. Multi-line values
   keep their newlines (JSON-escaped) instead of being flattened.
 - `mdc` also carries SLF4J 2.0 event key-values (`addKeyValue`), merged with the MDC map.
 - The `logger` is the full name (the text format abbreviates it for display; JSON does not).

@@ -47,7 +47,7 @@ final class RedactionAudit {
                     "a Stripe secret key"),
             new Rule("slack-token", Pattern.compile("\\bxox[baprs]-[A-Za-z0-9-]{10,}\\b"),
                     "a Slack token"),
-            new Rule("google-api-key", Pattern.compile("\\bAIza[0-9A-Za-z_-]{35}\\b"),
+            new Rule("google-api-key", Pattern.compile("\\bAIza[0-9A-Za-z_-]{35,}"),
                     "a Google API key"),
             new Rule("jwt", Pattern.compile("\\beyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{4,}"),
                     "a JWT"),
