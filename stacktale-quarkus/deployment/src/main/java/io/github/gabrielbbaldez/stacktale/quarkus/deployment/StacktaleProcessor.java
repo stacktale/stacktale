@@ -8,6 +8,7 @@ import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.annotations.ExecutionTime;
 import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.ApplicationArchivesBuildItem;
+import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.RuntimeInitializedClassBuildItem;
 import io.quarkus.deployment.pkg.steps.NativeOrNativeSourcesBuild;
@@ -45,8 +46,19 @@ public class StacktaleProcessor {
      */
     @BuildStep
     @Record(ExecutionTime.RUNTIME_INIT)
-    void install(StacktaleRecorder recorder, ApplicationArchivesBuildItem archives) {
-        recorder.install(deduceAppPackages(archives));
+    void install(StacktaleRecorder recorder, ApplicationArchivesBuildItem archives,
+                 ApplicationInfoBuildItem app) {
+        recorder.install(deduceAppPackages(archives), named(app.getName()), named(app.getVersion()));
+    }
+
+    /**
+     * {@code quarkus.application.name} and {@code .version} default to the artifact's
+     * coordinates, but a build that sets neither leaves the literal {@code <<unset>>} here.
+     * Passing that through would put it in every report's {@code env:} line; an empty string
+     * lets {@code EnvCollector} fall back the way it does for every other adapter.
+     */
+    private static String named(String value) {
+        return value == null || ApplicationInfoBuildItem.UNSET_VALUE.equals(value) ? "" : value;
     }
 
     /**

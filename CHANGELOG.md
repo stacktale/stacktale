@@ -13,12 +13,20 @@ and pinned by golden-file tests.
   `check-config-parity.sh` reads the README's configuration table and asserts each knob is
   reachable from Logback, Log4j2, JUL, the Spring starter and Quarkus — matching the shape
   that makes it *settable* in each, so a private field nobody can set does not count. Run
-  against the commit before the fix below, it names those three gaps and nothing else.
+  against the commit before #212, it names those three `repro` gaps and nothing else.
   Deliberate absences are listed with their reason: an undocumented gap and a bug are
   otherwise indistinguishable. (#211)
 
 ### Fixed
 
+- **Every Quarkus report said `env: app=?`.** Quarkus knows the application name and version —
+  `quarkus.application.*`, defaulted from the artifact's coordinates — and the extension never
+  asked, so `EnvCollector` fell through to its two fallbacks: a Spring Boot artifact
+  (`build-info.properties`) and a system property nobody sets. The values now come from
+  `ApplicationInfoBuildItem` at build time, which is where Quarkus fixes them, and travel to
+  the recorder beside the deduced app packages. Which service is on fire is the first thing on
+  that line, and it is the field that matters when several services' reports land in one place
+  for an agent to read. (#213)
 - **`repro` could not be turned on from Logback, the Spring Boot starter or Quarkus.** The
   configuration table offers it "as appender properties in `logback.xml`, or `stacktale.*` in
   `application.yml`", and only Log4j2 and JUL ever read it: the Logback appender held the
