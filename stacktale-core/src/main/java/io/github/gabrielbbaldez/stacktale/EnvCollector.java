@@ -15,6 +15,7 @@ final class EnvCollector {
     private final ClassLoader classLoader;
     private final String configuredAppName, configuredAppVersion;
     private volatile String cached;
+    private volatile String cachedBuildId;
 
     EnvCollector(ClassLoader classLoader, String configuredAppName, String configuredAppVersion) {
         this.classLoader = classLoader;
@@ -35,6 +36,35 @@ final class EnvCollector {
             cached = line;
         }
         return line;
+    }
+
+    /**
+     * What identifies this build, for provenance (#137): the git sha when there is one, else the
+     * application version, else empty.
+     *
+     * <p>Distinct from the {@code env:} line, which is for a human to read. This is a key — it
+     * decides whether two runs are the same build, so the most specific value available wins and
+     * an absent one is empty rather than the line's {@code ?} placeholder.
+     */
+    String buildId() {
+        String id = cachedBuildId;
+        if (id == null) {
+            try {
+                Properties git = load("git.properties");
+                Properties buildInfo = load("META-INF/build-info.properties");
+                id = firstNonBlank(
+                        System.getProperty("stacktale.app.build"),
+                        git.getProperty("git.commit.id.abbrev"),
+                        System.getProperty("stacktale.app.version"),
+                        buildInfo.getProperty("build.version"),
+                        configuredAppVersion,
+                        "");
+            } catch (Throwable t) {
+                id = ""; // provenance is enrichment; never let it cost a report
+            }
+            cachedBuildId = id;
+        }
+        return id;
     }
 
     private String build() {

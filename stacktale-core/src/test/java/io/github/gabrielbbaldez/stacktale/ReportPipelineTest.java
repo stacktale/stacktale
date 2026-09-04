@@ -324,6 +324,73 @@ class ReportPipelineTest {
         assertThat(stats.reportsWritten()).isEqualTo(1); // only the one from before the breakage
     }
 
+    /**
+     * The whole chain, across a simulated deploy: settings → sidecar → report → file. The two
+     * runs share a directory, which is the only thing that carries state between them — the point
+     * being that nothing else in stacktale does.
+     */
+    @Test
+    void provenanceSurvivesARestartAndNamesTheBuildTheErrorStartedOn(@TempDir Path dir) {
+        String previous = System.getProperty("stacktale.app.build");
+        try {
+            System.setProperty("stacktale.app.build", "9a2b1c");
+            ReportPipeline first = provenancePipeline(dir);
+            first.process(error("alpha", 1_700_000_000_000L));
+            first.close();
+
+            // deploy: same machine, same log, new build
+            System.setProperty("stacktale.app.build", "7e3c1f");
+            ReportPipeline afterDeploy = provenancePipeline(dir);
+            afterDeploy.process(error("alpha", 1_700_000_100_000L));   // pre-existing
+            afterDeploy.process(error("beta", 1_700_000_100_000L));    // introduced by this build
+            afterDeploy.close();
+
+            String written = read(dir.resolve("errors-ai.log"));
+            assertThat(written).contains("first seen: build 9a2b1c, 1 build ago");
+            assertThat(written).contains("first seen: NEW in this build (7e3c1f)");
+            assertThat(Files.exists(dir.resolve("errors-ai.log.seen"))).isTrue();
+        } finally {
+            if (previous == null) {
+                System.clearProperty("stacktale.app.build");
+            } else {
+                System.setProperty("stacktale.app.build", previous);
+            }
+        }
+    }
+
+    /** Off by default, and off means no sidecar on disk — not an empty one. */
+    @Test
+    void withoutProvenanceNoSidecarIsWrittenAndNoLineAppears(@TempDir Path dir) {
+        Fixture f = fixture(dir, 0);
+        f.pipeline().process(error("alpha", f.clock().get()));
+
+        assertThat(f.contents()).doesNotContain("first seen:");
+        assertThat(Files.exists(dir.resolve("errors-ai.log.seen"))).isFalse();
+    }
+
+    private static ReportPipeline provenancePipeline(Path dir) {
+        Path file = dir.resolve("errors-ai.log");
+        ReportPipeline.Settings settings = ReportPipeline.Settings.builder()
+                .file(file.toString())
+                .provenance(true)
+                .echoSuppressionMillis(0)
+                .zone(ZoneId.of("UTC"))
+                .build();
+        RecordingHost host = new RecordingHost();
+        Renderer renderer = new ReportRenderer(settings.zone(), Redactor.disabled());
+        ReportWriter writer = new ReportWriter(file, settings.maxFileBytes(), renderer.fileHeader(),
+                null, false, settings.maxBackups(), host::warn);
+        return ReportPipeline.forTesting(settings, host, writer, renderer, () -> 1_700_000_000_000L);
+    }
+
+    private static String read(Path file) {
+        try {
+            return Files.exists(file) ? Files.readString(file) : "";
+        } catch (java.io.IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     @Test
     void processNeverThrowsAndParksAfterRepeatedWriteFailures(@TempDir Path dir) {
         Fixture f = fixture(dir, 0);

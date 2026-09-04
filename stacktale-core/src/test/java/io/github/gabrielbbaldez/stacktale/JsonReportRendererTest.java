@@ -192,6 +192,49 @@ class JsonReportRendererTest {
                 "app=shop 2.1.0 | java 21 | linux", 1, 0L, seed);
     }
 
+    /**
+     * Provenance in the format a pipeline reads (#137). `newInThisBuild` is a boolean rather than
+     * a phrase for the same reason the rest of this format exists: a dashboard should not have to
+     * match on English.
+     */
+    @Test
+    void provenanceIsAddressableJson() throws Exception {
+        JsonNode j = parse(renderer.render(withProvenance(new Provenance(false, "9a2b1c", 1_000_412L, 2))));
+
+        assertThat(j.at("/firstSeen/newInThisBuild").asBoolean()).isFalse();
+        assertThat(j.at("/firstSeen/build").asText()).isEqualTo("9a2b1c");
+        assertThat(j.at("/firstSeen/ts").asText()).isEqualTo("1970-01-01T00:16:40.412Z");
+        assertThat(j.at("/firstSeen/buildsAgo").asInt()).isEqualTo(2);
+    }
+
+    /**
+     * Absence is this format's way of saying "not known" (§7), so an unknown distance is an
+     * omitted member rather than a {@code -1} every consumer would have to special-case.
+     */
+    @Test
+    void anUnknownBuildDistanceIsOmittedRatherThanNegative() throws Exception {
+        JsonNode j = parse(renderer.render(withProvenance(new Provenance(false, "longgone", 1_000_412L, -1))));
+
+        assertThat(j.at("/firstSeen/build").asText()).isEqualTo("longgone");
+        assertThat(j.at("/firstSeen").has("buildsAgo")).isFalse();
+    }
+
+    @Test
+    void withoutProvenanceTheFirstSeenMemberIsAbsentEntirely() throws Exception {
+        assertThat(parse(renderer.render(withProvenance(null))).has("firstSeen")).isFalse();
+    }
+
+    /** One report shaped for the provenance assertions; only the provenance varies. */
+    private static Report withProvenance(Provenance provenance) {
+        DistilledStack stack = new DistilledStack("IllegalStateException", "payment gateway refused",
+                "PaymentService.charge(PaymentService.java:118)", true, List.of(),
+                List.of("PaymentService.charge(PaymentService.java:118) ← culprit"), 1, 1, List.of());
+        return new Report("5eed0001", 1_000_412L, "main", stack, "charge failed", new Object[0],
+                "com.acme.shop.PaymentService", Map.of(), Map.of(), List.of(),
+                new Story(List.of(), "thread main"), "app=shop | java 21 | linux",
+                1, 0L, null, provenance);
+    }
+
     @Test
     void nonReportEntriesAreTypedJson() throws Exception {
         assertThat(parse(renderer.fileHeader()).get("format").asText()).isEqualTo("st-json/1");

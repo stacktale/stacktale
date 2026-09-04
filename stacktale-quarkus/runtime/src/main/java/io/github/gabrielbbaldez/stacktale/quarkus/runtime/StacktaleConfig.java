@@ -68,6 +68,13 @@ public interface StacktaleConfig {
     @WithDefault("false")
     boolean repro();
 
+    /**
+     * Remember across restarts which build each error was first seen on, so a report can say
+     * whether it is new in the build now running. Writes a sibling file beside the log.
+     */
+    @WithDefault("false")
+    boolean provenance();
+
     /** Redact secrets (tokens, passwords, emails, …) from reports. */
     @WithDefault("true")
     boolean redactionEnabled();

@@ -22,6 +22,8 @@ final class ReportRenderer implements Renderer {
 
     private final DateTimeFormatter dateTime;
     private final DateTimeFormatter time;
+    /** Provenance spans deploys, so its dates are days old; a millisecond there is noise. */
+    private final DateTimeFormatter date;
     private final Redactor redactor;
 
     ReportRenderer(ZoneId zone) {
@@ -31,6 +33,7 @@ final class ReportRenderer implements Renderer {
     ReportRenderer(ZoneId zone, Redactor redactor) {
         this.dateTime = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(zone);
         this.time = DateTimeFormatter.ofPattern("HH:mm:ss.SSS").withZone(zone);
+        this.date = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(zone);
         this.redactor = redactor;
     }
 
@@ -103,6 +106,8 @@ final class ReportRenderer implements Renderer {
             sb.append("seen: ").append(r.occurrences()).append("× this session, first at ")
                     .append(time.format(Instant.ofEpochMilli(r.firstSeenMillis()))).append('\n');
         }
+
+        renderFirstSeen(sb, r);
 
         renderStory(sb, r);
 
@@ -192,6 +197,34 @@ final class ReportRenderer implements Renderer {
             if (message != null && !message.isBlank()) sb.append(": ").append(clean(message));
             sb.append('\n');
         }
+    }
+
+    /**
+     * Provenance: whether this error predates the build now running (#137).
+     *
+     * <p>Sits next to {@code seen:} because both answer "how new is this", on different clocks —
+     * {@code seen:} counts this session, this counts deploys. Only the first resets when the
+     * process restarts, which is exactly why it could never settle the question a triage opens
+     * with.
+     */
+    private void renderFirstSeen(StringBuilder sb, Report r) {
+        Provenance p = r.provenance();
+        if (p == null) return;
+
+        sb.append("first seen: ");
+        if (p.newInThisBuild()) {
+            // the point of the whole feature, phrased so it can be grepped for
+            sb.append("NEW in this build (").append(clean(p.firstBuild())).append(')');
+        } else {
+            sb.append("build ").append(clean(p.firstBuild()));
+            // -1 means the store no longer holds that build; a count would be invented
+            if (p.buildsAgo() > 0) {
+                sb.append(", ").append(p.buildsAgo())
+                        .append(p.buildsAgo() == 1 ? " build ago" : " builds ago");
+            }
+            sb.append(" (").append(date.format(Instant.ofEpochMilli(p.firstSeenMillis()))).append(')');
+        }
+        sb.append('\n');
     }
 
     private void renderStory(StringBuilder sb, Report r) {

@@ -174,6 +174,7 @@ public final class StacktaleAppender extends AbstractAppender {
         @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private boolean reportErrorsWithoutThrowable = true;
         @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private boolean captureExceptionFields = true;
         @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private boolean repro = false;
+        @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private boolean provenance = false;
         @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private boolean redactionEnabled = true;
         /** Extra redaction regexes, separated by {@code ;;} (regexes may contain commas). */
         @SuppressWarnings("log4j.public.setter") @PluginBuilderAttribute private String redactPatterns = "";
@@ -230,6 +231,7 @@ public final class StacktaleAppender extends AbstractAppender {
                     .reportErrorsWithoutThrowable(reportErrorsWithoutThrowable)
                     .captureExceptionFields(captureExceptionFields)
                     .repro(repro)
+                    .provenance(provenance)
                     .redactionEnabled(redactionEnabled)
                     .redactPatterns(compiled)
                     .redactionCorrelation(redactionCorrelation)

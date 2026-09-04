@@ -52,6 +52,7 @@ final class JsonReportRenderer implements Renderer {
         appendIfPresent(b, "fields", mapObj(r.fields()));
         appendIfPresent(b, "captured", cleanArr(r.captured()));
         appendIfPresent(b, "repro", reproObj(r.repro()));
+        appendIfPresent(b, "firstSeen", firstSeenObj(r.provenance()));
         if (r.occurrences() > 1) {
             b.append(",\"recurrence\":{\"count\":").append(r.occurrences())
                     .append(",\"firstSeen\":").append(quote(iso(r.firstSeenMillis()))).append('}');
@@ -140,6 +141,24 @@ final class JsonReportRenderer implements Renderer {
         String prefix = nz(p.name()) + " = ";
         String redacted = redactor.redact(prefix + nz(p.value()));
         return redacted.startsWith(prefix) ? redacted.substring(prefix.length()) : redacted;
+    }
+
+    /**
+     * Provenance (#137), mirroring {@link Provenance} member for member.
+     *
+     * <p>{@code buildsAgo} is omitted rather than sent as {@code -1} when the store no longer
+     * holds the first build: absence is this format's way of saying "not known", and a negative
+     * count is something a consumer would have to learn to special-case.
+     */
+    private String firstSeenObj(Provenance p) {
+        if (p == null) return null;
+        StringBuilder b = new StringBuilder("{\"newInThisBuild\":").append(p.newInThisBuild())
+                .append(",\"build\":").append(quote(nz(p.firstBuild())))
+                .append(",\"ts\":").append(quote(iso(p.firstSeenMillis())));
+        if (p.buildsAgo() >= 0) {
+            b.append(",\"buildsAgo\":").append(p.buildsAgo());
+        }
+        return b.append('}').toString();
     }
 
     private String logObj(Report r) {

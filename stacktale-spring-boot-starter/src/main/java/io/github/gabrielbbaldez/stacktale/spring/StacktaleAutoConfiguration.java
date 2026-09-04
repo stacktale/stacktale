@@ -80,6 +80,7 @@ public class StacktaleAutoConfiguration {
         appender.setReportErrorsWithoutThrowable(props.isReportErrorsWithoutThrowable());
         appender.setCaptureExceptionFields(props.isCaptureExceptionFields());
         appender.setRepro(props.isRepro());
+        appender.setProvenance(props.isProvenance());
         appender.setRedactionEnabled(props.isRedactionEnabled());
         props.getRedactPatterns().forEach(appender::addRedactPattern);
         appender.setRedactionCorrelation(props.isRedactionCorrelation());

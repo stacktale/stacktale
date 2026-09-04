@@ -140,6 +140,66 @@ class ReportRendererTest {
         assertThat(new ReportRenderer(ZoneOffset.UTC).render(r)).isEqualTo(golden("repro-report.txt"));
     }
 
+    /**
+     * The line a triage opens with. "NEW in this build" is deliberately phrased so it can be
+     * grepped for across a directory of reports, and it names the build so a reader can check it
+     * against what they just deployed.
+     */
+    @Test
+    void provenanceLeadsWithWhetherTheErrorIsNewInThisBuild() {
+        Report r = withProvenance(new Provenance(true, "7e3c1f", 1_000_412L, 0));
+
+        assertThat(new ReportRenderer(ZoneOffset.UTC).render(r))
+                .contains("first seen: NEW in this build (7e3c1f)");
+    }
+
+    @Test
+    void provenanceForAnOlderErrorNamesTheBuildAndHowLongAgo() {
+        Report r = withProvenance(new Provenance(false, "9a2b1c", 1_000_412L, 2));
+
+        assertThat(new ReportRenderer(ZoneOffset.UTC).render(r))
+                .contains("first seen: build 9a2b1c, 2 builds ago (1970-01-01)");
+    }
+
+    /** One deploy back reads as a build, not "1 builds ago". */
+    @Test
+    void provenanceCountsOneBuildInTheSingular() {
+        assertThat(new ReportRenderer(ZoneOffset.UTC).render(
+                withProvenance(new Provenance(false, "9a2b1c", 1_000_412L, 1))))
+                .contains("first seen: build 9a2b1c, 1 build ago (1970-01-01)");
+    }
+
+    /**
+     * An evicted or copied-in sidecar has no distance to the first build. Printing "0 builds ago"
+     * would read as "this build", which is the opposite of what is known.
+     */
+    @Test
+    void provenanceOmitsTheCountWhenTheFirstBuildIsNoLongerOnFile() {
+        String rendered = new ReportRenderer(ZoneOffset.UTC).render(
+                withProvenance(new Provenance(false, "longgone", 1_000_412L, -1)));
+
+        assertThat(rendered).contains("first seen: build longgone (1970-01-01)");
+        assertThat(rendered).doesNotContain("builds ago");
+    }
+
+    @Test
+    void withoutProvenanceTheFirstSeenLineIsAbsentEntirely() {
+        assertThat(new ReportRenderer(ZoneOffset.UTC).render(withProvenance(null)))
+                .doesNotContain("first seen:");
+    }
+
+    /** One report shaped for the provenance assertions; only the provenance varies. */
+    private static Report withProvenance(Provenance provenance) {
+        DistilledStack stack = new DistilledStack("IllegalStateException", "payment gateway refused",
+                "PaymentService.charge(PaymentService.java:118)", true, java.util.List.of(),
+                java.util.List.of("PaymentService.charge(PaymentService.java:118) ← culprit"),
+                1, 1, java.util.List.of());
+        return new Report("5eed0001", 1_000_412L, "main", stack, "charge failed", new Object[0],
+                "com.acme.shop.PaymentService", Map.of(), Map.of(), java.util.List.of(),
+                new Story(java.util.List.of(), "thread main"), "app=shop | java 21 | linux",
+                1, 0L, null, provenance);
+    }
+
     @Test
     void withoutASeedTheReproSectionIsAbsentEntirely() throws Exception {
         Report r = new Report("cafe", 2_000_000L, "main", null,

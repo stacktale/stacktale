@@ -99,11 +99,38 @@ Fields:
 | `log:` | the original SLF4J/Log4j2 message **pattern** (not the interpolated text), its `args`, and the logger name abbreviated `c.a.s.OrderService`. |
 | `mdc:` / `fields:` | space-separated `key=value` pairs, keys sorted. Omitted when empty. `mdc:` also carries SLF4J 2.0 event key-values (`log.atError().addKeyValue("orderId", 889)`), merged into the same line — MDC wins on a key clash. |
 | `seen:` | recurrence — `N× this session, first at <HH:mm:ss.SSS>`. Present **only** when the error has occurred before this session (its absence means the error is new). Session-scoped: resets on restart. |
+| `first seen:` | present only when `provenance` is on: which build this error id was first seen on. Detailed below. |
 | `captured:` | present only when the agent is attached; method frames with argument values. |
 | `repro:` | present only when `repro` is on **and** the agent is attached: the throw site's typed signature and argument values. Detailed below. |
 | `story` | events leading up to and including the error, oldest first. `<label>` is `traceId=…` (correlated) or `thread <name>` (fallback). The error's own line ends with `   ← this error`. A `… N earlier event(s) older than the story window omitted` line appears when events were dropped by age (vs never logged). Omitted when empty. |
 | `stack` | the distilled stack: shown frames plus `… N collapsed (<framework groups>)` markers; the culprit frame ends with `← culprit`. Omitted for reports with no throwable. |
 | `env:` | `app=<name> <version> (git <sha>) \| java <ver> \| profile=<p> \| <os>`; unknown parts degrade (`app=?`, no `(git …)`, no `profile=`). |
+
+### `first seen:` — deploy provenance
+
+Off by default. Switched on with `provenance=true`, which keeps a `<report file>.seen` sidecar
+beside the log. Nothing leaves the machine.
+
+It answers the question a triage opens with — *did the change I just shipped cause this?* —
+which no other line can. `seen:` is session-scoped and resets on restart, and the `env:` line
+names the build the error happened **on**, never the build it started on.
+
+```
+first seen: NEW in this build (7e3c1f)
+first seen: build 9a2b1c, 2 builds ago (2026-07-19)
+first seen: build 9a2b1c (2026-07-19)
+```
+
+- The first form is the one worth grepping for across a directory of reports.
+- The count of builds is **omitted** when the sidecar no longer holds the first build — after
+  eviction, or when the file was copied from another machine. A distance from an unknown
+  position would be invented.
+- The date is a date, not a timestamp: provenance spans deploys, and a millisecond there is
+  noise.
+- The build is the git sha when there is one, else the application version. With neither there
+  is no way to tell two builds apart, so the section is absent rather than misleading.
+- The sidecar is **bounded** (50 builds, 2000 ids, oldest evicted) and **never fatal**: missing,
+  corrupt or unwritable, it costs this section and nothing else.
 
 ### `repro:` — the reproduction seed
 
@@ -238,6 +265,12 @@ A `report` object (pretty-printed here; on disk it is one line):
   "mdc": { "traceId": "7c2e" },
   "fields": { "orderId": "889", "retryable": "false" },
   "captured": ["PaymentService.charge(orderId=889, amount=149.90)"],
+  "firstSeen": {
+    "newInThisBuild": false,
+    "build": "9a2b1c",
+    "ts": "2026-07-19T09:12:33.004Z",
+    "buildsAgo": 2
+  },
   "repro": {
     "className": "com.acme.shop.PaymentService",
     "methodName": "charge",
@@ -263,7 +296,7 @@ A `report` object (pretty-printed here; on disk it is one line):
 Rules:
 
 - Timestamps are ISO-8601 with fixed millisecond precision (`.SSS`) and an offset (`Z` for UTC).
-- Optional members (`mdc`, `fields`, `captured`, `repro`, `recurrence`, `error.wrappedBy`,
+- Optional members (`mdc`, `fields`, `captured`, `repro`, `firstSeen`, `recurrence`, `error.wrappedBy`,
   `error.culprit`, `stack`, `env`) are **omitted** when empty — absence is the signal.
 - A no-throwable report has `"error": { "noException": true, "message": "…" }` and no `stack`.
 - Redaction is identical to the text format: a secret-named key masks its value, a
@@ -297,4 +330,5 @@ below, so the mapping never has to be inferred from the example above.
 | `story.events[].thisError` | the `   ← this error` suffix on the error's own event |
 | `stack.shown` / `stack.total` | the `X of Y frames` in the `stack (distilled, …)` header |
 | `stack.frames[]` | the frame lines, including the `… N collapsed (…)` markers |
+| `firstSeen` | the `first seen:` line (§3). `newInThisBuild` is the boolean behind the phrase, so a consumer never matches on English; `buildsAgo` is omitted rather than negative when the first build is no longer on file |
 | `repro.className` + `repro.methodName` + `repro.params[]` | the `repro:` block (§3). The block's `throws` line has no member of its own: it restates the root cause, which is already `error.type` and `error.message` |

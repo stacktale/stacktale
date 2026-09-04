@@ -213,6 +213,9 @@ public final class StacktaleJulHandler extends Handler {
         Boolean repro = boolProp(m, p + "repro");
         if (repro != null) b.repro(repro);
 
+        Boolean provenance = boolProp(m, p + "provenance");
+        if (provenance != null) b.provenance(provenance);
+
         Boolean truncate = boolProp(m, p + "truncateOnStart");
         if (truncate != null) b.truncateOnStart(truncate);
 

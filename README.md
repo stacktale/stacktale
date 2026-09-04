@@ -649,6 +649,7 @@ Everything is optional — as appender properties in `logback.xml`, or `stacktal
 | `reportErrorsWithoutThrowable` | `true` | `log.error(...)` without exception still reports |
 | `captureExceptionFields` | `true` | Read exception getters into `fields:` |
 | `repro` | `false` | Add a `repro:` seed: the throw site's typed signature and argument values. Needs `stacktale-agent`. Off by default — it is the only section that renders values against a named signature |
+| `provenance` | `false` | Remember across restarts which build each error was first seen on, and lead the report with `first seen: NEW in this build (7e3c1f)` or `first seen: build 9a2b1c, 2 builds ago`. Writes a `<file>.seen` sidecar; nothing leaves the machine |
 | `redactionEnabled` | `true` | Mask secrets/PII in report content |
 | `redactPattern` / `redactPatterns` | — | Extra redaction regexes (see note below) |
 | `redactionCorrelation` | `false` | Tag masked values with a stable keyed token (`███(a1b2)`) so an AI can see the same secret recurring |
