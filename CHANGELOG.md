@@ -17,8 +17,22 @@ and pinned by golden-file tests.
   Deliberate absences are listed with their reason: an undocumented gap and a bug are
   otherwise indistinguishable. (#211)
 
+### Changed
+
+- `docs/FORMAT.md` files the `repro:` section under **§3 Report block** and gives it a row in
+  that section's field table. It was a subsection of §5 *Non-report entries*, next to
+  `repeated`, `app start` and `storm:` — the three things that are not reports. (#216)
+
 ### Fixed
 
+- **`st-json/1` dropped the `repro:` seed the text format carries.** FORMAT.md §7 opens its
+  correspondence table with "Both formats carry the same information"; `JsonReportRenderer` is
+  242 lines and the string `repro` appeared in none of them. An application on `format=json`
+  with `repro=true` and the agent attached paid for the capture and got nothing — silently,
+  since an absent seed looks exactly like a throw site the agent did not instrument. It is now
+  a `repro` member mirroring the record, omitted when there is no seed like `mdc` and `fields`
+  already are. The one format an agent is most likely to read was the one dropping the section
+  written for a machine. (#216)
 - **Every Quarkus report said `env: app=?`.** Quarkus knows the application name and version —
   `quarkus.application.*`, defaulted from the artifact's coordinates — and the extension never
   asked, so `EnvCollector` fell through to its two fallbacks: a Spring Boot artifact
