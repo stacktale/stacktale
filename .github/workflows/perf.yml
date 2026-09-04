@@ -1,0 +1,32 @@
+name: Performance
+
+# Only when the measured code changes. The job builds the branch and its base and runs both,
+# which is minutes — not something a README edit should pay for.
+on:
+  pull_request:
+    paths:
+      - "stacktale-core/src/main/**"
+      - "stacktale/src/main/**"
+      - "scripts/check-perf.sh"
+      - "scripts/perf/**"
+      - ".github/workflows/perf.yml"
+
+jobs:
+  hot-path:
+    name: Hot path vs base
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The base commit has to be in the clone: the guard builds it as a worktree and
+          # measures against it. A shallow checkout has nothing to compare with.
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - name: Hot path against the merge base
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha }}
+        run: bash scripts/check-perf.sh
