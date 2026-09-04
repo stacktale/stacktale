@@ -325,6 +325,13 @@ public final class StacktaleAppender extends UnsynchronizedAppenderBase<ILogging
 
     public void setCaptureExceptionFields(boolean captureExceptionFields) { this.captureExceptionFields = captureExceptionFields; }
 
+    /**
+     * Opt-in: render the throw site's typed signature and argument values as a {@code repro:}
+     * section. Needs {@code stacktale-agent} on the command line; without it the seed resolves
+     * to nothing and the section is simply absent.
+     */
+    public void setRepro(boolean repro) { this.repro = repro; }
+
     public void setRedactionEnabled(boolean redactionEnabled) { this.redactionEnabled = redactionEnabled; }
 
     /** Joran calls this once per {@code <redactPattern>} element in logback.xml. */

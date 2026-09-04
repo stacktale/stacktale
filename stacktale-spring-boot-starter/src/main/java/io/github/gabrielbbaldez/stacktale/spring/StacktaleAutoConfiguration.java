@@ -79,6 +79,7 @@ public class StacktaleAutoConfiguration {
         appender.setInstallUncaughtHandler(props.isInstallUncaughtHandler());
         appender.setReportErrorsWithoutThrowable(props.isReportErrorsWithoutThrowable());
         appender.setCaptureExceptionFields(props.isCaptureExceptionFields());
+        appender.setRepro(props.isRepro());
         appender.setRedactionEnabled(props.isRedactionEnabled());
         props.getRedactPatterns().forEach(appender::addRedactPattern);
         appender.setRedactionCorrelation(props.isRedactionCorrelation());

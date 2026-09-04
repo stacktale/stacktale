@@ -46,6 +46,9 @@ public class StacktaleProperties {
     /** Read state from the root-cause exception's getters into a fields: section. */
     private boolean captureExceptionFields = true;
 
+    /** Add a repro: seed — the throw site's typed signature and argument values. Needs stacktale-agent. */
+    private boolean repro = false;
+
     /** Mask secrets/PII (JWTs, bearer tokens, key=value secrets, emails, cards). */
     private boolean redactionEnabled = true;
 
@@ -106,6 +109,8 @@ public class StacktaleProperties {
     public void setReportErrorsWithoutThrowable(boolean reportErrorsWithoutThrowable) { this.reportErrorsWithoutThrowable = reportErrorsWithoutThrowable; }
     public boolean isCaptureExceptionFields() { return captureExceptionFields; }
     public void setCaptureExceptionFields(boolean captureExceptionFields) { this.captureExceptionFields = captureExceptionFields; }
+    public boolean isRepro() { return repro; }
+    public void setRepro(boolean repro) { this.repro = repro; }
     public boolean isRedactionEnabled() { return redactionEnabled; }
     public void setRedactionEnabled(boolean redactionEnabled) { this.redactionEnabled = redactionEnabled; }
     public List<String> getRedactPatterns() { return redactPatterns; }

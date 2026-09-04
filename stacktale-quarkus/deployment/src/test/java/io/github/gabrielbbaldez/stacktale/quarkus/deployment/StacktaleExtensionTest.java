@@ -1,5 +1,6 @@
 package io.github.gabrielbbaldez.stacktale.quarkus.deployment;
 
+import io.github.gabrielbbaldez.stacktale.quarkus.runtime.StacktaleConfig;
 import io.quarkus.test.QuarkusUnitTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -24,7 +25,11 @@ class StacktaleExtensionTest {
     static final QuarkusUnitTest APP = new QuarkusUnitTest()
             .overrideConfigKey("stacktale.file", REPORT.toString())
             .overrideConfigKey("stacktale.truncate-on-start", "true")
-            .overrideConfigKey("stacktale.app-packages", "io.github.gabrielbbaldez.stacktale.quarkus");
+            .overrideConfigKey("stacktale.app-packages", "io.github.gabrielbbaldez.stacktale.quarkus")
+            .overrideConfigKey("stacktale.repro", "true");
+
+    @jakarta.inject.Inject
+    StacktaleConfig config;
 
     @Test
     void severeLogWithThrowableBecomesAnAiReport() throws Exception {
@@ -36,6 +41,19 @@ class StacktaleExtensionTest {
         assertContains(report, "IllegalStateException");
         assertContains(report, "customer cache returned null");
         assertContains(report, "← YOUR CODE");
+    }
+
+    /**
+     * A {@code stacktale.*} key with no method behind it does not fail a build — Quarkus logs
+     * "Unrecognized configuration key" and starts — so an override alone proves nothing. Ask
+     * the mapping for the value instead: a missing method is a compile error here.
+     *
+     * <p>{@code repro} needs no agent to be asserted this way, which is the point: the seed is
+     * optional extra content, the configuration path is not.
+     */
+    @Test
+    void reproIsBoundFromConfiguration() {
+        assertTrue(config.repro(), "stacktale.repro=true did not reach StacktaleConfig");
     }
 
     private static void assertContains(String haystack, String needle) {
