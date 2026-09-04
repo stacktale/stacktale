@@ -9,6 +9,16 @@ and pinned by golden-file tests.
 
 ### Added
 
+- **MCP: `culprit_source(id, radius)` and `tests_covering(id)` read the working tree.** The
+  report says which line failed; the first says what is on it, with the lines around it and the
+  culprit marked. Source code is deliberately not in `errors-ai.log` — that file is gitignored,
+  redacted, uploaded to CI artifacts and sized for tokens — and it is stale besides: during a
+  fix loop only the current source is the right answer. The second reports which test files name
+  the culprit's class and method, a name match rather than coverage, and says so in its own
+  reply; the answer worth acting on is `none`, which means writing a reproduction test rather
+  than hunting for one that does not exist. Both degrade with an explanation when the frame
+  names a file the tree does not have, because a failed tool call leaves an agent with nothing
+  to do next. (#138)
 - **MCP: `repro_for(id)` turns a report's `repro:` seed into a JUnit skeleton.** The seed is the
   one section stacktale writes for a machine — the throw site's fully qualified class, its
   method, the declared parameter types and the values the failing call was given — and until

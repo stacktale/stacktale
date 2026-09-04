@@ -544,11 +544,15 @@ anything else that speaks MCP.
 } } }
 ```
 
-**Six tools**, all read-only (annotated so clients can auto-approve them):
+**Nine tools**, all read-only (annotated so clients can auto-approve them):
 
 - **`errors_since_last_check`** — the loop primitive: what's 🆕 new or 🔁 still occurring
   since the last check, or *✓ no new errors* when it's clean.
 - **`match_report`** — paste a raw stack trace, get the full captured report for it.
+- **`repro_for`** — a JUnit skeleton from the throw site's typed signature and the arguments
+  the failing call was given (needs `repro=true` and `stacktale-agent`).
+- **`culprit_source`** / **`tests_covering`** — the source at the culprit line, read from the
+  working tree rather than the log, and whether any test names that method.
 - `list_errors`, `get_report`, `errors_since`, `find_similar_errors` — browse and search.
 
 Plus **prompts** (`fix_loop`, `explain_latest_error`) clients surface as slash-commands, and
