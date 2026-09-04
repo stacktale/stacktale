@@ -60,6 +60,15 @@ and pinned by golden-file tests.
   arrives as an explicit `TODO`, never as a literal: `String token = "███"` compiles, reads as
   data, and would reproduce a call that never happened. A report with no seed gets the two
   switches it needs rather than an error. (#135)
+- **A hot-path regression guard that compares, rather than trusting a number.**
+  `check-perf.sh` builds a PR and its merge base and runs the same probe against them
+  alternately, failing on the ratio — because a benchmark figure is only comparable to another
+  taken within seconds of it. The same code drifted ~8% between sessions on an idle machine,
+  which is the size of the regressions a fixed threshold would be asked to detect. Calibrated
+  against a null (the same commit on both arms) and proved against an injected slowdown, which
+  it reports as `info is 2.363x the base`. The probe refuses to report timings unless stacktale
+  actually wrote a report — a misconfigured run degrades to a no-op by design, and would
+  otherwise have produced a confident ratio of 1.0 forever. (#98)
 - **A guard that keeps the five adapters' configuration surfaces in step.**
   `check-config-parity.sh` reads the README's configuration table and asserts each knob is
   reachable from Logback, Log4j2, JUL, the Spring starter and Quarkus — matching the shape

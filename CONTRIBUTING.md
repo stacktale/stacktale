@@ -104,6 +104,31 @@ find . -path '*/target/*.jar' | sort | xargs sha256sum | diff -u /tmp/first.txt 
 If that ever diverges, the usual causes are a plugin writing a build time into
 `MANIFEST.MF` or a newly added plugin too old to honour the property.
 
+## Performance
+
+`scripts/check-perf.sh` guards the hot path, and CI runs it on any PR that touches
+`stacktale-core/src/main` or `stacktale/src/main`. It does **not** compare against a number in
+a file. It builds your branch and its merge base and runs the same probe against them
+alternately, comparing medians — a benchmark figure is only comparable to another taken within
+seconds of it, and on this project's own machine the same code drifted ~8% between sessions.
+
+Run it yourself before pushing something hot-path shaped:
+
+```bash
+bash scripts/check-perf.sh                    # against origin/main
+BASE_REF=abc1234 ROUNDS=5 bash scripts/check-perf.sh
+```
+
+It reports both paths and fails when either is more than `MAX_RATIO` (1.5) times the base. That
+limit is deliberately loose, and the script's header carries the calibration behind it: run
+against a null — the same commit on both arms — the ratios still came back between 0.87 and
+1.19. What it reliably catches is the thing #98 was opened for, a refactor quietly multiplying
+the per-event cost. It is not a 5% detector, and the printed numbers are there so a ratio
+creeping upward is visible before it fails.
+
+If you are changing the probe, calibrate it the same way: point it at a commit that changes
+nothing and check that it says so.
+
 ## Mutation testing (`stacktale-core`)
 
 Line coverage says a line ran; a mutation score says the tests would actually

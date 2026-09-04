@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The appender under measurement, and nothing else: no console, no encoder, no second
+  destination. Anything else attached would be measured too, and the question is what
+  stacktale costs.
+
+  Referenced by class name so the same file configures either build the driver puts on the
+  classpath.
+-->
+<configuration>
+  <appender name="STACKTALE" class="io.github.gabrielbbaldez.stacktale.logback.StacktaleAppender">
+    <file>${stacktale.perf.file:-target/perf-errors-ai.log}</file>
+    <appPackages>com.acme</appPackages>
+    <truncateOnStart>true</truncateOnStart>
+    <!--
+      The uncaught handler installs a JVM-global hook; two probe runs in a row would each
+      install one. It is not on the path being measured.
+    -->
+    <installUncaughtHandler>false</installUncaughtHandler>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="STACKTALE"/>
+  </root>
+</configuration>
