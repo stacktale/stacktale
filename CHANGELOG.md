@@ -7,6 +7,16 @@ and pinned by golden-file tests.
 
 ## [Unreleased]
 
+### Added
+
+- **A guard that keeps the five adapters' configuration surfaces in step.**
+  `check-config-parity.sh` reads the README's configuration table and asserts each knob is
+  reachable from Logback, Log4j2, JUL, the Spring starter and Quarkus — matching the shape
+  that makes it *settable* in each, so a private field nobody can set does not count. Run
+  against the commit before the fix below, it names those three gaps and nothing else.
+  Deliberate absences are listed with their reason: an undocumented gap and a bug are
+  otherwise indistinguishable. (#211)
+
 ### Fixed
 
 - **`repro` could not be turned on from Logback, the Spring Boot starter or Quarkus.** The
