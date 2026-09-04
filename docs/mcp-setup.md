@@ -3,8 +3,8 @@
 `stacktale-mcp` lets an AI assistant read and act on your app's error reports as tools —
 list them (`list_errors`), pull a full report (`get_report`), filter by time
 (`errors_since`), find similar past ones (`find_similar_errors`), **attach a pasted trace to
-its captured report** (`match_report`), and **loop on new errors until they're gone**
-(`errors_since_last_check`). With a subscription it's also **notified the moment a new error
+its captured report** (`match_report`), **turn one into a reproduction test**
+(`repro_for`), and **loop on new errors until they're gone** (`errors_since_last_check`). With a subscription it's also **notified the moment a new error
 lands** instead of polling. It's a tiny read-only server that speaks
 [MCP](https://modelcontextprotocol.io) over stdio. No network, no writes.
 
@@ -134,6 +134,14 @@ Once wired up, ask your assistant:
 > *What broke since 11am?* — it calls `errors_since`.
 > *Have we seen this NPE before?* — it calls `find_similar_errors`.
 > *[paste a stack trace] — what does stacktale have on this?* — it calls `match_report`.
+> *Write me a test that reproduces #c73cf755* — it calls `repro_for`.
+
+`repro_for` answers with a JUnit skeleton built from the report's `repro:` seed: the throw
+site's class, its method, the declared parameter types and the values the call was given. It
+needs `repro=true` and `stacktale-agent`; without them it says so rather than guessing, and
+tells you what to switch on. Values the report had to redact arrive as an explicit `TODO`
+rather than as a literal — a masked string that compiles would reproduce a call that never
+happened.
 
 ## The fix-loop
 

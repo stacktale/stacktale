@@ -314,6 +314,13 @@ public final class StacktaleMcpServer {
                 "The fix-loop primitive. First call shows the errors currently on file; after you re-run the app/tests, it reports what's 🆕 new or 🔁 still occurring since your last call — or '✓ No new errors' when it's clean. Call it each round of a fix→run→check loop until clean. Optional reset re-baselines.",
                 "{\"type\":\"object\",\"properties\":{\"reset\":{\"type\":\"boolean\",\"description\":\"forget what was already reported and re-baseline from the current file\"}}}",
                 LOOP_SCHEMA));
+        tools.add(tool("repro_for", "Reproduction skeleton", true,
+                "Turn one error's repro: seed into a JUnit test skeleton: the throw site's class, its method, "
+                + "the declared parameter types and the argument values it was given. Use it when you are about "
+                + "to write a reproduction test — the signature and inputs come from the failure itself rather "
+                + "than from guessing. Needs repro=true and stacktale-agent; says so when the report has no seed.",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"report id, e.g. c73cf755\"}},\"required\":[\"id\"]}",
+                null));
         tools.add(tool("match_report", "Match a pasted trace", true,
                 "Paste a raw exception + stack trace and get the full stacktale report captured for it (story, fields, distilled stack, env) — matched by root-cause type and message. The bridge from a pasted trace to the agent having the whole context.",
                 "{\"type\":\"object\",\"properties\":{\"trace\":{\"type\":\"string\",\"description\":\"a pasted exception and its stack trace\"}},\"required\":[\"trace\"]}",
@@ -383,6 +390,7 @@ public final class StacktaleMcpServer {
             case "errors_since" -> errorsSince(args.path("since").asText());
             case "find_similar_errors" -> findSimilar(args.path("query").asText());
             case "errors_since_last_check" -> errorsSinceLastCheck(args.path("reset").asBoolean(false));
+            case "repro_for" -> ToolResult.text(reproFor(args.path("id").asText()));
             case "match_report" -> ToolResult.text(matchReport(args.path("trace").asText()));
             default -> throw new IllegalArgumentException("unknown tool: " + name);
         };
@@ -418,6 +426,21 @@ public final class StacktaleMcpServer {
                 .filter(r -> r.id().equals(id))
                 .findFirst()
                 .map(r -> r.repeats() > 1 ? r.block() + "(occurred " + r.repeats() + "× in total)\n" : r.block())
+                .orElse("No report with id '" + id + "'. Use list_errors to see available ids.");
+    }
+
+    /**
+     * The repro: seed rendered as a test skeleton.
+     *
+     * <p>Same lookup as {@link #getReport}, different rendering: that hands over the report for a
+     * human or an LLM to read, this hands over the one section that is already machine-shaped and
+     * saves the transcription step where a declared type or an argument order goes quietly wrong.
+     */
+    private String reproFor(String id) throws IOException {
+        return reports.read().stream()
+                .filter(r -> r.id().equals(id))
+                .findFirst()
+                .map(r -> ReproSkeleton.render(r.id(), r.block()))
                 .orElse("No report with id '" + id + "'. Use list_errors to see available ids.");
     }
 

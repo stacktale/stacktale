@@ -36,6 +36,18 @@ class StacktaleMcpServerTest {
 
             env: app=demo | java 21 | linux
             ━━━ END #bbbb2222 ━━━
+            ━━━ ERROR #dddd4444 ━━━ 2026-07-10 12:00:00.000 thread=http-1 ━━━
+            IllegalStateException: payment gateway refused
+            at PaymentService.charge(PaymentService.java:118) ← YOUR CODE
+            repro (throw site, via stacktale-agent):
+              com.acme.shop.PaymentService#charge(long orderId, java.math.BigDecimal amount, java.lang.String token)
+                orderId = 889
+                amount = 149.90
+                token = ███
+              throws IllegalStateException: payment gateway refused
+
+            env: app=demo | java 21 | linux
+            ━━━ END #dddd4444 ━━━
             """;
 
     private Path file;
@@ -66,11 +78,12 @@ class StacktaleMcpServerTest {
         assertThat(r[0].at("/result/serverInfo/name").asText()).isEqualTo("stacktale");
         assertThat(r[0].at("/result/capabilities/resources/subscribe").asBoolean()).isTrue();
         assertThat(r[0].at("/result/capabilities/prompts").isObject()).isTrue();
-        assertThat(r[1].at("/result/tools")).hasSize(6);
+        assertThat(r[1].at("/result/tools")).hasSize(7);
         assertThat(r[1].at("/result/tools/0/name").asText()).isEqualTo("list_errors");
         assertThat(r[1].at("/result/tools/3/name").asText()).isEqualTo("find_similar_errors");
         assertThat(r[1].at("/result/tools/4/name").asText()).isEqualTo("errors_since_last_check");
-        assertThat(r[1].at("/result/tools/5/name").asText()).isEqualTo("match_report");
+        assertThat(r[1].at("/result/tools/5/name").asText()).isEqualTo("repro_for");
+        assertThat(r[1].at("/result/tools/6/name").asText()).isEqualTo("match_report");
     }
 
     @Test
@@ -95,6 +108,83 @@ class StacktaleMcpServerTest {
                 "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"match_report\","
                 + "\"arguments\":{\"trace\":\"com.acme.WidgetException: the frobnicator jammed\"}}}");
         assertThat(r[0].at("/result/content/0/text").asText()).contains("No captured report matches");
+    }
+
+    /**
+     * The point of the tool: the agent gets the signature and the inputs rather than
+     * transcribing them out of prose, which is the step where a declared type or an argument
+     * order goes quietly wrong.
+     */
+    @Test
+    void reproForBuildsATestSkeletonFromTheSeed() throws Exception {
+        String skeleton = reproFor("dddd4444");
+
+        assertThat(skeleton)
+                .contains("import com.acme.shop.PaymentService;")
+                .contains("import java.math.BigDecimal;")
+                .contains("class PaymentServiceReproTest")
+                .contains("void chargeThrowsIllegalStateException()")
+                .contains("long orderId = 889L;")                          // declared type drives the literal
+                .contains("BigDecimal amount = new BigDecimal(\"149.90\");")
+                .contains("() -> subject.charge(orderId, amount, token)")  // declaration order preserved
+                .contains("assertEquals(\"payment gateway refused\", thrown.getMessage());");
+
+        // java.lang types need no import line
+        assertThat(skeleton).doesNotContain("import java.lang.String;");
+    }
+
+    /**
+     * A masked value must never be handed over as a literal. `String token = "███"` compiles
+     * and reads as data, and the test would then reproduce a call that never happened.
+     */
+    @Test
+    void aRedactedArgumentBecomesATodoRatherThanAStringLiteral() throws Exception {
+        String skeleton = reproFor("dddd4444");
+
+        assertThat(skeleton).contains("String token = null /* TODO: redacted in the report */;");
+        assertThat(skeleton).doesNotContain("\"███\"");
+    }
+
+    /** No seed is the ordinary case — opt-in and needs the agent — so the answer teaches instead of failing. */
+    @Test
+    void reproForSaysHowToGetASeedWhenTheReportHasNone() throws Exception {
+        assertThat(reproFor("aaaa1111"))
+                .contains("carries no repro: seed")
+                .contains("repro=true")
+                .contains("-javaagent:");
+    }
+
+    @Test
+    void reproForAnUnknownIdPointsAtListErrors() throws Exception {
+        assertThat(reproFor("nosuchid")).contains("No report with id 'nosuchid'");
+    }
+
+    /**
+     * st-json/1 reports reach the server as JSON rather than as the text block, and the seed has
+     * to survive that route too — the format written for parsers is the one an agent is most
+     * likely to be reading.
+     */
+    @Test
+    void reproForReadsAnStJsonReportAsWell(@TempDir Path dir) throws Exception {
+        Path jsonFile = dir.resolve("errors-ai.log");
+        Files.writeString(jsonFile, """
+                {"type":"header","format":"st-json/1"}
+                {"type":"report","id":"eeee5555","ts":"2026-07-10T12:00:00.000Z","thread":"http-1",                "error":{"type":"IllegalStateException","message":"payment gateway refused"},                "log":{"pattern":"charge failed","logger":"com.acme.shop.PaymentService"},                "repro":{"className":"com.acme.shop.PaymentService","methodName":"charge",                "params":[{"type":"long","name":"orderId","value":"889"}]}}
+                """, StandardCharsets.UTF_8);
+        file = jsonFile;
+
+        String skeleton = reproFor("eeee5555");
+
+        assertThat(skeleton)
+                .contains("class PaymentServiceReproTest")
+                .contains("long orderId = 889L;")
+                .contains("assertEquals(\"payment gateway refused\", thrown.getMessage());");
+    }
+
+    private String reproFor(String id) throws Exception {
+        JsonNode[] r = roundTrip("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\","
+                + "\"params\":{\"name\":\"repro_for\",\"arguments\":{\"id\":\"" + id + "\"}}}");
+        return r[0].at("/result/content/0/text").asText();
     }
 
     private static final String NEW_BLOCK = """
@@ -265,7 +355,7 @@ class StacktaleMcpServerTest {
         JsonNode[] r = roundTrip(
                 "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"list_errors\",\"arguments\":{}}}");
         String text = r[0].at("/result/content/0/text").asText();
-        assertThat(text.lines().findFirst().orElse("")).contains("#bbbb2222"); // newest first
+        assertThat(text.lines().findFirst().orElse("")).contains("#dddd4444"); // newest first (12:00)
         assertThat(text).contains("(×4)");                                     // repeat count folded in
         assertThat(text).contains("NullPointerException: customer is null");
     }
