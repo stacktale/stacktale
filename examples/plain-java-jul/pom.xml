@@ -13,7 +13,7 @@
     <properties>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <stacktale.version>1.3.1</stacktale.version>
+        <stacktale.version>1.4.0</stacktale.version>
     </properties>
 
     <dependencies>
