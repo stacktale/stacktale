@@ -9,6 +9,16 @@ and pinned by golden-file tests.
 
 ### Added
 
+- **MCP: `repro_for(id)` turns a report's `repro:` seed into a JUnit skeleton.** The seed is the
+  one section stacktale writes for a machine — the throw site's fully qualified class, its
+  method, the declared parameter types and the values the failing call was given — and until
+  now an agent had to transcribe it out of prose, which is where a declared type or an argument
+  order goes quietly wrong. TDD-Bench-Java measured agents writing reproduction tests at 4% on
+  proprietary code with no hints, rising to 20% once given concrete class names and method
+  signatures; this hands over exactly that. Reads both `st/1` and `st-json/1`. A redacted value
+  arrives as an explicit `TODO`, never as a literal: `String token = "███"` compiles, reads as
+  data, and would reproduce a call that never happened. A report with no seed gets the two
+  switches it needs rather than an error. (#135)
 - **A guard that keeps the five adapters' configuration surfaces in step.**
   `check-config-parity.sh` reads the README's configuration table and asserts each knob is
   reachable from Logback, Log4j2, JUL, the Spring starter and Quarkus — matching the shape

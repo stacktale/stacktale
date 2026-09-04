@@ -43,6 +43,12 @@ changed.
 - `match_report` — the user pasted a bare stack trace: this finds the captured report for
   it, with the story and values the paste is missing. Reach for it whenever a trace arrives
   without context.
+- `repro_for` — before writing a reproduction test, ask for one. It returns a JUnit skeleton
+  built from the throw site itself: the class, the method, the declared parameter types and
+  the arguments the failing call was given. Those are what you would otherwise infer from the
+  stack trace, and a wrong declared type or argument order produces a test that passes while
+  reproducing something else. It needs `repro=true` and `stacktale-agent`, and says so when
+  the report has no seed — that answer is not a failure, it is the switch you are missing.
 
 ## Reading the reports well
 

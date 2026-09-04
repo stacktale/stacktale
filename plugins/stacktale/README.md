@@ -26,6 +26,7 @@ Maven Central on first run.
 | `errors_since` | everything after a timestamp |
 | `find_similar_errors` | has this failed before? |
 | `match_report` | you pasted a bare stack trace — find its captured report, with the story |
+| `repro_for` | a JUnit skeleton for one report, from the throw site's typed signature and arguments |
 
 **A skill** that teaches Claude how to work the loop: baseline, read the marked culprit
 frame, fix, re-run, ask what changed, repeat until clean.
