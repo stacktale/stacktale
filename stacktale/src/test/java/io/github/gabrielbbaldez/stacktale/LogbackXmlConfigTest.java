@@ -3,6 +3,7 @@ package io.github.gabrielbbaldez.stacktale;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.joran.JoranConfigurator;
 import ch.qos.logback.core.status.Status;
+import io.github.gabrielbbaldez.stacktale.logback.StacktaleAppender;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -15,11 +16,16 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 /**
  * Exercises the EXACT adoption path from the README: configuring the appender through
  * logback XML (Joran calls the public setters). If a setter name or type is wrong, this
  * test fails even though programmatic tests pass.
+ *
+ * <p>The Joran diagnostic check excludes statuses originating from StacktaleAppender:
+ * they describe appender validation or operational problems, not Joran binding failures.
+ * Those problems must be checked by the tests exercising that behaviour.
  */
 class LogbackXmlConfigTest {
 
@@ -109,9 +115,12 @@ class LogbackXmlConfigTest {
     private static void assertNoJoranComplaints(LoggerContext ctx) {
         List<Status> bad = ctx.getStatusManager().getCopyOfStatusList().stream()
                 .filter(s -> s.getEffectiveLevel() >= Status.WARN)
+                .filter(s -> !(s.getOrigin() instanceof StacktaleAppender))
                 .toList();
+
         assertThat(bad)
-                .withFailMessage("Joran could not bind part of the XML — a setter name or type is wrong: %s", bad)
+                .withFailMessage(
+                        "Logback reported configuration warnings or errors: %s", bad)
                 .isEmpty();
     }
 
@@ -193,6 +202,25 @@ class LogbackXmlConfigTest {
         assertThat(ctx.getStatusManager().getCopyOfStatusList())
                 .withFailMessage("Joran accepted an unknown property, so the guard above proves nothing")
                 .anyMatch(s -> s.getEffectiveLevel() >= Status.WARN);
+
+        assertThatThrownBy(() -> assertNoJoranComplaints(ctx))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("thisPropertyDoesNotExist");
+    }
+
+    @Test
+    void appenderWarningIsNotMistakenForJoranComplaint() {
+        ctx = new LoggerContext();
+
+        StacktaleAppender appender = new StacktaleAppender();
+        appender.setContext(ctx);
+        appender.addWarn("Simulated report write failure");
+
+        assertThat(ctx.getStatusManager().getCopyOfStatusList())
+                .anyMatch(s -> s.getOrigin() == appender
+                        && s.getLevel() == Status.WARN);
+
+        assertNoJoranComplaints(ctx);
     }
 
     private void configure(String xml) throws Exception {
