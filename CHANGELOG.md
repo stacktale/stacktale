@@ -5,7 +5,7 @@ All notable changes to stacktale are documented here. The format follows
 [SemVer](https://semver.org/). The report format (`st/1`) is versioned independently
 and pinned by golden-file tests.
 
-## [Unreleased]
+## [1.4.0] — 2026-09-04
 
 ### Added
 
@@ -148,6 +148,8 @@ and pinned by golden-file tests.
   `Ignoring unknown property [repro]`, `@ConfigurationProperties` drops unknown fields, Quarkus
   warns and starts — so the knob looked set and the `repro:` section simply never appeared.
   (#210)
+
+[1.4.0]: https://github.com/stacktale/stacktale/releases/tag/v1.4.0
 
 ## [1.3.1] — 2026-09-03
 
