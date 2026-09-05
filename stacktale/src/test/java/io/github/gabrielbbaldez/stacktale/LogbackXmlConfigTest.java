@@ -3,7 +3,6 @@ package io.github.gabrielbbaldez.stacktale;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.joran.JoranConfigurator;
 import ch.qos.logback.core.status.Status;
-import io.github.gabrielbbaldez.stacktale.logback.StacktaleAppender;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -16,20 +15,24 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Exercises the EXACT adoption path from the README: configuring the appender through
  * logback XML (Joran calls the public setters). If a setter name or type is wrong, this
  * test fails even though programmatic tests pass.
  *
- * <p>The Joran diagnostic check excludes statuses originating from StacktaleAppender:
- * they describe appender validation or operational problems, not Joran binding failures.
- * Those problems must be checked by the tests exercising that behaviour.
+ * <p>The Joran diagnostic check only looks at statuses recorded while {@code doConfigure}
+ * was running. Everything that belongs to configuration lands there — Joran's own binding
+ * complaints, but also {@code StacktaleAppender.start()} rejecting a bad {@code <zone>} or
+ * {@code <redactPattern>} — because {@code start()} runs synchronously inside {@code
+ * doConfigure}. A write or rotation that fails once events are flowing is appended later,
+ * after {@code doConfigure} has already returned, and falls outside that prefix.
  */
 class LogbackXmlConfigTest {
 
     private LoggerContext ctx;
+    private int configEnd;
 
     @AfterEach
     void tearDown() {
@@ -71,11 +74,7 @@ class LogbackXmlConfigTest {
                 </configuration>
                 """.formatted(file.toString().replace("\\", "/"));
 
-        ctx = new LoggerContext();
-        ctx.setMDCAdapter(MDC.getMDCAdapter());
-        JoranConfigurator joran = new JoranConfigurator();
-        joran.setContext(ctx);
-        joran.doConfigure(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+        configure(xml);
 
         org.slf4j.Logger log = ctx.getLogger("com.acme.CheckoutService");
         log.info("charging card for order 42");
@@ -85,7 +84,7 @@ class LogbackXmlConfigTest {
                 .withFailMessage("XML-configured appender produced no report file — Joran/setter wiring is broken. Context status: %s",
                         ctx.getStatusManager().getCopyOfStatusList())
                 .isTrue();
-        assertNoJoranComplaints(ctx);
+        assertNoJoranComplaints(ctx, configEnd);
 
         String content = Files.readString(file, StandardCharsets.UTF_8);
         assertThat(content).contains("IllegalStateException: gateway timeout");
@@ -111,16 +110,18 @@ class LogbackXmlConfigTest {
      * <p>Asserting on the status list rather than on each property's behaviour also means a
      * property added later is covered the moment it appears in the XML above, without anyone
      * having to invent an observable effect for it.
+     *
+     * <p>{@code configEnd} is the status list's size right after {@code doConfigure}
+     * returned (see {@link #configure}) — only that prefix is configuration's doing.
      */
-    private static void assertNoJoranComplaints(LoggerContext ctx) {
-        List<Status> bad = ctx.getStatusManager().getCopyOfStatusList().stream()
+    private static void assertNoJoranComplaints(LoggerContext ctx, int configEnd) {
+        List<Status> all = ctx.getStatusManager().getCopyOfStatusList();
+        List<Status> bad = all.subList(0, Math.min(configEnd, all.size())).stream()
                 .filter(s -> s.getEffectiveLevel() >= Status.WARN)
-                .filter(s -> !(s.getOrigin() instanceof StacktaleAppender))
                 .toList();
 
         assertThat(bad)
-                .withFailMessage(
-                        "Logback reported configuration warnings or errors: %s", bad)
+                .withFailMessage("Logback warned or errored while configuring: %s", bad)
                 .isEmpty();
     }
 
@@ -146,7 +147,7 @@ class LogbackXmlConfigTest {
         ctx.getLogger("com.acme.CheckoutService")
                 .error("charge failed", new IllegalStateException("gateway timeout"));
 
-        assertNoJoranComplaints(ctx);
+        assertNoJoranComplaints(ctx, configEnd);
         String content = Files.readString(file, StandardCharsets.UTF_8);
         assertThat(content)
                 .withFailMessage("<format>json</format> did not select the JSON renderer: %s", content)
@@ -176,7 +177,7 @@ class LogbackXmlConfigTest {
         ctx.getLogger("com.acme.CheckoutService")
                 .error("charge failed", new IllegalStateException("gateway timeout"));
 
-        assertNoJoranComplaints(ctx);
+        assertNoJoranComplaints(ctx, configEnd);
         assertThat(Files.readString(file, StandardCharsets.UTF_8)).contains("gateway timeout");
     }
 
@@ -203,24 +204,49 @@ class LogbackXmlConfigTest {
                 .withFailMessage("Joran accepted an unknown property, so the guard above proves nothing")
                 .anyMatch(s -> s.getEffectiveLevel() >= Status.WARN);
 
-        assertThatThrownBy(() -> assertNoJoranComplaints(ctx))
+        assertThatThrownBy(() -> assertNoJoranComplaints(ctx, configEnd))
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining("thisPropertyDoesNotExist");
     }
 
+    /**
+     * The operational case #205 is about: a write that fails once events are already
+     * flowing must not be reported as a Joran binding error.
+     *
+     * <p>Driven through the real pipeline rather than {@code appender.addWarn(...)}
+     * directly, so this pins the whole chain — {@code append()} → {@code
+     * ReportPipeline.process} → {@code Host.warn} — and not just today's shape of it.
+     * The parent directory exists when {@code start()} probes it, so configuration
+     * succeeds; deleting it afterwards makes the next real write fail.
+     */
     @Test
-    void appenderWarningIsNotMistakenForJoranComplaint() {
-        ctx = new LoggerContext();
+    void appenderWarningIsNotMistakenForJoranComplaint(@TempDir Path dir) throws Exception {
+        Path writable = dir.resolve("writable");
+        Files.createDirectories(writable);
+        Path file = writable.resolve("errors-ai.log");
+        String xml = """
+                <configuration>
+                  <appender name="STACKTALE" class="io.github.gabrielbbaldez.stacktale.logback.StacktaleAppender">
+                    <file>%s</file>
+                  </appender>
+                  <root level="INFO">
+                    <appender-ref ref="STACKTALE"/>
+                  </root>
+                </configuration>
+                """.formatted(file.toString().replace("\\", "/"));
 
-        StacktaleAppender appender = new StacktaleAppender();
-        appender.setContext(ctx);
-        appender.addWarn("Simulated report write failure");
+        configure(xml);
+        assertNoJoranComplaints(ctx, configEnd);
+
+        Files.delete(writable);
+        ctx.getLogger("com.acme.CheckoutService")
+                .error("charge failed", new IllegalStateException("gateway timeout"));
 
         assertThat(ctx.getStatusManager().getCopyOfStatusList())
-                .anyMatch(s -> s.getOrigin() == appender
-                        && s.getLevel() == Status.WARN);
+                .withFailMessage("expected the write against a removed directory to warn")
+                .anyMatch(s -> s.getEffectiveLevel() >= Status.WARN);
 
-        assertNoJoranComplaints(ctx);
+        assertNoJoranComplaints(ctx, configEnd);
     }
 
     private void configure(String xml) throws Exception {
@@ -229,5 +255,6 @@ class LogbackXmlConfigTest {
         JoranConfigurator joran = new JoranConfigurator();
         joran.setContext(ctx);
         joran.doConfigure(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+        configEnd = ctx.getStatusManager().getCopyOfStatusList().size();
     }
 }
