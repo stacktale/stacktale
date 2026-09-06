@@ -5,6 +5,20 @@ All notable changes to stacktale are documented here. The format follows
 [SemVer](https://semver.org/). The report format (`st/1`) is versioned independently
 and pinned by golden-file tests.
 
+## [Unreleased]
+
+### Fixed
+
+- **The README's Maven snippets installed 1.2.0.** Every `<dependency>` block on the front page
+  pinned 1.2.0 through 1.3.0, 1.3.1 and 1.4.0, with the Gradle line directly beneath it saying
+  1.4.0 — so a Maven user copying the documented install got a library three releases behind the
+  page describing it. `stacktale-quarkus/README.md` was worse: it named `1.3.0-SNAPSHOT`, which
+  Maven Central cannot resolve at all. The release bump's substitution had never matched these
+  blocks (`sed` reads one line at a time, and the snippets put `<artifactId>` and `<version>` on
+  separate lines), and a substitution that matches nothing leaves no trace.
+  `check-plugin-versions.sh` now reads both files, so the next time that regex stops matching the
+  release fails instead of shipping.
+
 ## [1.4.0] — 2026-09-04
 
 ### Added

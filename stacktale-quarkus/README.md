@@ -13,7 +13,7 @@ error becomes a complete, token-efficient `st/1` report in `errors-ai.log` — n
 <dependency>
   <groupId>io.github.gabrielbbaldez</groupId>
   <artifactId>stacktale-quarkus</artifactId>
-  <version>1.3.0-SNAPSHOT</version>
+  <version>1.4.0</version>
 </dependency>
 ```
 
