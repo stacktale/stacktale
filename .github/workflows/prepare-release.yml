@@ -112,7 +112,13 @@ jobs:
       - name: Update README and plugin manifest versions
         run: |
           set -euo pipefail
-          sed -i -E 's|(<artifactId>stacktale[a-z0-9-]*</artifactId>[[:space:]]*<version>)[0-9.]+(</version>)|\1${{ inputs.version }}\2|g' README.md
+          # `-z` because the Maven snippets put <artifactId> and <version> on separate
+          # lines, and sed's pattern space holds one line at a time — so `[[:space:]]*`
+          # had no newline to match and this substitution silently matched nothing for
+          # three releases. The README told Maven users to install 1.2.0 while the Gradle
+          # line under it said 1.4.0. check-plugin-versions.sh now reads these snippets,
+          # so a sed that stops matching fails here instead of shipping.
+          sed -i -E -z 's|(<artifactId>stacktale[a-z0-9-]*</artifactId>[[:space:]]*<version>)[^<]+(</version>)|\1${{ inputs.version }}\2|g' README.md stacktale-quarkus/README.md
           sed -i -E 's|(io\.github\.gabrielbbaldez:stacktale[a-z0-9-]*:)[0-9.]+|\1${{ inputs.version }}|g' README.md
           bash scripts/check-readme-compat.sh
           # The examples pin the released version and examples.yml fails when they drift.
