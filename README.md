@@ -682,6 +682,61 @@ Async work: wrap hops with [`StacktaleExecutors`](stacktale-core/src/main/java/i
 `CompletableFuture`, pools and virtual threads. Apps already propagating context
 (Micrometer, Reactor) need nothing.
 
+## Deployment
+
+### Containers and stdout-only environments
+
+If your platform does not retain container files and collects stdout or stderr, enable
+report emission through the normal logging pipeline. With the Spring Boot starter:
+
+```yaml
+stacktale:
+  emit-reports-to-logger: true
+```
+
+With plain Logback:
+
+```xml
+<appender name="STACKTALE" class="io.github.gabrielbbaldez.stacktale.logback.StacktaleAppender">
+  <appPackages>com.your.app</appPackages>
+  <emitReportsToLogger>true</emitReportsToLogger>
+</appender>
+```
+
+stacktale continues writing to its configured `file` and also emits each complete report
+as one event on the `stacktale.reports` logger. Configure your existing collector or
+shipper, such as Loki, ELK, or CloudWatch, to preserve that event as one message rather
+than splitting the report into separate lines.
+
+### Writable volumes
+
+If a persistent writable volume is available, point `file` at a path on that volume. With
+the Spring Boot starter:
+
+```yaml
+stacktale:
+  file: /var/log/stacktale/errors-ai.log
+```
+
+A report file stored only on the container's ephemeral filesystem is lost when the
+container restarts or is replaced.
+
+### Multiple replicas
+
+Each replica should write to its own file. As documented in
+[SECURITY.md](SECURITY.md), the report file assumes a single writer; multiple JVMs must
+not share one file because they can race during rotation. Give each instance a distinct
+path, or use the `stacktale.reports` logger path above. There is no shared-file mode.
+
+### Keep reports out of version control
+
+`errors-ai.log` and its rotated backups are generated runtime artifacts, not source
+files. Add them to `.gitignore`:
+
+```gitignore
+errors-ai.log*
+```
+
 ## Guarantees
 
 - **Never breaks your app.** Any internal failure degrades stacktale to a no-op —
