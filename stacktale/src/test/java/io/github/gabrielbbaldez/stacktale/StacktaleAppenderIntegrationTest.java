@@ -173,11 +173,17 @@ class StacktaleAppenderIntegrationTest {
         ctx.getLogger("stacktale.reports").addAppender(shipper);
 
         ctx.getLogger("com.acme.X").info("noise before");
-        ctx.getLogger("com.acme.X").error("boom", new RuntimeException("x"));
+        RuntimeException recurring = new RuntimeException("x");
+        ctx.getLogger("com.acme.X").error("boom", recurring);
+        ctx.getLogger("com.acme.X").error("boom", recurring);
 
         assertThat(shipper.list)
                 .anySatisfy(e -> assertThat(e.getFormattedMessage())
                         .contains("━━━ ERROR #").contains("━━━ END #")); // whole block, ONE event
+        assertThat(shipper.list).hasSize(2);
+        assertThat(shipper.list.get(1).getFormattedMessage())
+                .contains("repeated 2×")
+                .doesNotContain("━━━ ERROR #");
         // and the reports logger must not pollute the story of later errors
         ctx.getLogger("com.acme.Y").error("second failure", new IllegalStateException("y"));
         String content = Files.readString(file, StandardCharsets.UTF_8);
