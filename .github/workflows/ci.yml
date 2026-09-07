@@ -39,6 +39,9 @@ jobs:
       - name: Config parity guard
         if: matrix.java == 21
         run: bash scripts/check-config-parity.sh
+      - name: MCP tool surface guard
+        if: matrix.java == 21
+        run: bash scripts/check-mcp-tools.sh
       # After the build, because it reads the jars' manifests rather than the poms alone —
       # the point is what actually ships, not what the pom meant to say.
       - name: JPMS module name guard

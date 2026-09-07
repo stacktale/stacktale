@@ -16,7 +16,7 @@ Maven Central on first run.
 
 ## What you get
 
-**Six tools** over the report file, read-only, no network:
+**Ten tools** over the report file, read-only, no network:
 
 | Tool | |
 |---|---|
