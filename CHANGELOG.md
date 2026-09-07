@@ -7,6 +7,29 @@ and pinned by golden-file tests.
 
 ## [Unreleased]
 
+### Added
+
+- **A guard that keeps the documented MCP tool list in step with the server.**
+  `check-mcp-tools.sh` reads every `tools.add(tool("…"` registration out of `StacktaleMcpServer`
+  and requires each name in all three documents that describe the surface, plus a `**N tools**`
+  count that matches. It found one on its first run: the plugin README said **Six** while listing
+  ten. Names are matched wrapped in backticks rather than bare, because `errors_since` is a prefix
+  of `errors_since_last_check` and a substring match is satisfied by the longer sibling — so
+  undocumenting the short one would have passed. Every count in a file is checked, not the first.
+  (#219, thanks @drexthealpha)
+
+### Changed
+
+- **The Joran guard no longer blames the XML for warnings the appender raised itself.**
+  `assertNoJoranComplaints` failed on any status at WARN or above and named a setter as the cause,
+  so the first write failure or rotation problem in that test class would have sent the reader off
+  to check setter names that were fine. It now asserts only over the statuses recorded while
+  `doConfigure` was running: Joran's binding complaints and `start()` rejecting a bad `<zone>` or
+  `<redactPattern>` land there, while an operational warning arrives after configuration has
+  returned. Cutting on origin instead — the obvious move — would have dropped the appender's own
+  validation of XML values, including the `invalid report file '…', stacktale disabled` that
+  switches stacktale off entirely. (#205, thanks @OswaldOniSango)
+
 ### Fixed
 
 - **The README's Maven snippets installed 1.2.0.** Every `<dependency>` block on the front page
