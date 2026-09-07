@@ -682,6 +682,70 @@ Async work: wrap hops with [`StacktaleExecutors`](stacktale-core/src/main/java/i
 `CompletableFuture`, pools and virtual threads. Apps already propagating context
 (Micrometer, Reactor) need nothing.
 
+## Deployment
+
+### Containers and stdout-only environments
+
+stacktale always needs a writable report file. If the container's root filesystem is
+read-only, point `file` at a writable location such as `/tmp` or a Kubernetes `emptyDir`
+mount. The examples below assume `/tmp` is writable; mount a writable volume there or
+choose another writable path if it is not. With the Spring Boot starter:
+
+```yaml
+stacktale:
+  file: /tmp/errors-ai.log
+  emit-reports-to-logger: true
+```
+
+With plain Logback:
+
+```xml
+<appender name="STACKTALE" class="io.github.gabrielbbaldez.stacktale.logback.StacktaleAppender">
+  <file>/tmp/errors-ai.log</file>
+  <appPackages>com.your.app</appPackages>
+  <emitReportsToLogger>true</emitReportsToLogger>
+</appender>
+```
+
+If the configured file cannot be opened, stacktale is disabled and no report events are
+emitted. With `emitReportsToLogger` enabled, stacktale writes each full report to the file
+and also emits a copy as one event on the `stacktale.reports` logger. Route that logger
+through your existing console appender to stdout or stderr. Configure your collector or
+shipper, such as Loki, ELK, or CloudWatch, to preserve that event as one message rather
+than splitting the report into separate lines.
+
+Only full reports are emitted through `stacktale.reports`. Recurrence summaries remain in
+the report file, so a stdout-only reader will not see later `seen N times` follow-ups.
+
+### Writable volumes
+
+If a persistent writable volume is available, point `file` at a path on that volume. With
+the Spring Boot starter:
+
+```yaml
+stacktale:
+  file: /var/log/stacktale/errors-ai.log
+```
+
+A report file stored only on the container's ephemeral filesystem is lost when the
+container restarts or is replaced.
+
+### Multiple replicas
+
+Each replica should write to its own file. As documented in
+[SECURITY.md](SECURITY.md), the report file assumes a single writer; multiple JVMs must
+not share one file because they can race during rotation. Give each instance a distinct
+path, or use the `stacktale.reports` logger path above. There is no shared-file mode.
+
+### Keep reports out of version control
+
+`errors-ai.log` and its rotated backups are generated runtime artifacts, not source
+files. Add them to `.gitignore`:
+
+```gitignore
+errors-ai.log*
+```
+
 ## Guarantees
 
 - **Never breaks your app.** Any internal failure degrades stacktale to a no-op —
