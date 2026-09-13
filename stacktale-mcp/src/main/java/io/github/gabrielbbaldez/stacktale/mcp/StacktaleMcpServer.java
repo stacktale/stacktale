@@ -366,7 +366,12 @@ public final class StacktaleMcpServer {
         return result;
     }
 
-    /** Every tool here only reads the local report file — advertise that so clients can auto-approve. */
+    /**
+     * Nothing here writes, which is what {@code readOnlyHint} promises and why a client can
+     * auto-approve. Read-only is not the same as narrow, though: most of these read the report
+     * file, and {@code culprit_source} and {@code tests_covering} read source under the working
+     * directory. Someone deciding whether to auto-approve is entitled to know which.
+     */
     private JsonNode tool(String name, String title, boolean idempotent, String description,
                           String schemaJson, String outputSchemaJson) {
         try {

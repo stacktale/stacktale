@@ -16,7 +16,8 @@ Maven Central on first run.
 
 ## What you get
 
-**Ten tools** over the report file, read-only, no network:
+**Ten tools**, read-only, no network. Eight read the report file; `culprit_source` and
+`tests_covering` also read source under the working directory:
 
 | Tool | |
 |---|---|
