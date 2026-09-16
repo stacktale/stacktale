@@ -32,6 +32,17 @@ and pinned by golden-file tests.
 
 ### Fixed
 
+- **The agent's own test stopped self-attaching, and the dependency pipeline unblocked with it.**
+  `StacktaleAgentTest` obtained its `Instrumentation` through `ByteBuddyAgent.install()`, which on
+  JDK 21 cannot self-attach and falls back to spawning an external attacher process. That path
+  broke under maven-surefire-plugin 3.6.0 — JDK 17 green and JDK 21 red on the same commit — and
+  held every grouped dependency bump behind a failure that looked like it was about byte-buddy and
+  was not. The test now takes byte-buddy's agent on the surefire command line, so there is no
+  attach mechanism left for a build-tool upgrade to break, and the agent is exercised the way it
+  actually runs. `getInstrumentation()` throws when the flag is missing, so a pom that loses it
+  fails loudly instead of passing with the agent doing nothing. Surefire and failsafe move to
+  3.6.0 in the same change, which is what proves it. (#243)
+
 - **The README's Maven snippets installed 1.2.0.** Every `<dependency>` block on the front page
   pinned 1.2.0 through 1.3.0, 1.3.1 and 1.4.0, with the Gradle line directly beneath it saying
   1.4.0 — so a Maven user copying the documented install got a library three releases behind the

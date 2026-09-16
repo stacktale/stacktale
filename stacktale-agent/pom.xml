@@ -77,10 +77,27 @@
           </execution>
         </executions>
       </plugin>
+      <!--
+        StacktaleAgentTest needs an Instrumentation. It used to self-attach through
+        ByteBuddyAgent.install(), which on JDK 21 means spawning an external attacher process
+        — a path that broke under maven-surefire-plugin 3.6.0 and blocked every dependency
+        bump carrying it (#243). A -javaagent needs no attach mechanism, so there is nothing
+        left for a build-tool upgrade to break, and it is how the agent runs in production.
+
+        The jar path comes from the dependency-plugin `properties` goal above, which is
+        already bound at initialize for the OTel agent.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <argLine>@{argLine} -Dfile.encoding=UTF-8 -javaagent:${net.bytebuddy:byte-buddy-agent:jar}</argLine>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
-        <version>3.5.6</version>
+        <version>3.6.0</version>
         <configuration>
           <systemPropertyVariables>
             <!-- the shaded agent jar (this module) and the OTel javaagent, for the
