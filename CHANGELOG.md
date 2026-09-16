@@ -32,6 +32,20 @@ and pinned by golden-file tests.
 
 ### Fixed
 
+- **`tests_covering` said "none" after giving up, on any repo with more than 500 test files.**
+  The working-tree walk collected 500 matches and stopped, and nothing carried that upward — so
+  the tool answered `none: no test source names X.Y`, with `Searched 500 file(s)` beside it, having
+  read the first 500 of however many there were. The negative is the answer this tool exists for:
+  its own text calls it a strong signal the failing path is untested and points at `repro_for`, so
+  an agent could be sent to write a reproduction test that already existed. stacktale has 52 test
+  sources, an order of magnitude under its own cap, which is why nothing here ever hit it. A walk
+  now reports whether it ran out, the bound is 20 000 rather than 500, and a search that stopped
+  early answers `inconclusive` without the sentence that made the negative actionable. The same
+  applies to `culprit_source`, which said `No file named X` when what had happened was that the
+  walk failed. The count was not the only quiet bound: `Files.walk` stops at twelve levels and
+  says nothing, which a repository laid out module-per-directory reaches without being unusual, so
+  a directory sitting exactly at the limit now counts as running out too. (#244)
+
 - **The agent's own test stopped self-attaching, and the dependency pipeline unblocked with it.**
   `StacktaleAgentTest` obtained its `Instrumentation` through `ByteBuddyAgent.install()`, which on
   JDK 21 cannot self-attach and falls back to spawning an external attacher process. That path
