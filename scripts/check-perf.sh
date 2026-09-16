@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Guard the hot path against a regression, by comparison rather than against a number.
+# Guard the Logback hot path against a regression, by comparison rather than against a number.
+# This probe covers the Logback adapter only; Log4j2, JUL, Spring, and Quarkus paths are not measured.
 #
 # THE PROBLEM WITH A THRESHOLD. #98 asked for a JMH run in CI failing past a fixed
 # threshold "with headroom to avoid flakiness on shared runners". Measured on an idle
