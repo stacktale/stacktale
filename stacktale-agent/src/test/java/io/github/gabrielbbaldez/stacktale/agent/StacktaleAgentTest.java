@@ -26,9 +26,27 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  */
 class StacktaleAgentTest {
 
+    /**
+     * The {@code Instrumentation} comes from byte-buddy-agent on the surefire command line
+     * (see this module's pom), not from {@code ByteBuddyAgent.install()}.
+     *
+     * <p>{@code install()} self-attaches, and on JDK 21 self-attach is refused, so byte-buddy
+     * falls back to spawning an external attacher process. That path broke under
+     * maven-surefire-plugin 3.6.0 — `Could not self-attach to current VM using external
+     * process`, with JDK 17 green and JDK 21 red on the same commit — and held up every
+     * dependency bump that carried surefire with it (#243).
+     *
+     * <p>A {@code -javaagent} needs no attach mechanism at all, so there is nothing left for a
+     * build-tool upgrade to break. It is also how the agent actually runs in production, which
+     * the self-attaching version was not.
+     *
+     * <p>{@code getInstrumentation()} throws when the flag is missing rather than quietly
+     * returning null, so a pom that loses the argLine fails here instead of passing with the
+     * agent doing nothing.
+     */
     @BeforeAll
     static void attachAgent() {
-        Instrumentation instrumentation = ByteBuddyAgent.install();
+        Instrumentation instrumentation = ByteBuddyAgent.getInstrumentation();
         StacktaleAgent.install(instrumentation, List.of("io.github.gabrielbbaldez.stacktale.agent.fixture"));
     }
 
@@ -72,7 +90,7 @@ class StacktaleAgentTest {
 
     @Test
     void installIsResilientAndPackageMatchingRespectsBoundaries() {
-        Instrumentation instrumentation = ByteBuddyAgent.install();
+        Instrumentation instrumentation = ByteBuddyAgent.getInstrumentation();
         // a sibling package sharing the literal prefix must NOT be swallowed
         assertThatCode(() -> StacktaleAgent.install(instrumentation,
                 List.of("io.github.gabrielbbaldez.stacktale.agent.fixture")))
