@@ -39,7 +39,24 @@ final class Workspace {
     private static final int MAX_DEPTH = 12;
     private static final int MAX_LINES_PER_FILE = 8;
 
+    /**
+     * How many matching files a walk will collect before it gives up.
+     *
+     * <p>There has to be a bound — this runs on somebody else's repository, not ours. The number
+     * is high because walking directory entries is cheap next to {@link Files#readString}, and
+     * what actually needs limiting is how much of the answer gets printed, which
+     * {@code MAX_LINES_PER_FILE} and the 20-file cap in {@link #testsCovering} already do.
+     *
+     * <p>It was 500, and the bound never reached the answer: {@code tests_covering} returned
+     * {@code none} — the answer it tells the caller is a strong signal to go write a test — for
+     * any repository with more than 500 test files, having read the first 500 of them. stacktale
+     * has 52, an order of magnitude under its own cap, which is why nothing here ever saw it.
+     * Whatever the bound is, a walk that hit it must say so (#244).
+     */
+    private static final int MAX_FILES = 20_000;
+
     private final Path root;
+    private final int maxFiles;
 
     /**
      * @param root where the client launched the server — the same working directory the default
@@ -47,7 +64,16 @@ final class Workspace {
      *             "the tree open in the editor" are normally one and the same
      */
     Workspace(Path root) {
+        this(root, MAX_FILES);
+    }
+
+    /**
+     * Test seam: the bound is the interesting branch and the real one is 20 000 files, which no
+     * test should be writing to disk to reach.
+     */
+    Workspace(Path root, int maxFiles) {
         this.root = root;
+        this.maxFiles = maxFiles;
     }
 
     /** A culprit frame, split into the parts both tools need. */
@@ -100,8 +126,18 @@ final class Workspace {
      * and a tool call that fails for that leaves the agent with nothing to act on.
      */
     String sourceAround(Frame frame, int radius) {
-        List<Path> candidates = filesNamed(frame.fileName());
+        Found search = filesNamed(frame.fileName());
+        List<Path> candidates = search.paths();
         if (candidates.isEmpty()) {
+            if (search.truncated()) {
+                // Reached when the walk itself failed — an unreadable directory, or a root that
+                // is not there any more. (The bound is applied after the name filter, so more
+                // than maxFiles files sharing one filename is the other, unlikely, way in.)
+                return "The search under " + root.toAbsolutePath() + " did not complete, and"
+                        + " nothing named " + frame.fileName() + " turned up before it stopped."
+                        + "\n\nThat is not evidence the file is absent. get_report still has the"
+                        + " distilled stack and the story.";
+            }
             return "No file named " + frame.fileName() + " under " + root.toAbsolutePath()
                     + ".\n\nThe frame may belong to a dependency, to generated code, or to another"
                     + " service whose reports share this log. get_report " + "still has the"
@@ -155,7 +191,8 @@ final class Workspace {
      * method" tells it to write one rather than spend turns looking for one that is not there.
      */
     String testsCovering(Frame frame) {
-        List<Path> tests = testSources();
+        Found search = testSources();
+        List<Path> tests = search.paths();
         if (tests.isEmpty()) {
             return "No test sources found under " + root.toAbsolutePath()
                     + " (looked for src/test/java and src/test/kotlin).";
@@ -197,11 +234,20 @@ final class Workspace {
             }
         }
         if (matched == 0) {
+            // The negative is the answer this tool is read for, and the one it tells the caller to
+            // act on. A search that stopped early has not earned it, so it does not get to say it.
+            if (search.truncated()) {
+                return "inconclusive: no test source among the first " + tests.size()
+                        + " found under src/test names " + frame.className() + "." + frame.methodName()
+                        + ", and the search stopped at that bound rather than reaching the end of the"
+                        + " tree.\n\nDo not read this as 'no test covers it'. Narrow the search by hand"
+                        + " before concluding the failing path is untested.";
+            }
             return "none: no test source names " + frame.className() + "." + frame.methodName() + ".\n\n"
-                    + "Searched " + tests.size() + " file(s) under src/test. This is a name match rather"
-                    + " than coverage, so it can miss a test that reaches the method through a caller —"
-                    + " but nothing naming it is a strong signal that the failing path is untested."
-                    + " repro_for " + "gives you the call and its arguments to write one from.";
+                    + "Searched all " + tests.size() + " file(s) under src/test. This is a name match"
+                    + " rather than coverage, so it can miss a test that reaches the method through a"
+                    + " caller — but nothing naming it is a strong signal that the failing path is"
+                    + " untested. repro_for " + "gives you the call and its arguments to write one from.";
         }
         return matched + " test file(s) name " + frame.className() + "." + frame.methodName()
                 + " (a name match, not coverage — a test can name the method without exercising"
@@ -217,17 +263,17 @@ final class Workspace {
         return root.relativize(file).toString().replace('\\', '/');
     }
 
-    private List<Path> filesNamed(String fileName) {
-        List<Path> found = walk(p -> p.getFileName().toString().equals(fileName));
+    private Found filesNamed(String fileName) {
+        Found found = walk(p -> p.getFileName().toString().equals(fileName));
         // prefer main sources over test copies, then the shallowest path — a fixture named after
         // a production class is a common way to answer with the wrong file
-        found.sort(Comparator
+        found.paths().sort(Comparator
                 .comparing((Path p) -> p.toString().replace('\\', '/').contains("/src/test/"))
                 .thenComparingInt(Path::getNameCount));
         return found;
     }
 
-    private List<Path> testSources() {
+    private Found testSources() {
         return walk(p -> {
             String path = p.toString().replace('\\', '/');
             return (path.contains("/src/test/java/") || path.contains("/src/test/kotlin/"))
@@ -235,19 +281,50 @@ final class Workspace {
         });
     }
 
-    /** Bounded walk of the working tree: build output and VCS directories are never the answer. */
-    private List<Path> walk(java.util.function.Predicate<Path> accept) {
+    /**
+     * What a bounded walk found, and whether the bound cut it short.
+     *
+     * <p>{@code truncated} exists so a caller cannot state a negative it has not earned. A walk
+     * that stopped early and one that saw the whole tree return the same list; only this flag
+     * separates "there is no such file" from "I stopped looking".
+     */
+    private record Found(List<Path> paths, boolean truncated) {
+    }
+
+    /**
+     * Bounded walk of the working tree: build output and VCS directories are never the answer.
+     *
+     * <p>There are three ways this stops short of the whole tree, and each of them has to come
+     * back as {@code truncated} — the count, the depth, and the walk failing outright. The depth
+     * is the quiet one: {@code Files.walk} simply does not descend past {@code MAX_DEPTH} and
+     * says nothing, and a module-per-directory repository reaches it without being unusual
+     * ({@code services/payments/src/test/java/com/acme/x/y/Z.java} is already eleven). A
+     * directory sitting exactly at the limit is the evidence that there was more below it.
+     */
+    private Found walk(java.util.function.Predicate<Path> accept) {
         List<Path> found = new ArrayList<>();
+        boolean[] hitDepth = {false};
         try (Stream<Path> paths = Files.walk(root, MAX_DEPTH)) {
-            paths.filter(Files::isRegularFile)
+            // one past the bound, so hitting it is distinguishable from landing exactly on it
+            paths.peek(p -> {
+                        if (root.relativize(p).getNameCount() >= MAX_DEPTH
+                                && Files.isDirectory(p) && !isSkipped(p)) {
+                            hitDepth[0] = true;
+                        }
+                    })
+                    .filter(Files::isRegularFile)
                     .filter(p -> !isSkipped(p))
                     .filter(accept)
-                    .limit(500)
+                    .limit(maxFiles + 1L)
                     .forEach(found::add);
         } catch (IOException | RuntimeException e) {
-            return found; // a partial answer beats a failed tool call
+            // a partial answer beats a failed tool call, but it is still partial
+            return new Found(found, true);
         }
-        return found;
+        if (found.size() > maxFiles) {
+            return new Found(new ArrayList<>(found.subList(0, maxFiles)), true);
+        }
+        return new Found(found, hitDepth[0]);
     }
 
     private boolean isSkipped(Path path) {
