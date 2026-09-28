@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Guard the Logback hot path against a regression, by comparison rather than against a number.
-# This probe covers the Logback adapter only; Log4j2, JUL, Spring, and Quarkus paths are not measured.
+# The probe logs through Logback, so it measures the shared ReportPipeline plus Logback's own append().
+# Regressions in the shared pipeline are caught here for every adapter; Log4j2, JUL, Spring, and
+# Quarkus-specific entry points are not measured.
 #
 # THE PROBLEM WITH A THRESHOLD. #98 asked for a JMH run in CI failing past a fixed
 # threshold "with headroom to avoid flakiness on shared runners". Measured on an idle
