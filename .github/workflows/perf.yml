@@ -1,4 +1,4 @@
-name: Performance
+name: Logback performance
 
 # Only when the measured code changes. The job builds the branch and its base and runs both,
 # which is minutes — not something a README edit should pay for.
@@ -13,7 +13,7 @@ on:
 
 jobs:
   hot-path:
-    name: Hot path vs base
+    name: Logback hot path vs base
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -26,7 +26,7 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: maven
-      - name: Hot path against the merge base
+      - name: Logback hot path against the merge base
         env:
           BASE_REF: ${{ github.event.pull_request.base.sha }}
         run: bash scripts/check-perf.sh
