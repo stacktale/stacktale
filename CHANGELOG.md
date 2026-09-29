@@ -32,6 +32,18 @@ and pinned by golden-file tests.
 
 ### Fixed
 
+- **`st-json/1` had a writer and a reader in modules that never met.** `JsonReportRenderer` in
+  `stacktale-core` writes the format; `StReportFile` in `stacktale-mcp` is its only reader, and
+  picks fields out by hand with `node.path("ts")`. There was no build edge between the two, so the
+  test covering the JSON path wrote the format out by hand — and `path(...)` on a field that no
+  longer exists returns a missing node rather than failing. A rename in the renderer, with the
+  renderer's own test updated as a deliberate change would, left both suites green and the server
+  answering with an empty headline. The reader is now exercised against a report produced by a real
+  pipeline in JSON mode rather than by a fixture: renaming `ts` to `timestamp` fails it, where the
+  hand-written fixture's 36 tests still pass. The dependency is test-scope only, so nothing joins
+  the shaded jar — verified at 0 core classes in it. The `repro` block is the one field still
+  fixture-backed, because emitting one needs the agent attached. (#248)
+
 - **`tests_covering` said "none" after giving up, on any repo with more than 500 test files.**
   The working-tree walk collected 500 matches and stopped, and nothing carried that upward — so
   the tool answered `none: no test source names X.Y`, with `Searched 500 file(s)` beside it, having

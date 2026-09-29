@@ -26,6 +26,19 @@
       <artifactId>jackson-databind</artifactId>
       <version>2.22.2</version>
     </dependency>
+    <!--
+      Test scope only, and the reason is the point: st-json/1 has one writer
+      (JsonReportRenderer, in core) and one reader (StReportFile, here), and until now no
+      build edge between them. A field renamed in the writer left this module's hand-written
+      fixture passing while the real server read a missing node (#248). Test scope keeps core
+      off the shaded runtime jar, which is why the edge was never there.
+    -->
+    <dependency>
+      <groupId>io.github.gabrielbbaldez</groupId>
+      <artifactId>stacktale-core</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
