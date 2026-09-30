@@ -715,7 +715,7 @@ shipper, such as Loki, ELK, or CloudWatch, to preserve that event as one message
 than splitting the report into separate lines.
 
 Only full reports are emitted through `stacktale.reports`. Recurrence summaries remain in
-the report file, so a stdout-only reader will not see later `seen N times` follow-ups.
+the report file, so a stdout-only reader will not see later `repeated N×` follow-ups.
 
 ### Writable volumes
 
