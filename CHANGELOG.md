@@ -20,6 +20,16 @@ and pinned by golden-file tests.
 
 ### Changed
 
+- **A Deployment section in the README, for the container story.** `errors-ai.log` is a file on
+  local disk, and the question a 12-factor shop asks first — where does it live when the platform
+  keeps no files — had no answer on the page. Four parts: the stdout path via
+  `emitReportsToLogger`, where to point `file` when a volume exists, what multiple replicas should
+  do, and the `.gitignore` line. The first part is the one worth reading twice: stacktale needs a
+  writable path for *anything* to happen, `emitReportsToLogger` mirrors the file rather than
+  replacing it, and a file that cannot be opened disables stacktale outright — so a read-only root
+  filesystem needs `file` pointed at a writable tmpfs before the flag does anything at all. The
+  issue said the opposite; that was mine, and it is corrected there too. (#60, thanks @janithcd)
+
 - **The Joran guard no longer blames the XML for warnings the appender raised itself.**
   `assertNoJoranComplaints` failed on any status at WARN or above and named a setter as the cause,
   so the first write failure or rotation problem in that test class would have sent the reader off
