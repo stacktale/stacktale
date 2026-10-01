@@ -247,7 +247,11 @@ Each line is one entry, discriminated by `type`:
 - `session` — `{"type":"session","ts":"<ISO-8601>","pid":N}`
 - `storm` — `{"type":"storm","suppressed":N,"limit":M}`
 
-A `report` object (pretty-printed here; on disk it is one line):
+A `report` object (pretty-printed here; on disk it is one line). Every member is shown, so
+this example is fuller than a typical report: `repro`, `firstSeen` and `captured` are opt-in.
+It is the renderer's own golden output
+([`provenance-report.ndjson`](../stacktale-core/src/test/resources/golden/provenance-report.ndjson))
+with readable timestamps in place of the test clock's, and a test validates it against the schema below.
 
 ```json
 {
@@ -259,18 +263,12 @@ A `report` object (pretty-printed here; on disk it is one line):
     "type": "IllegalStateException",
     "message": "payment gateway refused",
     "culprit": { "frame": "PaymentService.charge(PaymentService.java:44)", "appCode": true },
-    "wrappedBy": ["CheckoutException(\"checkout failed\") at CheckoutService.confirm(…)"]
+    "wrappedBy": ["CheckoutException(\"checkout failed\") at CheckoutService.confirm(CheckoutService.java:88)"]
   },
   "log": { "pattern": "charge failed for order {}", "args": ["889"], "logger": "com.acme.shop.PaymentService" },
   "mdc": { "traceId": "7c2e" },
   "fields": { "orderId": "889", "retryable": "false" },
   "captured": ["PaymentService.charge(orderId=889, amount=149.90)"],
-  "firstSeen": {
-    "newInThisBuild": false,
-    "build": "9a2b1c",
-    "ts": "2026-07-19T09:12:33.004Z",
-    "buildsAgo": 2
-  },
   "repro": {
     "className": "com.acme.shop.PaymentService",
     "methodName": "charge",
@@ -279,19 +277,37 @@ A `report` object (pretty-printed here; on disk it is one line):
       { "type": "java.math.BigDecimal", "name": "amount", "value": "149.90" }
     ]
   },
-  "recurrence": { "count": 3, "firstSeen": "2026-07-10T20:16:40.000Z" },
+  "firstSeen": {
+    "newInThisBuild": false,
+    "build": "9a2b1c",
+    "ts": "2026-07-08T09:12:33.004Z",
+    "buildsAgo": 2
+  },
+  "recurrence": { "count": 3, "firstSeen": "2026-07-10T20:14:02.117Z" },
   "story": {
     "label": "traceId=7c2e",
     "omittedByAge": 2,
     "events": [
-      { "ts": "…", "level": "INFO", "logger": "CheckoutService", "message": "confirming order 889" },
-      { "ts": "…", "level": "ERROR", "logger": "PaymentService", "message": "charge failed for order 889", "thisError": true }
+      { "ts": "2026-07-10T20:16:40.050Z", "level": "INFO", "logger": "CheckoutService", "message": "confirming order 889" },
+      { "ts": "2026-07-10T20:16:40.412Z", "level": "ERROR", "logger": "PaymentService", "message": "charge failed for order 889", "thisError": true }
     ]
   },
-  "stack": { "shown": 1, "total": 32, "frames": ["…"], "suppressed": [] },
+  "stack": {
+    "shown": 1,
+    "total": 32,
+    "frames": ["PaymentService.charge(PaymentService.java:44) ← culprit", "… 30 collapsed (spring ×20, tomcat ×10)"],
+    "suppressed": ["TimeoutException: gateway read timed out at GatewayClient.call(GatewayClient.java:61)"]
+  },
   "env": "app=shop-api 1.4.2 (git 7e3c1f) | java 21 | profile=prod | linux"
 }
 ```
+
+**Schema.** [`st-json-1.schema.json`](st-json-1.schema.json) (JSON Schema draft 2020-12)
+describes all five line types. Validate each line on its own. The schema is open on purpose: an
+unknown member or line type still validates, because additive changes don't bump the format
+(§6), so a consumer that validates with it keeps working across minor releases. It
+checks what the rules below say: required members, types, timestamp shape, and no `stack` on a
+no-throwable report. It has no `$id`; reference it by the URL of the release tag you target.
 
 Rules:
 

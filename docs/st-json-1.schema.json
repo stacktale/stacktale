@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "st-json/1 line",
+  "description": "One line of a stacktale st-json/1 NDJSON file (docs/FORMAT.md section 7). Validate each line on its own. The schema is open on purpose: a member or a line type it does not know is valid, because additive changes do not bump the format (FORMAT.md section 6). Optional members are omitted when empty, never sent as null.",
+  "type": "object",
+  "required": ["type"],
+  "properties": {
+    "type": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "header" } } },
+      "then": { "$ref": "#/$defs/header" }
+    },
+    {
+      "if": { "properties": { "type": { "const": "report" } } },
+      "then": { "$ref": "#/$defs/report" }
+    },
+    {
+      "if": { "properties": { "type": { "const": "repeat" } } },
+      "then": { "$ref": "#/$defs/repeat" }
+    },
+    {
+      "if": { "properties": { "type": { "const": "session" } } },
+      "then": { "$ref": "#/$defs/session" }
+    },
+    {
+      "if": { "properties": { "type": { "const": "storm" } } },
+      "then": { "$ref": "#/$defs/storm" }
+    }
+  ],
+  "$defs": {
+    "timestamp": {
+      "description": "ISO-8601 with fixed millisecond precision and an offset (Z for UTC).",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "count": { "type": "integer", "minimum": 0 },
+    "strings": { "type": "array", "items": { "type": "string" } },
+    "stringMap": { "type": "object", "additionalProperties": { "type": "string" } },
+
+    "header": {
+      "description": "Once per file, the first line.",
+      "type": "object",
+      "required": ["type", "format"],
+      "properties": {
+        "type": { "const": "header" },
+        "format": { "const": "st-json/1" },
+        "docs": { "type": "string" }
+      }
+    },
+
+    "repeat": {
+      "description": "A deduplicated error recurred; the st/1 summary line.",
+      "type": "object",
+      "required": ["type", "id", "count", "last"],
+      "properties": {
+        "type": { "const": "repeat" },
+        "id": { "type": "string" },
+        "count": { "$ref": "#/$defs/count" },
+        "last": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+
+    "session": {
+      "description": "A process started writing to this file.",
+      "type": "object",
+      "required": ["type", "ts", "pid"],
+      "properties": {
+        "type": { "const": "session" },
+        "ts": { "$ref": "#/$defs/timestamp" },
+        "pid": { "type": "integer" }
+      }
+    },
+
+    "storm": {
+      "description": "Reports were dropped by the per-minute limit.",
+      "type": "object",
+      "required": ["type", "suppressed", "limit"],
+      "properties": {
+        "type": { "const": "storm" },
+        "suppressed": { "$ref": "#/$defs/count" },
+        "limit": { "$ref": "#/$defs/count" }
+      }
+    },
+
+    "report": {
+      "description": "A full error report; the st/1 ERROR block.",
+      "type": "object",
+      "required": ["type", "id", "ts", "thread", "error", "log"],
+      "properties": {
+        "type": { "const": "report" },
+        "id": { "type": "string" },
+        "ts": { "$ref": "#/$defs/timestamp" },
+        "thread": { "type": "string" },
+        "error": { "$ref": "#/$defs/error" },
+        "log": { "$ref": "#/$defs/log" },
+        "mdc": { "$ref": "#/$defs/stringMap" },
+        "fields": { "$ref": "#/$defs/stringMap" },
+        "captured": { "$ref": "#/$defs/strings" },
+        "repro": { "$ref": "#/$defs/repro" },
+        "firstSeen": { "$ref": "#/$defs/firstSeen" },
+        "recurrence": { "$ref": "#/$defs/recurrence" },
+        "story": { "$ref": "#/$defs/story" },
+        "stack": { "$ref": "#/$defs/stack" },
+        "env": { "type": "string" }
+      },
+      "if": {
+        "required": ["error"],
+        "properties": { "error": { "required": ["noException"] } }
+      },
+      "then": { "not": { "required": ["stack"] } }
+    },
+
+    "error": {
+      "description": "Either a thrown root cause (type required) or, for an ERROR logged without an exception, noException:true with the formatted message.",
+      "type": "object",
+      "properties": {
+        "noException": { "const": true },
+        "type": { "type": "string" },
+        "message": { "type": "string" },
+        "culprit": {
+          "type": "object",
+          "required": ["frame", "appCode"],
+          "properties": {
+            "frame": { "type": "string" },
+            "appCode": { "type": "boolean" }
+          }
+        },
+        "wrappedBy": { "$ref": "#/$defs/strings" }
+      },
+      "if": { "required": ["noException"] },
+      "then": { "required": ["message"] },
+      "else": { "required": ["type"] }
+    },
+
+    "log": {
+      "type": "object",
+      "required": ["pattern", "logger"],
+      "properties": {
+        "pattern": { "type": "string" },
+        "args": { "$ref": "#/$defs/strings" },
+        "logger": { "type": "string" }
+      }
+    },
+
+    "repro": {
+      "type": "object",
+      "required": ["className", "methodName", "params"],
+      "properties": {
+        "className": { "type": "string" },
+        "methodName": { "type": "string" },
+        "params": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type", "name", "value"],
+            "properties": {
+              "type": { "type": "string" },
+              "name": { "type": "string" },
+              "value": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "firstSeen": {
+      "type": "object",
+      "required": ["newInThisBuild", "build", "ts"],
+      "properties": {
+        "newInThisBuild": { "type": "boolean" },
+        "build": { "type": "string" },
+        "ts": { "$ref": "#/$defs/timestamp" },
+        "buildsAgo": { "$ref": "#/$defs/count" }
+      }
+    },
+
+    "recurrence": {
+      "type": "object",
+      "required": ["count", "firstSeen"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 2 },
+        "firstSeen": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+
+    "story": {
+      "type": "object",
+      "required": ["label", "events"],
+      "properties": {
+        "label": { "type": "string" },
+        "omittedByAge": { "type": "integer", "minimum": 1 },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["ts", "level", "logger", "message"],
+            "properties": {
+              "ts": { "$ref": "#/$defs/timestamp" },
+              "level": { "type": "string" },
+              "logger": { "type": "string" },
+              "message": { "type": "string" },
+              "thisError": { "const": true }
+            }
+          }
+        }
+      }
+    },
+
+    "stack": {
+      "type": "object",
+      "required": ["shown", "total", "frames"],
+      "properties": {
+        "shown": { "$ref": "#/$defs/count" },
+        "total": { "$ref": "#/$defs/count" },
+        "frames": { "$ref": "#/$defs/strings" },
+        "suppressed": { "$ref": "#/$defs/strings" }
+      }
+    }
+  }
+}

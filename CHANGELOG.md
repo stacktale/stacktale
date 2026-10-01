@@ -18,6 +18,21 @@ and pinned by golden-file tests.
   undocumenting the short one would have passed. Every count in a file is checked, not the first.
   (#219, thanks @drexthealpha)
 
+- **A JSON Schema for `st-json/1`, and goldens that pin it.** `st/1` has been held in place by
+  golden files from the start, but its JSON twin had neither goldens nor a machine-readable
+  contract, so a renderer change could break an integrator with every test green.
+  `docs/st-json-1.schema.json` (draft 2020-12) describes all five line types. Each NDJSON line is
+  validated on its own. Optional members are not required, `null` is rejected where FORMAT.md §7
+  says a member is omitted, and a report with `noException` may not carry a `stack`. The schema is
+  open on purpose: an unknown member or line type validates, because §6 promises that additive
+  changes don't bump the format, and a closed schema would make every one of them a break for
+  whoever validates against it. Strictness lives on the test side instead. A drift check fails
+  the build when the renderer writes a member the schema does not declare, at any depth. NDJSON
+  goldens are rendered from the same fixtures as the text goldens, every golden line has to
+  validate, and FORMAT.md §7's example is checked against the schema too. The validator
+  (`com.networknt:json-schema-validator`) is a test dependency only, so nothing new ships at
+  runtime. (#63)
+
 ### Changed
 
 - **A Deployment section in the README, for the container story.** `errors-ai.log` is a file on
