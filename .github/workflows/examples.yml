@@ -4,10 +4,12 @@ on:
   pull_request:
     paths:
       - "examples/**"
+      - "scripts/check-examples.sh"
       - ".github/workflows/examples.yml"
   push:
     paths:
       - "examples/**"
+      - "scripts/check-examples.sh"
       - ".github/workflows/examples.yml"
   schedule:
     # The drift this catches is caused by a *release*, not by a commit under
@@ -20,15 +22,12 @@ permissions:
   contents: read
 
 jobs:
-  build-examples:
+  run-examples:
+    # Compiling was not enough: all three examples compiled while the JUL one wrote no
+    # report and the MVC one never showed the sections its README promised. This runs
+    # each one and checks its report for what the README shows.
+    name: Examples write the report their README shows
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        example:
-          - examples/plain-java-jul
-          - examples/spring-boot-mvc
-          - examples/spring-boot-webflux
 
     steps:
       - uses: actions/checkout@v7
@@ -40,9 +39,8 @@ jobs:
           java-version: 17
           cache: maven
 
-      - name: Compile example
-        working-directory: ${{ matrix.example }}
-        run: mvn -B -q compile
+      - name: Run every example
+        run: bash scripts/check-examples.sh
 
   version-drift:
     name: Examples pin the current release

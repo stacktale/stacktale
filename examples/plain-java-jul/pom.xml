@@ -35,14 +35,21 @@
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.1.1</version>
+                <!-- exec:exec, not exec:java. exec:java runs DemoApp inside Maven's own JVM, where
+                     JUL's LogManager is already initialized, so java.util.logging.config.file is read
+                     too late and silently ignored. Re-reading the config does not help either: the JDK
+                     loads the `handlers` classes through the system class loader only, and exec:java
+                     puts this project on a child loader (ClassNotFoundException). A forked JVM with
+                     the jar on -classpath behaves like the real app. -->
                 <configuration>
-                    <mainClass>com.example.demo.DemoApp</mainClass>
-                    <systemProperties>
-                        <systemProperty>
-                            <key>java.util.logging.config.file</key>
-                            <value>src/main/resources/logging.properties</value>
-                        </systemProperty>
-                    </systemProperties>
+                    <executable>java</executable>
+                    <arguments>
+                        <argument>-Djava.util.logging.config.file=src/main/resources/logging.properties</argument>
+                        <argument>-Dstacktale.app.name=order-batch</argument>
+                        <argument>-classpath</argument>
+                        <classpath/>
+                        <argument>com.example.demo.DemoApp</argument>
+                    </arguments>
                 </configuration>
             </plugin>
         </plugins>

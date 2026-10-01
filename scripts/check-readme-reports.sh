@@ -22,6 +22,9 @@ cd "$(dirname "$0")/.."
 
 files=(README.md)
 [ -f docs/site/index.html ] && files+=(docs/site/index.html)
+# The examples paste real captured output; this keeps a hand edit from breaking its shape.
+# Whether it is still what the example prints is scripts/check-examples.sh's job.
+for f in examples/*/README.md; do [ -f "$f" ] && files+=("$f"); done
 
 fail=0
 for file in "${files[@]}"; do

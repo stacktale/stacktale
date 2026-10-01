@@ -102,6 +102,23 @@ and pinned by golden-file tests.
   `check-plugin-versions.sh` now reads both files, so the next time that regex stops matching the
   release fails instead of shipping.
 
+- **The examples now show what they print.** `plain-java-jul`'s documented `mvn compile
+  exec:java` wrote no report at all. exec:java runs the app inside Maven's JVM, where JUL is
+  already configured, so `java.util.logging.config.file` was ignored. Even a re-read config could
+  not load the handler, because the JDK loads `handlers=` classes through the system class loader
+  only. That is JDK behavior, not a stacktale bug: the example now forks a JVM with `exec:exec`, and
+  the README's JUL section says what to do in a child class loader (`addHandler` in code).
+  `spring-boot-mvc` promised `wrapped by:` and `fields:` lines, but it logged the cause before
+  wrapping it, so the report never saw the wrapper. It now wraps and rethrows, and a
+  `@RestControllerAdvice` logs the exception once. The WebFlux example's report had no `mdc:` line,
+  and its story held only the error itself, because nothing put `context-propagation` on its
+  classpath, so the traceId never crossed a scheduler hop. Each example README now
+  shows a report captured from a real run, with the Windows `-cp` separator noted, and
+  `check-readme-reports.sh` checks their shape. `scripts/check-examples.sh` runs all three examples
+  and checks each report for what its README shows. The Examples workflow calls it, where it used
+  to only compile them. The landing page said 1.1.0 and "eight modules" and left out Quarkus; it now
+  says 1.4.0 and nine.
+
 ## [1.4.0] — 2026-09-04
 
 ### Added

@@ -20,7 +20,7 @@ public class OrderService {
             String email = customer.getEmail();
             log.info("Confirmation email sent to {} for order {}", email, orderId);
         } catch (NullPointerException e) {
-            log.error("Failed to process order confirmation for order {}", orderId, e);
+            // Wrap and rethrow without logging: ErrorHandler logs it once, as the wrapper.
             throw new OrderConfirmationException(orderId, e);
         }
     }

@@ -293,6 +293,13 @@ io.github.gabrielbbaldez.stacktale.jul.StacktaleJulHandler..level = ALL
 `SEVERE` records become reports; lower levels feed the story (which correlates by thread,
 since JUL has no MDC). No extra dependency — JUL is in the JDK.
 
+The JDK loads `handlers=` classes through the system class loader only, so `stacktale-jul` must be
+on the JVM's own classpath. When your code runs in a child class loader (`mvn exec:java`, a
+plugin host, a webapp's own logging config), the handler is never installed. Sometimes the JDK
+prints `Can't load log handler`, and sometimes nothing at all. In that case, install the handler
+in code:
+`Logger.getLogger("").addHandler(new StacktaleJulHandler())`.
+
 ### A reproduction seed
 
 Agents write good reproduction tests for code they can see and poor ones for code they

@@ -30,30 +30,33 @@ This request logs the initial request, schedules a pricing lookup on `boundedEla
 
 ## What to Look For
 
-Open the generated report in `errors-ai.log`:
+Open the generated report in `errors-ai.log`. This is real output, captured from the commands above:
 
 ```
-━━━ ERROR #... ━━━ ... thread=boundedElastic-1 ━━━
+━━━ ERROR #430478c3 ━━━ 2026-10-01 20:31:25.827 thread=parallel-1 ━━━
 IllegalStateException: pricing feed disconnected
-at com.example.webflux.controller.QuoteController.lambda$quote$1(QuoteController.java:27) ← YOUR CODE
+at QuoteController.lambda$quote$1(QuoteController.java:28) ← YOUR CODE
 log: "quote failed for instrument {}" args=[314] logger=c.e.w.c.QuoteController
-mdc: traceId=c3d4e5f6
+mdc: traceId=b5775fbd
 
-story (traceId=c3d4e5f6, last 4 events):
-  08:50:00.100 INFO  QuoteController  GET /quotes/314
-  08:50:00.101 INFO  QuoteController  quote requested for instrument 314
-  08:50:00.105 INFO  QuoteController  pricing lookup for instrument 314
-  08:50:00.110 ERROR QuoteController  quote failed for instrument 314   ← this error
+story (traceId=b5775fbd, last 4 events, 36ms):
+  20:31:25.791 INFO  request          GET /quotes/314
+  20:31:25.816 INFO  QuoteController  quote requested for instrument 314
+  20:31:25.826 INFO  QuoteController  pricing lookup for instrument 314
+  20:31:25.827 ERROR QuoteController  quote failed for instrument 314   ← this error
 
-stack (distilled):
-  com.example.webflux.controller.QuoteController.lambda$quote$1(QuoteController.java:27) ← culprit
-  ...
+stack (distilled, 1 of 11 frames):
+  QuoteController.lambda$quote$1(QuoteController.java:28) ← culprit
+  … 10 collapsed (reactor ×4, other ×1, jdk ×5)
+
+env: app=quote-demo | java 21.0.6 | windows
+━━━ END #430478c3 ━━━
+━ #430478c3 repeated 2× (last 20:31:25.861) ━
 ```
 
 ### Key Highlights
 
-- **Story Across Scheduler Hops**: Log events emitted on different thread pools (`boundedElastic` thread hop #1 and `parallel` thread hop #2) remain grouped in the `story` under the same reactive `traceId`.
+- **Story Across Scheduler Hops**: The three lines were logged on three threads (`reactor-http-nio`, `boundedElastic`, `parallel`) and stay in one `story` under the same `traceId`. That needs `io.micrometer:context-propagation` on the classpath (see `pom.xml`); WebFlux does not bring it. Without it the traceId does not survive a hop, so the report has no `mdc:` line and the story holds only the error.
 - **Root Cause & Culprit Highlight**: Pinpoints the `IllegalStateException` and marks your controller line with `← YOUR CODE`.
-//This example currently targets 1.1.0-SNAPSHOT because 
-- it depends on the WebFlux auto-configuration fix that 
-- has not yet been released to Maven Central.
+- **One report, not two**: The controller logs the error and returns it, so Spring's error handler logs the same exception again on its way out. stacktale recognizes it as the same error and appends `repeated 2×` (the count is cumulative) instead of writing a second report. To keep the console quiet too, log each failure in one place.
+- **`env: app=quote-demo`**: Taken from `spring.application.name`.

@@ -225,7 +225,7 @@
       <div class="tag reveal">stack traces that tell the tale</div>
       <p class="lede reveal">Java error logs were built in the ’90s for a human with <code style="font-family:var(--mono);font-size:0.92em">grep</code> — and for that reader they work. But the reader is changing: an AI assistant or an automated agent reads an error with no muscle memory, and every line is context and token cost. stacktale captures the failure at the source, structured for that reader — alongside your untouched logs.</p>
       <div class="badges reveal">
-        <span class="badge">Maven Central <b>1.1.0</b></span>
+        <span class="badge">Maven Central <b>1.4.0</b></span>
         <span class="badge">Java <b>17+</b></span>
         <span class="badge">Logback · Log4j2 · JUL · Spring Boot</span>
         <span class="badge"><b>Apache-2.0</b></span>
@@ -318,7 +318,7 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
         <div class="stat reveal"><div class="num">98.3%</div><div class="lbl">fewer tokens for a whole session of logs</div></div>
         <div class="stat reveal"><div class="num">80.6%</div><div class="lbl">fewer per single error — carrying more context</div></div>
         <div class="stat reveal"><div class="num">137ns</div><div class="lbl">overhead per log event (JMH, story capture)</div></div>
-        <div class="stat reveal"><div class="num">8</div><div class="lbl">modules — core, Logback, Log4j2, JUL, JUnit, Spring, MCP, agent</div></div>
+        <div class="stat reveal"><div class="num">9</div><div class="lbl">modules — core, Logback, Log4j2, JUL, JUnit, Spring, Quarkus, MCP, agent</div></div>
       </div>
       <p class="stats-note reveal">a classic log grows with traffic · a report file grows only with distinct errors</p>
     </div>
@@ -349,7 +349,7 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
     <div class="wrap">
       <div class="sec-head reveal">
         <div class="eyebrow">One core, every surface</div>
-        <h2>Eight modules, pick what you run</h2>
+        <h2>Nine modules, pick what you run</h2>
       </div>
       <div class="mods">
         <div class="mod reveal"><div class="mn">stacktale-core</div><div class="md">The framework-agnostic report pipeline: story, distiller, dedup, redaction.</div></div>
@@ -358,6 +358,7 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
         <div class="mod reveal"><div class="mn">stacktale-jul</div><div class="md">java.util.logging / System.Logger — the same format with no SLF4J or Logback.</div></div>
         <div class="mod reveal"><div class="mn">stacktale-junit</div><div class="md">A test-scoped JUnit listener: a failing test becomes a report, so an agent's fix-run-check loop can see a red build.</div></div>
         <div class="mod reveal"><div class="mn">…-spring-boot-starter</div><div class="md">Zero config. Auto-registers, opens each story with the request line.</div></div>
+        <div class="mod reveal"><div class="mn">stacktale-quarkus</div><div class="md">A Quarkus extension: zero config, wired at build time, native-image ready.</div></div>
         <div class="mod reveal"><div class="mn">stacktale-mcp</div><div class="md">An MCP server that turns errors into a fix-loop — your AI checks new errors, fixes, re-runs, repeats until clean.</div></div>
         <div class="mod reveal"><div class="mn">stacktale-agent</div><div class="md">A <code style="font-family:var(--mono)">-javaagent</code> capturing method args at the throw site.</div></div>
       </div>
@@ -375,7 +376,7 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
         <div class="term-body"><pre><span class="c-dim">&lt;dependency&gt;</span>
   <span class="c-dim">&lt;groupId&gt;</span><span class="c-white">io.github.gabrielbbaldez</span><span class="c-dim">&lt;/groupId&gt;</span>
   <span class="c-dim">&lt;artifactId&gt;</span><span class="c-amber-b">stacktale-spring-boot-starter</span><span class="c-dim">&lt;/artifactId&gt;</span>
-  <span class="c-dim">&lt;version&gt;</span><span class="c-white">1.1.0</span><span class="c-dim">&lt;/version&gt;</span>
+  <span class="c-dim">&lt;version&gt;</span><span class="c-white">1.4.0</span><span class="c-dim">&lt;/version&gt;</span>
 <span class="c-dim">&lt;/dependency&gt;</span></pre></div>
       </div>
       <p class="qs-note reveal">That's it. Reports land in <code>errors-ai.log</code>; your console stays exactly as it was.</p>
