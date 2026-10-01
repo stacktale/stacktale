@@ -657,7 +657,7 @@ Everything is optional — as appender properties in `logback.xml`, or `stacktal
 | `zone` | system | Timezone for report timestamps |
 | `echoSuppressionMillis` | `2000` | Skip container re-logs of a failure this thread just reported (0 = off) |
 | `containerLogger` / `containerLoggers` | Tomcat's | Extra logger prefixes treated as container echoes (see note below) |
-| `emitReportsToLogger` | `false` | Also emit each block as ONE event via logger `stacktale.reports` |
+| `emitReportsToLogger` | `false` | Also emit each report block and recurrence summary as ONE event via logger `stacktale.reports` |
 | `maxReportsPerMinute` | `0` (unlimited) | Cap full reports/min; a cascade of distinct errors becomes a `storm:` line instead of flooding the file |
 | `format` | `text` | `text` (densest for an LLM to read) or `json` ([st-json/1](docs/FORMAT.md) NDJSON, for parsers/pipelines) |
 | `stacktale.enabled` *(starter)* | `true` | Set to `false` to disable the appender, request filter, and reactive config entirely |

@@ -473,11 +473,14 @@ public final class ReportPipeline {
                     if (settings.emitReportsToLogger()) host.emitReport(rendered);
                 }
                 case SUMMARY -> {
-                    writer.append(renderer.renderSummary(fingerprint, decision.count(), decision.lastSeenMillis()));
+                    String rendered = renderer.renderSummary(
+                            fingerprint, decision.count(), decision.lastSeenMillis());
+                    writer.append(rendered);
                     // only now is the count durably on file; a failed append above throws
                     // to the outer catch and leaves it pending for close()'s drainPending()
                     deduper.confirmWritten(fingerprint, decision.count());
                     summariesWritten.incrementAndGet();
+                    if (settings.emitReportsToLogger()) host.emitReport(rendered);
                 }
                 case SILENT -> dedupSuppressed.incrementAndGet(); // counted; nothing to write
             }
