@@ -42,6 +42,19 @@ and pinned by golden-file tests.
 
 ### Fixed
 
+- **A broken shipper no longer switches stacktale off.** With `emitReportsToLogger=true`, the
+  block goes to `stacktale.reports` after it is on disk, and the logging framework is allowed to
+  throw from there. JUL propagates a throwing `Handler.publish`, and Log4j2 does the same for an
+  appender with `ignoreExceptions=false`. That throw was counted as a failed write. Five reports
+  later the pipeline parked for the rest of the run with a warning blaming the report file, which
+  had taken every one of them. From then on every error was lost, from the file as well as from
+  the shipper. A shipper failure is now warned once per run, not per report, names `stacktale.reports`,
+  and changes nothing else: the file keeps getting reports, dedup state stands, the failure
+  counters in `stats()` are not touched, and the shipper is offered the next block in case it has
+  recovered. The `stacktale` logger's own lines (the startup announcement and each `AI error
+  report #…` pointer) had the same exposure and get the same treatment. Every emission now goes
+  through one method, so whatever else reaches `stacktale.reports` later is covered as well.
+
 - **`st-json/1` had a writer and a reader in modules that never met.** `JsonReportRenderer` in
   `stacktale-core` writes the format; `StReportFile` in `stacktale-mcp` is its only reader, and
   picks fields out by hand with `node.path("ts")`. There was no build edge between the two, so the

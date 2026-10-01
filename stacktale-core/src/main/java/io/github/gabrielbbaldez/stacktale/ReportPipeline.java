@@ -201,6 +201,8 @@ public final class ReportPipeline {
     /** Cross-restart memory of which build each id started on; null when provenance is off (#137). */
     private final SeenStore seen;
     private final AtomicBoolean warnedOnce = new AtomicBoolean();
+    private final AtomicBoolean shipperWarned = new AtomicBoolean();
+    private final AtomicBoolean selfLogWarned = new AtomicBoolean();
     private volatile String absolutePath;
 
     /**
@@ -389,7 +391,7 @@ public final class ReportPipeline {
             if (writer == null || parked || SELF_LOGGER.equals(event.loggerName())
                     || REPORTS_LOGGER.equals(event.loggerName())) return;
             if (announced.compareAndSet(false, true)) {
-                host.selfLog("stacktale active → " + absoluteFile()
+                selfLogQuietly("stacktale active → " + absoluteFile()
                         + (settings.emitReportsToLogger() ? ""
                            : " (reports go to the file; set emitReportsToLogger=true to also see them here)"));
             }
@@ -469,8 +471,8 @@ public final class ReportPipeline {
                             lastReportByThread.put(reportedOn, System.currentTimeMillis());
                         }
                     }
-                    host.selfLog("AI error report #" + fingerprint + " → " + absoluteFile());
-                    if (settings.emitReportsToLogger()) host.emitReport(rendered);
+                    selfLogQuietly("AI error report #" + fingerprint + " → " + absoluteFile());
+                    ship(rendered);
                 }
                 case SUMMARY -> {
                     writer.append(renderer.renderSummary(fingerprint, decision.count(), decision.lastSeenMillis()));
@@ -493,6 +495,56 @@ public final class ReportPipeline {
                 host.warn("stacktale parked after " + failures + " consecutive failures writing "
                         + settings.file() + "; no further reports will be produced this run", t);
             }
+        }
+    }
+
+    /**
+     * Hands a block that is already on disk to {@link #REPORTS_LOGGER}, when that is switched on.
+     * Every emission goes through here.
+     *
+     * <p>The shipper is the host's logging pipeline, and it can throw: JUL propagates a throwing
+     * {@code Handler.publish}, and a Log4j2 appender with {@code ignoreExceptions=false} throws
+     * from the logging call. Left to reach {@link #process}'s catch, that counted as a failed
+     * write, and five of them parked the pipeline for the rest of the run, blaming a file that
+     * had taken every report. The file is the record and the shipper is a copy of it, so a
+     * shipper failure is warned once and nothing else changes. Dedup state is already
+     * confirmed, the failure counters are untouched, and the next block is offered as usual so
+     * a shipper that recovers gets it.
+     */
+    private void ship(String block) {
+        if (!settings.emitReportsToLogger()) return;
+        try {
+            host.emitReport(block);
+        } catch (Throwable t) {
+            warnOnce(shipperWarned, "stacktale could not hand a report to logger '" + REPORTS_LOGGER
+                    + "'; it is in " + absoluteFile() + " and reporting continues (warned once)", t);
+        }
+    }
+
+    /**
+     * {@link Host#selfLog} for the lines that announce stacktale and point at a report.
+     *
+     * <p>They travel through the host's own logger tree, so a throwing handler on logger
+     * {@code stacktale} breaks them for the same reason {@link #ship} guards the shipper. They are
+     * an announcement of something that already happened. When they fail, the report has still
+     * been written and must not be counted as a failure.
+     */
+    private void selfLogQuietly(String message) {
+        try {
+            host.selfLog(message);
+        } catch (Throwable t) {
+            warnOnce(selfLogWarned, "stacktale could not log to logger '" + SELF_LOGGER
+                    + "'; reports still go to " + absoluteFile() + " (warned once)", t);
+        }
+    }
+
+    /** The status channel can be broken too; a callback failure must stay a non-event. */
+    private void warnOnce(AtomicBoolean flag, String message, Throwable t) {
+        if (!flag.compareAndSet(false, true)) return;
+        try {
+            host.warn(message, t);
+        } catch (Throwable ignored) {
+            // nowhere left to say it
         }
     }
 
