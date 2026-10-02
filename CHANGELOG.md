@@ -57,6 +57,13 @@ and pinned by golden-file tests.
 
 ### Fixed
 
+- **JUL: `containerLoggers` adds to Tomcat's prefix instead of replacing it.** The README calls
+  them extra prefixes, and Logback, Log4j2, the Spring starter and Quarkus all merge them with
+  `org.apache.catalina.core.ContainerBase`. The JUL handler swapped the list out, so setting one
+  prefix of your own quietly turned off Tomcat echo suppression: each failure Tomcat re-logged
+  through JULI was counted again, as a `repeated 2×` line and a doubled `seen N×`. The handler now
+  merges like the other backends do.
+
 - **A broken shipper no longer switches stacktale off.** With `emitReportsToLogger=true`, the
   block goes to `stacktale.reports` after it is on disk, and the logging framework is allowed to
   throw from there. JUL propagates a throwing `Handler.publish`, and Log4j2 does the same for an

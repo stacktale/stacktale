@@ -235,7 +235,13 @@ public final class StacktaleJulHandler extends Handler {
         }
 
         String containerLoggers = m.getProperty(p + "containerLoggers");
-        if (containerLoggers != null) b.containerLoggers(Csv.parse(containerLoggers));
+        // additive, like every other backend and as the README documents: a custom prefix
+        // replacing Tomcat's would silently double-count each failure Tomcat re-logs via JULI
+        if (containerLoggers != null) {
+            List<String> containers = new ArrayList<>(ReportPipeline.Settings.DEFAULT_CONTAINER_LOGGERS);
+            containers.addAll(Csv.parse(containerLoggers));
+            b.containerLoggers(containers);
+        }
 
         // A bad zone silently landing every timestamp in the system default is the worst of
         // both worlds — the reports look fine and are wrong. Keep the default, but say so.
