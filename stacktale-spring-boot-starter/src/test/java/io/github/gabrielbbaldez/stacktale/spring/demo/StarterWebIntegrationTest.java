@@ -5,13 +5,15 @@ import ch.qos.logback.classic.LoggerContext;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,6 +24,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * The issue-#3 acceptance test: a demo app whose ONLY stacktale artifact is the starter
  * dependency must produce reports whose story begins with the HTTP request line — zero
  * manual configuration.
+ *
+ * <p>The request goes through the JDK's HttpClient and the port is read from
+ * {@code local.server.port}, not through TestRestTemplate and {@code @LocalServerPort}: Boot 4
+ * moved both to other packages and modules, and this test has to compile against every Boot
+ * line the starter supports (3.2 through 4.x).
  */
 @SpringBootTest(classes = DemoShopApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -41,13 +48,15 @@ class StarterWebIntegrationTest {
         ctx.getLogger(Logger.ROOT_LOGGER_NAME).detachAppender("STACKTALE_AUTO");
     }
 
-    @Autowired
-    private TestRestTemplate http;
+    @Value("${local.server.port}")
+    private int port;
 
     @Test
     void reportStoryOpensWithTheHttpRequestLine() throws Exception {
-        ResponseEntity<String> response = http.getForEntity("/orders/889/checkout", String.class);
-        assertThat(response.getStatusCode().is5xxServerError()).isTrue();
+        HttpResponse<String> response = HttpClient.newHttpClient().send(
+                HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/orders/889/checkout")).GET().build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).isBetween(500, 599);
 
         String content = Files.readString(reportFile, StandardCharsets.UTF_8);
         assertThat(content).contains("GET /orders/889/checkout");            // filter opened the story

@@ -42,6 +42,16 @@ and pinned by golden-file tests.
   already in place: "Get started" scrolls to `#quickstart`, and the fix-loop has its own section.
   (#133)
 
+- **The Spring Boot starter is tested on Boot 4.0 and 4.1.** The starter's main code already
+  compiled against Boot 4, but its two web integration tests did not: `TestRestTemplate` moved
+  out of `spring-boot-test`, and a `@SpringBootTest` no longer gets a `WebTestClient` without an
+  annotation from a module Boot 3 lacks. So nobody could say whether the servlet request line and
+  the WebFlux story still reached the report on 4.x. Both tests now use APIs every supported Boot
+  line has (the JDK's `HttpClient`, and `WebTestClient.bindToServer()` against the port in
+  `local.server.port`), with their assertions unchanged. They pass on 3.2, 3.5, 4.0 and 4.1, and
+  the compatibility matrix gained Boot 4.0 and 4.1 legs. No library code changed. On 4.x the
+  starter runs on Boot's own Logback (1.5). (#264)
+
 ### Changed
 
 - **A Deployment section in the README, for the container story.** `errors-ai.log` is a file on

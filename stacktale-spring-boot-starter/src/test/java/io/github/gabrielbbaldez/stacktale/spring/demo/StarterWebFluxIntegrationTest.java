@@ -5,7 +5,7 @@ import ch.qos.logback.classic.LoggerContext;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -21,6 +21,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Issue-#22 acceptance: a WebFlux app whose story survives TWO scheduler hops — the
  * request line planted by the reactive filter and an INFO logged on a boundedElastic
  * thread must appear in the report of an error logged on a parallel thread.
+ *
+ * <p>The client is bound to the running server by hand rather than autowired: Boot 4 no
+ * longer auto-configures a WebTestClient for {@code @SpringBootTest}, and the annotation that
+ * brings it back lives in a module Boot 3 does not have. {@code bindToServer} works on both.
  */
 @SpringBootTest(classes = ReactiveDemoApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -41,11 +45,12 @@ class StarterWebFluxIntegrationTest {
         ctx.getLogger(Logger.ROOT_LOGGER_NAME).detachAppender("STACKTALE_AUTO");
     }
 
-    @Autowired
-    private WebTestClient client;
+    @Value("${local.server.port}")
+    private int port;
 
     @Test
     void storySurvivesReactorSchedulerHops() throws Exception {
+        WebTestClient client = WebTestClient.bindToServer().baseUrl("http://localhost:" + port).build();
         client.get().uri("/quotes/314").exchange().expectStatus().is5xxServerError();
 
         String content = Files.readString(reportFile, StandardCharsets.UTF_8);
