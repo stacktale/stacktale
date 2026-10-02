@@ -689,6 +689,76 @@ Async work: wrap hops with [`StacktaleExecutors`](stacktale-core/src/main/java/i
 `CompletableFuture`, pools and virtual threads. Apps already propagating context
 (Micrometer, Reactor) need nothing.
 
+### Filling the `env:` line
+
+The last line of every report names the build that failed:
+`env: app=<name> <version> (git <sha>) | java <ver> | profile=<p> | <os>`. Java version and
+OS are always there. The rest is read once at startup, and a part that has no source is
+dropped, or shows as `app=?` for the name. Each part takes the first source that has a value:
+
+| Part | Sources, first wins |
+|---|---|
+| name | `-Dstacktale.app.name`, then the configured name (`spring.application.name` with the starter, `<appName>` on the Logback appender, `quarkus.application.name` under Quarkus), then `build.name` from `META-INF/build-info.properties` |
+| version | `-Dstacktale.app.version`, then the configured version (`<appVersion>` on the Logback appender, `quarkus.application.version` under Quarkus), then `build.version` from `META-INF/build-info.properties` |
+| git sha | `git.commit.id.abbrev` from `git.properties` |
+| profile | `-Dspring.profiles.active`, then the `SPRING_PROFILES_ACTIVE` or `APP_ENV` environment variable |
+
+A name or version you set yourself always beats one a build plugin derived. With the
+starter, `spring.application.name` is usually all you need for the name. Version and sha
+come from two files your build can write to the classpath.
+
+**Maven.** This works in any project, Spring Boot or not. Under `spring-boot-starter-parent`
+both plugin versions are managed and the git plugin is already configured, so there the second
+plugin needs only its coordinates. Elsewhere, add a `<version>` to each.
+
+```xml
+<plugin>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-maven-plugin</artifactId>
+  <executions>
+    <execution>
+      <goals><goal>build-info</goal></goals> <!-- META-INF/build-info.properties -->
+    </execution>
+  </executions>
+</plugin>
+<plugin>
+  <groupId>io.github.git-commit-id</groupId>
+  <artifactId>git-commit-id-maven-plugin</artifactId>
+  <executions>
+    <execution>
+      <goals><goal>revision</goal></goals>
+    </execution>
+  </executions>
+  <configuration>
+    <generateGitPropertiesFile>true</generateGitPropertiesFile> <!-- git.properties -->
+  </configuration>
+</plugin>
+```
+
+**Gradle (Kotlin DSL).** The same two files, from the Spring Boot Gradle plugin's
+[`buildInfo()`](https://docs.spring.io/spring-boot/gradle-plugin/integrating-with-actuator.html)
+and the [git-properties plugin](https://plugins.gradle.org/plugin/com.gorylenko.gradle-git-properties).
+This snippet follows those plugins' docs; unlike the Maven one, we have not run it.
+
+```kotlin
+plugins {
+  id("com.gorylenko.gradle-git-properties") version "4.0.1"
+}
+
+springBoot {
+  buildInfo()
+}
+```
+
+With that added to the [Spring Boot MVC example](examples/spring-boot-mvc), its report ends with:
+
+```
+env: app=shop-demo 0.4.0 (git 934278c) | java 21.0.6 | windows
+```
+
+Without a build step, pass `-Dstacktale.app.name=order-batch -Dstacktale.app.version=1.0.0` on
+the `java` command line. The [JUL example](examples/plain-java-jul) does this for the name.
+
 ## Deployment
 
 ### Containers and stdout-only environments

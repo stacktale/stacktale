@@ -104,7 +104,7 @@ Fields:
 | `repro:` | present only when `repro` is on **and** the agent is attached: the throw site's typed signature and argument values. Detailed below. |
 | `story` | events leading up to and including the error, oldest first. `<label>` is `traceId=…` (correlated) or `thread <name>` (fallback). The error's own line ends with `   ← this error`. A `… N earlier event(s) older than the story window omitted` line appears when events were dropped by age (vs never logged). Omitted when empty. |
 | `stack` | the distilled stack: shown frames plus `… N collapsed (<framework groups>)` markers; the culprit frame ends with `← culprit`. Omitted for reports with no throwable. |
-| `env:` | `app=<name> <version> (git <sha>) \| java <ver> \| profile=<p> \| <os>`; unknown parts degrade (`app=?`, no `(git …)`, no `profile=`). |
+| `env:` | `app=<name> <version> (git <sha>) \| java <ver> \| profile=<p> \| <os>`; unknown parts degrade (`app=?`, no `(git …)`, no `profile=`). Where each part comes from, and how to fill it: [Filling the `env:` line](../README.md#filling-the-env-line). |
 
 ### `first seen:` — deploy provenance
 

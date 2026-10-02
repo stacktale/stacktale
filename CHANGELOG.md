@@ -64,6 +64,22 @@ and pinned by golden-file tests.
   filesystem needs `file` pointed at a writable tmpfs before the flag does anything at all. The
   issue said the opposite; that was mine, and it is corrected there too. (#60, thanks @janithcd)
 
+- **Behavior change: a configured app name and version now beat `build-info.properties`.** The
+  `env:` line took `build.name` and `build.version` from `META-INF/build-info.properties` ahead of
+  `spring.application.name`, the Logback appender's `<appName>`/`<appVersion>` and
+  `quarkus.application.*`. So in any Spring Boot app built with the `build-info` goal, the name
+  someone wrote into their config was silently ignored, and the version a release script set
+  lost to whatever the build stamped. Each value now resolves as `-Dstacktale.app.*` first, then
+  the configured value, then build-info. An unset value, which the starter passes as an empty
+  string, still falls through to build-info, and name and version fall back independently. The
+  provenance build id follows the same order for the version: `-Dstacktale.app.build`, then the
+  git sha, then `-Dstacktale.app.version`, the configured version and `build.version`. With
+  `provenance` on, no git sha, and a configured version that differs from `build.version`, the
+  first run after upgrading counts as a new build once. If you relied on build-info overriding a
+  configured name, remove the configured one or pass `-Dstacktale.app.name`. The README's new
+  "Filling the `env:` line" section lists every source and the Maven setup that adds the version
+  and git sha. (#263)
+
 - **The Joran guard no longer blames the XML for warnings the appender raised itself.**
   `assertNoJoranComplaints` failed on any status at WARN or above and named a setter as the cause,
   so the first write failure or rotation problem in that test class would have sent the reader off

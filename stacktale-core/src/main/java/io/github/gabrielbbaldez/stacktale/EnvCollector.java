@@ -6,9 +6,12 @@ import java.util.Properties;
 
 /**
  * Best-effort environment line: app name/version, git sha, java version, profile, os.
- * Sources in priority order: {@code stacktale.app.*} system properties, Spring Boot's
- * {@code META-INF/build-info.properties}, then {@code git.properties} for the sha.
- * Collected once, cached, and never allowed to fail the pipeline.
+ * Sources in priority order, for name and version each: {@code stacktale.app.*} system
+ * properties, the value configured on the adapter ({@code spring.application.name},
+ * {@code <appName>}, {@code quarkus.application.*}), then Spring Boot's
+ * {@code META-INF/build-info.properties}; the sha comes from {@code git.properties}.
+ * A configured value is something a person decided, and build-info is whatever the build
+ * stamped, so the person wins. Collected once, cached, and never allowed to fail the pipeline.
  */
 final class EnvCollector {
 
@@ -56,8 +59,8 @@ final class EnvCollector {
                         System.getProperty("stacktale.app.build"),
                         git.getProperty("git.commit.id.abbrev"),
                         System.getProperty("stacktale.app.version"),
-                        buildInfo.getProperty("build.version"),
                         configuredAppVersion,
+                        buildInfo.getProperty("build.version"),
                         "");
             } catch (Throwable t) {
                 id = ""; // provenance is enrichment; never let it cost a report
@@ -73,14 +76,14 @@ final class EnvCollector {
 
         String name = firstNonBlank(
                 System.getProperty("stacktale.app.name"),
-                buildInfo.getProperty("build.name"),
                 configuredAppName,
+                buildInfo.getProperty("build.name"),
                 "?"
         );
         String version = firstNonBlank(
                 System.getProperty("stacktale.app.version"),
-                buildInfo.getProperty("build.version"),
                 configuredAppVersion,
+                buildInfo.getProperty("build.version"),
                 ""
         );
         String sha = firstNonBlank(git.getProperty("git.commit.id.abbrev"), "");
