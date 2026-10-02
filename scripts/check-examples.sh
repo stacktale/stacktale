@@ -57,7 +57,9 @@ expect() {
 stop_port() {
   local port=$1 pids
   if command -v taskkill >/dev/null 2>&1; then # Git Bash on Windows
-    pids=$(netstat -ano | awk -v p=":$port" '$2 ~ p"$" && $4 == "LISTENING" {print $5}' | sort -u)
+    # A listening socket is the one whose foreign address has port 0. The state column is
+    # not used: Windows localizes it ("LISTENING", "ABHÖREN", "ESCUCHANDO"...).
+    pids=$(netstat -ano | awk -v p=":$port" '$1 ~ /^TCP/ && $2 ~ p"$" && $3 ~ /:0$/ && $NF != 0 {print $NF}' | sort -u)
     for p in $pids; do taskkill //F //T //PID "$p" >/dev/null 2>&1 || true; done
   elif command -v lsof >/dev/null 2>&1; then
     pids=$(lsof -t -iTCP:"$port" -sTCP:LISTEN || true)
@@ -73,7 +75,14 @@ run_boot() {
   local log="$ROOT/$dir/target/check-examples.out"
   mkdir -p "$dir/target"
   rm -f "$dir/errors-ai.log"
-  (cd "$dir" && exec "${MVN[@]}" spring-boot:run >"$log" 2>&1) &
+  # Compile first, so a cold dependency cache is downloaded here and not inside the startup
+  # wait below, where it would eat into the timeout meant for the app starting.
+  if ! (cd "$dir" && "${MVN[@]}" compile >"$log" 2>&1); then
+    echo "  ✗ $dir: compile failed — see $log"
+    fail=1
+    return 1
+  fi
+  (cd "$dir" && exec "${MVN[@]}" spring-boot:run >>"$log" 2>&1) &
   local pid=$!
   local code=000
   for _ in $(seq 1 180); do
