@@ -33,6 +33,15 @@ and pinned by golden-file tests.
   (`com.networknt:json-schema-validator`) is a test dependency only, so nothing new ships at
   runtime. (#63)
 
+- **The landing page shows the demo, and its snippets copy with one click.** `demo.gif` (a raw
+  stack trace distilled into a report, pasted to an AI, fixed on the first reply) is the README's
+  hero, and it was already sitting in `docs/site/` unused. It now plays under the page's hero with
+  the README's caption. The `pom.xml` dependency and the Claude Code plugin commands each get a
+  copy button. It uses the Clipboard API and falls back to a hidden textarea where that API is
+  missing, so the page still needs no script dependency. The other two points of the issue were
+  already in place: "Get started" scrolls to `#quickstart`, and the fix-loop has its own section.
+  (#133)
+
 ### Changed
 
 - **A Deployment section in the README, for the container story.** `errors-ai.log` is a file on

@@ -160,6 +160,18 @@
   .qs-note { text-align: center; color: var(--text-dim); font-size: 14px; margin-top: 18px; }
   .qs-note code { font-family: var(--mono); background: var(--surface-2); padding: 2px 7px; border-radius: 5px; font-size: 12.5px; color: var(--amber-ink); }
 
+  /* demo — the GIF carries its own dark window chrome, so it is framed like the terminals */
+  .demo { padding: 8px 0 64px; }
+  .demo-fig { margin: 0 auto; max-width: 800px; }
+  .demo-fig img { display: block; width: 100%; height: auto; border-radius: 14px; background: #0c0f15; box-shadow: 0 18px 50px rgba(0,0,0,0.35); }
+  .demo-fig figcaption { text-align: center; color: var(--text-dim); font-size: 14px; margin-top: 16px; text-wrap: balance; }
+  .demo-fig figcaption b { color: var(--text); font-weight: 600; }
+
+  /* copy button on the quickstart snippets (terminals are always dark, so fixed colors) */
+  .copy-btn { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: #8a94a4; background: none; border: 1px solid #2a3340; border-radius: 6px; padding: 3px 10px; cursor: pointer; transition: color .15s, border-color .15s; }
+  .copy-btn:hover, .copy-btn:focus-visible { color: #ffc46b; border-color: #ff9e45; }
+  .copy-btn.done { color: #7fce8f; border-color: #3d6b4a; }
+
   /* manifesto */
   .manifesto { border-top: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft); background: var(--surface); }
   .manifesto .wrap { max-width: 900px; }
@@ -236,6 +248,15 @@
       </div>
     </div>
   </header>
+
+  <section class="demo" aria-label="Demo">
+    <div class="wrap">
+      <figure class="demo-fig reveal">
+        <img src="demo.gif" width="800" height="540" alt="A raw 31-frame Java stack trace is distilled into a compact stacktale report, pasted to an AI assistant, which pinpoints the null customer from a cache miss and writes the fix on its first reply.">
+        <figcaption><b>Stack trace → stacktale report → paste to your AI → fixed.</b> One paste, no interrogation.</figcaption>
+      </figure>
+    </div>
+  </section>
 
   <section class="manifesto">
     <div class="wrap">
@@ -372,7 +393,7 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
         <h2>One dependency. No config.</h2>
       </div>
       <div class="term reveal">
-        <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title">pom.xml — Spring Boot</span></div>
+        <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title">pom.xml — Spring Boot</span><button class="copy-btn" type="button" data-copy aria-label="Copy the Maven dependency">copy</button></div>
         <div class="term-body"><pre><span class="c-dim">&lt;dependency&gt;</span>
   <span class="c-dim">&lt;groupId&gt;</span><span class="c-white">io.github.gabrielbbaldez</span><span class="c-dim">&lt;/groupId&gt;</span>
   <span class="c-dim">&lt;artifactId&gt;</span><span class="c-amber-b">stacktale-spring-boot-starter</span><span class="c-dim">&lt;/artifactId&gt;</span>
@@ -387,7 +408,7 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
         <p>The file is the artefact; the loop is the point. Your assistant fixes an error, re-runs the app or the tests, asks stacktale what changed, and repeats until it answers <em>no new errors</em>.</p>
       </div>
       <div class="term reveal">
-        <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title">Claude Code</span></div>
+        <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title">Claude Code</span><button class="copy-btn" type="button" data-copy aria-label="Copy the Claude Code plugin commands">copy</button></div>
         <div class="term-body"><pre><span class="c-green">/plugin</span> marketplace add stacktale/stacktale
 <span class="c-green">/plugin</span> install stacktale@stacktale</pre></div>
       </div>
@@ -421,6 +442,29 @@ at OrderService.confirm(:87) <span class="c-amber">← YOUR CODE</span>
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
     }, { threshold: 0.12 });
+    // copy buttons: copy the text of the snippet in the same terminal window. The Clipboard API
+    // needs a secure context; the textarea fallback covers older browsers.
+    document.querySelectorAll('[data-copy]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var text = b.closest('.term').querySelector('pre').textContent;
+        var done = function () {
+          b.textContent = 'copied'; b.classList.add('done');
+          setTimeout(function () { b.textContent = 'copy'; b.classList.remove('done'); }, 1600);
+        };
+        var fallback = function () {
+          var t = document.createElement('textarea');
+          t.value = text; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+          document.body.appendChild(t); t.select();
+          try { if (document.execCommand('copy')) done(); } catch (e) {}
+          document.body.removeChild(t);
+        };
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(done, fallback);
+        } else {
+          fallback();
+        }
+      });
+    });
     document.querySelectorAll('.reveal').forEach(function (el, i) {
       el.style.transitionDelay = Math.min(i % 6 * 60, 300) + 'ms';
       io.observe(el);
